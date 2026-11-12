@@ -40,8 +40,8 @@ and gamepad).
 
 | Step | Content | Status |
 | ---- | ------- | ------ |
-| 0 | Repository, Godot skeleton, harness and gates | in progress |
-| 1 | Solo movement prototype | not started |
+| 0 | Repository, Godot skeleton, harness and gates | done |
+| 1 | Solo movement prototype | next |
 | 2 | Tricks and flow | not started |
 | 3 | Shooting and sabotage | not started |
 | 4 | Local duel (ghost, then bot) | not started |
