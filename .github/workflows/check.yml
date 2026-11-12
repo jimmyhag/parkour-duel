@@ -1,0 +1,49 @@
+name: check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: just check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version-file: .python-version
+
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4
+        with:
+          just-version: "1.58.0"
+
+      - name: Cache the Godot editor and export templates
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.local/share/godot-editor
+            ~/.local/share/godot/export_templates
+          key: godot-${{ runner.os }}-${{ hashFiles('.godot-version', 'tools/godot-checksums.txt', 'tools/fetch_godot.py') }}
+
+      - name: Install Godot (version from .godot-version, SHA-512 verified)
+        run: |
+          python tools/fetch_godot.py editor "$HOME/.local/share/godot-editor"
+          python tools/fetch_godot.py templates
+          echo "$HOME/.local/share/godot-editor" >> "$GITHUB_PATH"
+
+      - name: Install the project tooling
+        run: just setup
+
+      - name: Gate
+        run: just check
