@@ -41,9 +41,10 @@ import:
 typecheck: import
     {{ python }} tools/typecheck.py {{ godot }}
 
-# Lint; warnings fail
+# Lint and formatting of every script; any finding fails (gdtoolkit defaults)
 lint:
-    @echo "TO DEFINE: the linter with warnings as errors" && exit 1
+    {{ venv_bin }}gdlint game tests
+    {{ venv_bin }}gdformat --check game tests
 
 # Dead code and dependency boundaries
 deadcode:
