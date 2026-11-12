@@ -15,7 +15,17 @@ and press F5, or from a terminal at the repository root:
 godot --path .
 ```
 
-For now the main scene is an empty sandbox: a floor, a camera and a light.
+The game starts on the test course, a short timed run made of grey blocks: a start
+platform and its start line, a straight to gather speed, a series of short jumps, a
+series of long jumps that need both the run-up and a held jump, steps to climb, and the
+finish line. The timer starts at the start line and stops at the finish line; the best
+time of the session stays on screen (nothing is saved to disk). Each section opens with
+a checkpoint: falling off the course brings the runner back to the last one reached,
+and the timer keeps running.
+
+Every value of the feel (speeds, gravities, coyote time, jump buffer, camera) is in
+`game/core/movement_tuning.tres`. When the game runs from the project folder, F4 reads
+that file again without restarting.
 
 ## Working on the project
 
@@ -33,8 +43,23 @@ just check            # before every commit: preflight and the release builds
 
 ## Controls
 
-To be written with the first movement prototype (keyboard and mouse on physical keys,
-and gamepad).
+Keyboard keys are bound by their position, not by the letter they print: "W, A, S, D"
+below are the keys at those places on a QWERTY keyboard (Z, Q, S, D on an AZERTY one).
+
+| Action | Keyboard and mouse | Gamepad |
+| ------ | ------------------ | ------- |
+| Move | W, A, S, D | Left stick |
+| Turn the camera | Mouse | Right stick |
+| Jump (hold to jump higher) | Space | A, or LB |
+| Slide (no effect yet) | Left Ctrl | B, or RB |
+| Back to the last checkpoint | R | Y |
+| Restart the course | Backspace | Back (Select) |
+| Release the mouse (a click takes it back) | Escape | none |
+| Debug display (state, speeds, timers) | F3 | none |
+| Reload the tuning file | F4 | none |
+
+There is no sprint button: the runner accelerates up to its top speed, and a stick
+pushed halfway gives half of it.
 
 ## Roadmap
 

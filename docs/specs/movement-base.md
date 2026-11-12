@@ -1,6 +1,6 @@
 # Déplacement de base : course, saut, caméra et parcours chronométré
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-12, avec Jimmy.
 
