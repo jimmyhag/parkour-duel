@@ -1,8 +1,10 @@
 # Déplacement de base : course, saut, caméra et parcours chronométré
 
-**Statut : 🟢 Implémenté**
+**Statut : 🟡 Prêt pour le dev**
 
-Session du 2026-11-12, avec Jimmy.
+Session du 2026-11-12, avec Jimmy. Amendée le 2026-11-12 après la première inspection,
+avec l'accord de Jimmy : décisions 2, 8, 9, 14 et 17 complétées, décisions 20 et 21
+ajoutées, cinq scénarios ajoutés ou déplacés (marqués « amendement »).
 
 ## Contexte
 
@@ -28,24 +30,26 @@ un test et reste le jugement de Jimmy.
 | # | Question | Décision | Pourquoi |
 | - | -------- | -------- | -------- |
 | 1 | Qui décide du mouvement ? | `game/core/` calcule, `game/player/` exécute. À chaque pas fixe, `player` donne à `core` une **intention** et des **constats** (au sol ou non, vitesse réelle après collisions) ; `core` rend l'état du coureur et la vitesse voulue ; `player` l'applique à un `CharacterBody3D` avec `move_and_slide`. `core` n'utilise ni `Input`, ni `Time`, ni `Engine`, ni nœud : seulement ses arguments. | Testable sans moteur, et demain les intentions viendront du réseau. |
-| 2 | Que contient une intention ? | Une structure typée de `core` : direction de déplacement **dans le monde** (vecteur horizontal, longueur de 0 à 1), saut pressé à ce pas, saut maintenu, glissade maintenue. `player` la fabrique à partir des entrées et de l'orientation de la caméra. | La simulation ne connaît ni touche ni caméra. |
+| 2 | Que contient une intention ? | Une structure typée de `core` : direction de déplacement **dans le monde** (vecteur horizontal, longueur de 0 à 1), saut pressé à ce pas, saut maintenu, glissade maintenue, retour au dernier checkpoint demandé à ce pas, recommencer demandé à ce pas. `player` la fabrique à partir des entrées et de l'orientation de la caméra. | La simulation ne connaît ni touche ni caméra. |
 | 3 | D'où viennent les intentions ? | D'une **source d'intentions** remplaçable sur le joueur : par défaut la lecture des entrées, dans les tests une suite écrite à l'avance. | C'est ce qui permet les tests rejoués, puis le fantôme et le réseau. |
 | 4 | États du coureur dans cette spec | Au sol, en montée de saut, en chute. Les autres états arrivent avec la seconde spec. | Périmètre. |
 | 5 | Course | Accélération jusqu'à la vitesse de pointe, pas de bouton de sprint. Un stick à moitié poussé donne une vitesse de pointe proportionnelle. Contrôle en l'air plus faible qu'au sol. | Décision Q1. |
 | 6 | Saut | Hauteur variable : relâcher pendant la montée coupe la vitesse verticale. Gravité plus forte en chute qu'en montée. Coyote time et jump buffer. Un appui donne un seul saut. | Plan, étape 1. |
 | 7 | Ressource de réglage | Une seule ressource typée dans `game/core/`, avec son fichier `.tres`. Toute valeur de sensation y vit, caméra comprise. Aucun nombre de réglage dans le code. Valeurs de départ ci-dessous. | Règle d'`AGENTS.md` ; c'est ce que Jimmy modifiera pendant les allers-retours. |
-| 8 | Moteur physique et cadence | Jolt choisi explicitement dans `project.godot` ; 60 pas par seconde ; interpolation physique activée. Tout comportement anormal aux arêtes ou aux murs est rapporté, pas contourné. | Rendu fluide au-delà de 60 Hz. Jolt n'a pas été comparé à l'autre moteur sur ce jeu. |
-| 9 | Caméra | 3e personne, libre : souris ou stick droit. Portée par un bras à ressort (`SpringArm3D`) qui la rapproche quand un obstacle passe entre elle et le coureur. La caméra n'est pas de la simulation : elle peut suivre le temps d'image. La souris est capturée au lancement, `Échap` la libère, un clic la reprend. | Décisions Q1 et Q11. |
+| 8 | Moteur physique et cadence | Jolt choisi explicitement dans `project.godot` ; 60 pas par seconde ; interpolation physique activée. Tout comportement anormal aux arêtes ou aux murs est rapporté, pas contourné. Le réglage `physics_jitter_fix` suit ce que la documentation officielle de Godot recommande avec l'interpolation physique : le développeur relit la page et la cite dans son rapport. | Rendu fluide au-delà de 60 Hz. Jolt n'a pas été comparé à l'autre moteur sur ce jeu. |
+| 9 | Caméra | 3e personne, libre : souris ou stick droit. Portée par un bras à ressort (`SpringArm3D`) qui la rapproche quand un obstacle passe entre elle et le coureur. Le bras porte une sphère de collision, dont le rayon vit dans la ressource de réglage, pour que la caméra reste à distance du mur au lieu de s'y enfoncer. La caméra n'est pas de la simulation : elle peut suivre le temps d'image. La souris est capturée au lancement, `Échap` la libère, un clic la reprend. | Décisions Q1 et Q11. |
 | 10 | Personnage | Une capsule avec une « visière » qui montre où elle regarde ; elle se tourne vers sa direction de déplacement. | Sans animation, c'est ce qui rend le coureur lisible. |
 | 11 | Entrées | Toutes les associations vivent dans la table d'entrées de `project.godot`. Le code ne connaît que des noms d'actions. Clavier en touches physiques. Disposition ci-dessous. Le menu de changement des touches est à l'étape 6. | Décisions Q7 et Q16. |
 | 12 | Actions de debug | `F3` et `F4` sont au clavier seulement, comme `Échap`. C'est une exception décidée ici à la règle « chaque action au clavier-souris et à la manette » d'`AGENTS.md`, qui vise les actions de jeu. | Ce ne sont pas des actions de jeu. |
 | 13 | Parcours et chrono | L'état d'une course (pas commencée, en cours, terminée ; temps écoulé ; dernier checkpoint ; meilleur temps de la session) vit dans `core`, et le temps se compte en pas fixes. Les checkpoints et les lignes vivent dans `game/world/` et signalent un passage ; `game/levels/` relie le tout. | Le chrono ne dépend pas du nombre d'images par seconde. |
-| 14 | Chute et réapparition | Passer sous l'altitude limite du parcours ramène au dernier checkpoint, à l'arrêt, tourné vers la suite, caméra dans le dos. Le chrono continue. Deux actions : retour au dernier checkpoint, recommencer le parcours (chrono à zéro, meilleur temps conservé). Rien n'est sauvegardé sur disque. | Décision Q6. |
+| 14 | Chute et réapparition | Passer sous l'altitude limite du parcours ramène au dernier checkpoint, à l'arrêt, tourné vers la suite, caméra dans le dos. Le chrono continue. Deux actions : retour au dernier checkpoint, recommencer le parcours (chrono à zéro, meilleur temps conservé). Rien n'est sauvegardé sur disque. Les deux actions voyagent dans l'intention (décision 2) : seul `player` lit les entrées. La règle elle-même (sous l'altitude limite ou sur demande, on réapparaît ; recommencer l'emporte sur réapparaître) est décidée dans `core`, qui reçoit l'altitude du coureur, la limite et l'intention ; `levels` ne fait qu'exécuter. | Décision Q6. |
 | 15 | Parcours de cette spec | Un nouveau niveau dans `game/levels/`, en blocs gris, qui devient la scène principale : plateforme de départ, ligne de départ, une ligne droite d'élan, une série de sauts courts, une série de sauts longs qui demandent l'élan et le saut tenu, des marches à monter, ligne d'arrivée. Un checkpoint au début de chaque section. `sandbox.tscn` est supprimée. | Décision Q14. |
 | 16 | Test existant | `tests/test_sandbox_scene.gd` est **remplacé** par les tests du nouveau parcours (scénario « La scène principale est le parcours test »). Ce remplacement est décidé ici : ce n'est pas un test affaibli. | La scène qu'il vérifie disparaît. |
-| 17 | Preuve que le parcours se finit | Un test rejoué par section : une courte suite d'intentions, jouée sans écran dans la vraie physique, doit amener le coureur d'un checkpoint au suivant. Si un tel test est instable entre Windows et la CI Linux, le développeur le rapporte ; il n'élargit pas la tolérance pour le faire passer. | Décision Q10. |
+| 17 | Preuve que le parcours se finit | Un test rejoué par section : une courte suite d'intentions, jouée sans écran dans la vraie physique, doit amener le coureur d'un checkpoint au suivant. Si un tel test est instable entre Windows et la CI Linux, le développeur le rapporte ; il n'élargit pas la tolérance pour le faire passer. Les tests rejoués peuvent tourner en accéléré, à condition que le pas de simulation reste de 1/60 s et que les franchissements soient identiques. | Décision Q10. |
 | 18 | Outils de réglage | Un affichage de debug (`F3`) : état du coureur, vitesse horizontale et verticale, temps restant de coyote time et de jump buffer. Une action de rechargement (`F4`) qui relit le fichier de réglage sans relancer le jeu. | Raccourcit les allers-retours. |
 | 19 | README | La section « Controls » du `README.md` est écrite avec la disposition ci-dessous, et « Running the game » décrit le parcours. | Règle du plan. |
+| 20 | Arrondi des durées | Une durée de la ressource de réglage devient un nombre de pas fixes, arrondi au pas le plus proche : à 60 pas par seconde, 0,10 s vaut 6 pas et 0,12 s vaut 7 pas. Les tests écrivent ces nombres attendus en dur, ils ne les recalculent pas avec la formule du code. | Un changement d'arrondi doit faire échouer un test. |
+| 21 | Stick et zone morte | La vitesse visée est proportionnelle à la course du stick **au-delà de la zone morte** : un stick à mi-course ne donne donc pas exactement la moitié de la vitesse de pointe. Le README le dit ainsi. | Comportement du moteur, accepté par Jimmy. |
 
 ### Disposition des entrées
 
@@ -88,6 +92,7 @@ les applique avec le pas fixe.
 | Caméra : distance, hauteur du point visé | 4,5 m, 1,6 m |
 | Caméra : limites verticales | de 60° vers le bas à 50° vers le haut |
 | Caméra : sensibilité souris, stick | 0,0025 rad par pixel, 2,6 rad/s |
+| Caméra : rayon de la sphère du bras | 0,2 m |
 
 ## Scénarios
 
@@ -194,10 +199,17 @@ Fonctionnalité: Déplacement de base
     Quand le joueur recommence le parcours
     Alors la course n'est plus commencée, le chrono est à zéro et le meilleur temps est inchangé
 
-  Scénario: Une réapparition ne touche pas au chrono
-    Soit une course en cours
-    Quand le coureur réapparaît au dernier checkpoint
-    Alors le chrono continue de compter sans interruption
+  Scénario: Passer sous l'altitude limite demande une réapparition
+    # amendement
+    Soit une course et un coureur plus bas que l'altitude limite du parcours
+    Quand la règle de réapparition est évaluée
+    Alors elle demande une réapparition au dernier checkpoint, sans toucher au chrono
+
+  Scénario: Recommencer l'emporte sur réapparaître
+    # amendement
+    Soit une intention qui demande à la fois recommencer et le retour au checkpoint
+    Quand la règle de réapparition est évaluée
+    Alors elle demande de recommencer le parcours
 
   # --- Entrées et joueur (player) ---
 
@@ -237,6 +249,24 @@ Fonctionnalité: Déplacement de base
     Soit un coureur n'importe où sur le parcours, au sol ou en l'air
     Quand l'action de retour au dernier checkpoint est déclenchée
     Alors il réapparaît au dernier checkpoint atteint, à l'arrêt
+
+  Scénario: Une réapparition ne touche pas au chrono
+    # amendement : déplacé ici, il se prouve sur le parcours
+    Soit une course en cours sur le parcours
+    Quand le retour au dernier checkpoint est demandé, puis que des pas s'écoulent
+    Alors le coureur a réapparu et le chrono a avancé exactement du nombre de pas écoulés
+
+  Scénario: Une suite d'intentions peut demander le retour au checkpoint
+    # amendement
+    Soit un coureur piloté par une suite d'intentions écrite à l'avance, loin du dernier checkpoint
+    Quand la suite demande le retour au dernier checkpoint
+    Alors il réapparaît au dernier checkpoint, sans qu'aucune touche soit lue
+
+  Scénario: Recommencer le parcours ramène le coureur au départ
+    # amendement
+    Soit un coureur qui a dépassé un checkpoint, course en cours
+    Quand recommencer est demandé
+    Alors il réapparaît sur la plateforme de départ, la course n'est plus commencée et le chrono est à zéro
 
   Scénario: La section d'élan se franchit
     Soit un coureur à la ligne de départ
