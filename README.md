@@ -17,6 +17,20 @@ godot --path .
 
 For now the main scene is an empty sandbox: a floor, a camera and a light.
 
+## Working on the project
+
+The rules, the commands and the architecture are in [AGENTS.md](AGENTS.md); the way
+the AI assistants work (spec, developer, inspector) is in
+[.agents/README.md](.agents/README.md). In short, with
+[`just`](https://github.com/casey/just) and Python 3.13 installed:
+
+```sh
+just setup            # once per checkout: tooling and Godot import cache
+just fetch-templates  # once per machine: export templates for the builds (about 1 GB)
+just preflight        # after every change: types, lint, tests, boundaries
+just check            # before every commit: preflight and the release builds
+```
+
 ## Controls
 
 To be written with the first movement prototype (keyboard and mouse on physical keys,
