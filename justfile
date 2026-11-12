@@ -30,8 +30,8 @@ dev:
     {{ godot }} --path .
 
 # Run the test suite once; `just test <filter>` runs a subset
-test *args:
-    @echo "TO DEFINE: the test runner (filtered when args are given: {{ args }})" && exit 1
+test *args: import
+    {{ python }} tools/run_tests.py {{ godot }} {{ args }}
 
 # Refresh Godot's import cache (global classes, imported resources)
 import:
