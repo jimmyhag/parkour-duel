@@ -33,9 +33,13 @@ dev:
 test *args:
     @echo "TO DEFINE: the test runner (filtered when args are given: {{ args }})" && exit 1
 
-# Type-check, strict
-typecheck:
-    @echo "TO DEFINE: the type checker" && exit 1
+# Refresh Godot's import cache (global classes, imported resources)
+import:
+    {{ godot }} --headless --path . --import
+
+# Type-check every script, strict: typing warnings are errors (project.godot, [debug])
+typecheck: import
+    {{ python }} tools/typecheck.py {{ godot }}
 
 # Lint; warnings fail
 lint:
