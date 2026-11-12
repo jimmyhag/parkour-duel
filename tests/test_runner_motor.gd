@@ -132,6 +132,25 @@ func test_the_jump_is_refused_after_coyote_time() -> void:
 	assert_lt(body.velocity.y, before, "it keeps falling")
 
 
+## 0.11 s at 60 steps per second is 6.6 steps: 7 to the nearest step, 6 if truncated.
+## The steps are written out on purpose, as above.
+func test_a_duration_is_rounded_to_the_nearest_step() -> void:
+	var tuning: MovementTuning = _tuning()
+	tuning.coyote_time = 0.11
+	var at_the_seventh_step: Body = _body_at_top_speed(tuning)
+	var at_the_eighth_step: Body = _body_at_top_speed(tuning)
+
+	_leave_the_floor(at_the_seventh_step, 6)
+	at_the_seventh_step.step(_intent(FORWARD, true, true))
+	_leave_the_floor(at_the_eighth_step, 7)
+	at_the_eighth_step.step(_intent(FORWARD, true, true))
+
+	var accepted: RunnerMotor.State = at_the_seventh_step.motor.state
+	assert_eq(accepted, RunnerMotor.State.RISING, "accepted at the seventh step in the air")
+	var refused: RunnerMotor.State = at_the_eighth_step.motor.state
+	assert_eq(refused, RunnerMotor.State.FALLING, "refused at the eighth")
+
+
 func test_a_jump_requested_just_before_landing_starts_on_landing() -> void:
 	var tuning: MovementTuning = _tuning()
 	var landing_step: int = _first_grounded_step(tuning)

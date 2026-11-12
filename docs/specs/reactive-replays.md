@@ -1,6 +1,6 @@
 # Tests rejoués réactifs : un pilote de test qui regarde devant lui
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-12, avec Jimmy.
 
