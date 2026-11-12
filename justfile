@@ -20,10 +20,9 @@ default:
     @just --list
 
 # Install the tooling of a fresh checkout or worktree: .venv, then Godot's import cache
-setup:
+setup: && import
     {{ system_python }} -m venv .venv
     {{ python }} -m pip install --quiet --disable-pip-version-check -r requirements-dev.txt
-    {{ godot }} --headless --path . --import
 
 # Start the game locally
 dev:
@@ -53,6 +52,13 @@ deadcode:
 # Edit-loop gate, run after every change (check stays the gate before a commit)
 preflight: typecheck lint test deadcode
 
-# Everything that must pass before a commit: preflight plus the build and the slow suites
-check: preflight
-    @echo "TO DEFINE: the production build and anything too slow for preflight" && exit 1
+# Export the Windows and Linux release builds, then start the host platform's one
+build:
+    {{ python }} tools/export.py {{ godot }}
+
+# Download the pinned export templates the build needs (once per machine, about 1 GB)
+fetch-templates:
+    {{ python }} tools/fetch_godot.py templates
+
+# Everything that must pass before a commit: preflight plus the release builds
+check: preflight build
