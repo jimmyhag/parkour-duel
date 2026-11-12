@@ -1,0 +1,14 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://game/ui/debug_overlay.gd" id="1_debug"]
+
+[node name="DebugOverlay" type="Label"]
+visible = false
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 316.0
+offset_bottom = 136.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 16
+script = ExtResource("1_debug")

@@ -1,0 +1,28 @@
+[gd_resource type="Resource" script_class="MovementTuning" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://game/core/movement_tuning.gd" id="1_tuning"]
+
+[resource]
+script = ExtResource("1_tuning")
+top_speed = 9.0
+ground_acceleration = 30.0
+ground_deceleration = 45.0
+air_acceleration = 14.0
+jump_height = 1.6
+rise_gravity = 32.0
+fall_gravity = 44.0
+jump_release_velocity_ratio = 0.45
+max_fall_speed = 40.0
+coyote_time = 0.1
+jump_buffer_time = 0.12
+stick_deadzone = 0.2
+capsule_height = 1.8
+capsule_radius = 0.35
+turn_speed = 14.0
+camera_distance = 4.5
+camera_look_height = 1.6
+camera_look_down_limit = 60.0
+camera_look_up_limit = 50.0
+camera_collision_radius = 0.2
+camera_mouse_sensitivity = 0.0025
+camera_stick_speed = 2.6
