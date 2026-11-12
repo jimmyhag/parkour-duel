@@ -67,7 +67,7 @@ zone: a stick pushed halfway gives a little less than half of the top speed.
 | Step | Content | Status |
 | ---- | ------- | ------ |
 | 0 | Repository, Godot skeleton, harness and gates | done |
-| 1 | Solo movement prototype | next |
+| 1 | Solo movement prototype | in progress: the base (run, jump, camera, timed course) is merged; slide, roll, mantle, wall-run and wall-jump are next |
 | 2 | Tricks and flow | not started |
 | 3 | Shooting and sabotage | not started |
 | 4 | Local duel (ghost, then bot) | not started |
