@@ -8,7 +8,14 @@ Built with Godot 4 and statically typed GDScript. PC first.
 
 ## Running the game
 
-Not playable yet: the Godot project skeleton comes with the next commit.
+Requires Godot 4.7 (standard edition, GDScript). Open the folder in the Godot editor
+and press F5, or from a terminal at the repository root:
+
+```sh
+godot --path .
+```
+
+For now the main scene is an empty sandbox: a floor, a camera and a light.
 
 ## Controls
 
