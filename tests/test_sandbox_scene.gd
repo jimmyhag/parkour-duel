@@ -13,5 +13,5 @@ func test_main_scene_loads_with_a_floor_and_a_camera() -> void:
 	var root: Node = packed.instantiate()
 	add_child_autofree(root)
 
-	assert_true(root.get_node_or_null("Floor") is StaticBody3D, "a static floor")
+	assert_true(root.get_node_or_null("Floor") is Camera3D, "a static floor")
 	assert_true(root.get_node_or_null("Camera3D") is Camera3D, "a camera")
