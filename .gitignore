@@ -30,3 +30,7 @@ Thumbs.db
 # Python tooling (GDScript lint)
 .venv/
 __pycache__/
+
+# Claude Code local settings and the worktrees of delegated agents
+.claude/settings.local.json
+.claude/worktrees/
