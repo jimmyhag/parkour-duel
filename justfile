@@ -1,21 +1,37 @@
 # Task runner. `just check` is the gate, locally and in CI.
-# `harness-setup` replaces every recipe that fails with "TO DEFINE".
+# Recipes only call Godot or a Python tool of tools/, so the same line runs under
+# cmd.exe and sh.
 
 # cmd.exe on Windows (sh is not guaranteed to be on PATH); sh elsewhere.
 [windows]
 set shell := ["cmd.exe", "/c"]
 
+# The Godot 4 editor binary (version in .godot-version). Override with the GODOT
+# environment variable. On Windows the console wrapper is the one that waits and prints.
+godot := env("GODOT", if os_family() == "windows" { "godot_console" } else { "godot" })
+
+# The Python that creates .venv, then the tools installed inside it.
+system_python := if os_family() == "windows" { "python" } else { "python3" }
+venv_bin := if os_family() == "windows" { ".venv\\Scripts\\" } else { ".venv/bin/" }
+python := venv_bin + "python"
+
 # List the available recipes
 default:
     @just --list
 
-# Start the application locally
+# Install the tooling of a fresh checkout or worktree: .venv, then Godot's import cache
+setup:
+    {{ system_python }} -m venv .venv
+    {{ python }} -m pip install --quiet --disable-pip-version-check -r requirements-dev.txt
+    {{ godot }} --headless --path . --import
+
+# Start the game locally
 dev:
-    @echo "TO DEFINE: the command that runs the app" && exit 1
+    {{ godot }} --path .
 
 # Run the test suite once; `just test <filter>` runs a subset
 test *args:
-    @echo "TO DEFINE: the test runner (filtered when args are given: {{args}})" && exit 1
+    @echo "TO DEFINE: the test runner (filtered when args are given: {{ args }})" && exit 1
 
 # Type-check, strict
 typecheck:
