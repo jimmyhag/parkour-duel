@@ -139,7 +139,8 @@ game/               the game, one folder per layer (table above)
   ui/               timer display and debug display
   levels/           course scenes; test_course.tscn is the main scene for now
 addons/gut/         GUT 9.7.1, the test framework (vendored, MIT, not exported)
-tests/              headless tests, one script per subject: test_<subject>.gd
+tests/              headless tests, one script per subject: test_<subject>.gd; the other
+                    scripts are their helpers (written sequences of intents, test pilot)
 tools/              the gate tools (Python, standard library only)
 .agents/            the roles AI assistants play and the skills they load (README.md)
 .claude/            copies of .agents/ for Claude Code (kept identical by the gate)

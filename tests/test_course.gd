@@ -1,9 +1,10 @@
-extends GutTest
+extends ReplayTest
 ## The test course (game/levels), played without a screen in the real physics. Each
-## section is replayed from its checkpoint with a sequence of intents written in
-## advance, with the tuning of movement_tuning.tres: a tuning or a course that makes a
-## section impossible fails here. The tests of this file run faster than real time, with
-## the same fixed step of 1/60 s (see before_all).
+## section is run from its checkpoint by the test pilot, which looks at the world and
+## decides at every step: with the tuning of movement_tuning.tres, then with one value
+## of it changed by 10 %. A tuning or a course that makes a section impossible fails
+## here. The tests of this file run faster than real time, with the same fixed step of
+## 1/60 s (see ReplayTest).
 
 const MAIN_SCENE_SETTING: String = "application/run/main_scene"
 const COURSE_SCENE: String = "res://game/levels/test_course.tscn"
@@ -14,10 +15,6 @@ const RESTART: StringName = &"restart"
 const RELOAD_TUNING: StringName = &"reload_tuning"
 const FORWARD: Vector3 = Vector3.FORWARD
 
-## The fixed steps of the game, and how many times faster than real time they run here.
-const STEPS_PER_SECOND: int = 60
-const SPEED_UP: int = 10
-
 ## The checkpoints, by the section they open.
 const RUN_UP: int = 0
 const SHORT_JUMPS: int = 1
@@ -25,8 +22,10 @@ const LONG_JUMPS: int = 2
 const STEPS: int = 3
 const CHECKPOINT_NAMES: Array[String] = ["RunUp", "ShortJumps", "LongJumps", "Steps"]
 
-## Steps during which a jump is held: a little longer than its rise.
-const JUMP_STEPS: int = 20
+## The tuning range in which every section stays clearable: one value at a time, 10 %
+## more, then 10 % less.
+const VARIANT_FACTORS: Array[float] = [1.1, 0.9]
+
 ## Steps left to the runner to come to rest after a sequence.
 const SETTLE_STEPS: int = 30
 ## Steps a runner takes to fall under the course and come back.
@@ -41,22 +40,14 @@ const NEAR: float = 0.05
 ## Steps during which a pressed action stays down.
 const TAP_STEPS: int = 3
 
-var _ticks_per_second_before: int
-var _time_scale_before: float
 
-
-## Ten times more fixed steps per second, on a clock ten times faster: every step still
-## simulates 1/60 s, so the runs are the same, only sooner.
-func before_all() -> void:
-	_ticks_per_second_before = Engine.physics_ticks_per_second
-	_time_scale_before = Engine.time_scale
-	Engine.physics_ticks_per_second = STEPS_PER_SECOND * SPEED_UP
-	Engine.time_scale = SPEED_UP
-
-
-func after_all() -> void:
-	Engine.physics_ticks_per_second = _ticks_per_second_before
-	Engine.time_scale = _time_scale_before
+## One section of a course of its own, run by the test pilot.
+class SectionRun:
+	var course: Course
+	var section: int
+	var run: PilotedRun
+	## The tuning the runner obeys instead of the one of the project, if any.
+	var variant: MovementTuning
 
 
 func after_each() -> void:
@@ -178,46 +169,27 @@ func test_restarting_the_course_brings_the_runner_back_to_the_start() -> void:
 
 
 func test_the_run_up_section_can_be_cleared() -> void:
-	var course: Course = _add_course()
-	var run: ScriptedIntentSource = ScriptedIntentSource.new().hold(FORWARD, false, 145)
+	var attempt: SectionRun = _section_run(RUN_UP)
 
-	var lowest: float = await _replay(course, run)
+	await _play([attempt.run])
 
-	assert_eq(course.race.phase, RaceState.Phase.RUNNING, "the start line was crossed")
-	assert_eq(course.race.last_checkpoint, SHORT_JUMPS, "the next checkpoint is reached")
-	assert_gt(lowest, BELOW_THE_BLOCKS, "without falling")
-	assert_true(course.player.is_on_floor(), "and the runner stands on the course")
+	_assert_cleared(attempt)
 
 
 func test_the_short_jumps_section_can_be_cleared() -> void:
-	var course: Course = _add_course()
-	_start_at(course, SHORT_JUMPS)
-	var run: ScriptedIntentSource = ScriptedIntentSource.new()
-	run.hold(FORWARD, false, 40).hold(FORWARD, true, JUMP_STEPS)
-	run.hold(FORWARD, false, 23).hold(FORWARD, true, JUMP_STEPS)
-	run.hold(FORWARD, false, 24).hold(FORWARD, true, JUMP_STEPS)
-	run.hold(FORWARD, false, 28)
+	var attempt: SectionRun = _section_run(SHORT_JUMPS)
 
-	var lowest: float = await _replay(course, run)
+	await _play([attempt.run])
 
-	assert_eq(course.race.last_checkpoint, LONG_JUMPS, "the next checkpoint is reached")
-	assert_gt(lowest, BELOW_THE_BLOCKS, "without falling")
-	assert_true(course.player.is_on_floor(), "and the runner stands on the course")
+	_assert_cleared(attempt)
 
 
 func test_the_long_jumps_section_can_be_cleared() -> void:
-	var course: Course = _add_course()
-	_start_at(course, LONG_JUMPS)
-	var run: ScriptedIntentSource = ScriptedIntentSource.new()
-	run.hold(FORWARD, false, 75).hold(FORWARD, true, JUMP_STEPS)
-	run.hold(FORWARD, false, 61).hold(FORWARD, true, JUMP_STEPS)
-	run.hold(FORWARD, false, 29)
+	var attempt: SectionRun = _section_run(LONG_JUMPS)
 
-	var lowest: float = await _replay(course, run)
+	await _play([attempt.run])
 
-	assert_eq(course.race.last_checkpoint, STEPS, "the next checkpoint is reached")
-	assert_gt(lowest, BELOW_THE_BLOCKS, "without falling")
-	assert_true(course.player.is_on_floor(), "and the runner stands on the course")
+	_assert_cleared(attempt)
 
 
 func test_a_long_jump_without_run_up_fails() -> void:
@@ -236,19 +208,51 @@ func test_a_long_jump_without_run_up_fails() -> void:
 
 
 func test_the_steps_section_leads_to_the_finish() -> void:
-	var course: Course = _add_course()
-	_start_at(course, STEPS)
-	var run: ScriptedIntentSource = ScriptedIntentSource.new()
-	run.hold(FORWARD, false, 43).hold(FORWARD, true, JUMP_STEPS)
-	run.hold(FORWARD, false, 14).hold(FORWARD, true, JUMP_STEPS)
-	run.hold(FORWARD, false, 15).hold(FORWARD, true, JUMP_STEPS)
-	run.hold(FORWARD, false, 40)
+	var attempt: SectionRun = _section_run(STEPS)
 
-	var lowest: float = await _replay(course, run)
+	await _play([attempt.run])
 
-	assert_eq(course.race.phase, RaceState.Phase.FINISHED, "the finish line was crossed")
-	assert_gt(lowest, BELOW_THE_BLOCKS, "without falling")
-	assert_true(course.player.is_on_floor(), "and the runner stands on the course")
+	_assert_cleared(attempt)
+
+
+func test_the_sections_can_be_cleared_with_a_top_speed_changed_by_10_percent() -> void:
+	var variants: Array[MovementTuning] = []
+	for factor: float in VARIANT_FACTORS:
+		var variant: MovementTuning = _copy_of_the_tuning("top speed x %.1f" % factor)
+		variant.top_speed *= factor
+		variants.append(variant)
+
+	await _assert_every_section_is_cleared_with(variants)
+
+
+func test_the_sections_can_be_cleared_with_a_rise_gravity_changed_by_10_percent() -> void:
+	var variants: Array[MovementTuning] = []
+	for factor: float in VARIANT_FACTORS:
+		var variant: MovementTuning = _copy_of_the_tuning("rise gravity x %.1f" % factor)
+		variant.rise_gravity *= factor
+		variants.append(variant)
+
+	await _assert_every_section_is_cleared_with(variants)
+
+
+func test_the_sections_can_be_cleared_with_a_fall_gravity_changed_by_10_percent() -> void:
+	var variants: Array[MovementTuning] = []
+	for factor: float in VARIANT_FACTORS:
+		var variant: MovementTuning = _copy_of_the_tuning("fall gravity x %.1f" % factor)
+		variant.fall_gravity *= factor
+		variants.append(variant)
+
+	await _assert_every_section_is_cleared_with(variants)
+
+
+func test_the_sections_can_be_cleared_with_a_jump_height_changed_by_10_percent() -> void:
+	var variants: Array[MovementTuning] = []
+	for factor: float in VARIANT_FACTORS:
+		var variant: MovementTuning = _copy_of_the_tuning("jump height x %.1f" % factor)
+		variant.jump_height *= factor
+		variants.append(variant)
+
+	await _assert_every_section_is_cleared_with(variants)
 
 
 func test_reloading_the_tuning_applies_the_new_values() -> void:
@@ -267,8 +271,10 @@ func test_reloading_the_tuning_applies_the_new_values() -> void:
 	assert_almost_eq(course.player.velocity.length(), slower, 0.01, "and the runner obeys it")
 
 
-func _add_course() -> Course:
+## Adds a test course, `aside` metres beside the place where the scene puts it.
+func _add_course(aside: float = 0.0) -> Course:
 	var course: Course = (load(COURSE_SCENE) as PackedScene).instantiate() as Course
+	course.position.x = aside
 	add_child_autofree(course)
 	return course
 
@@ -282,6 +288,78 @@ func _start_at(course: Course, checkpoint: int) -> void:
 	course.race.cross_start_line()
 	course.race.reach_checkpoint(checkpoint)
 	course.respawn()
+
+
+## The tuning of the project in a copy in memory, named after what a test changes in
+## it: nothing is written to the file.
+func _copy_of_the_tuning(variant_name: String) -> MovementTuning:
+	var variant: MovementTuning = (load(TUNING) as MovementTuning).duplicate() as MovementTuning
+	variant.resource_name = variant_name
+	return variant
+
+
+## A fresh course, `aside` metres beside the usual place, whose runner waits at the
+## checkpoint of `section` for the test pilot to lead it to the end of the section: the
+## next checkpoint, or the finish line after the last one. With a `variant`, the runner
+## obeys it instead of the tuning of the project.
+func _section_run(section: int, variant: MovementTuning = null, aside: float = 0.0) -> SectionRun:
+	var attempt: SectionRun = SectionRun.new()
+	attempt.section = section
+	attempt.variant = variant
+	attempt.course = _add_course(aside)
+	if variant != null:
+		attempt.course.player.apply_tuning(variant)
+	# The run-up is played as the game starts: before the start line, race not started.
+	if section != RUN_UP:
+		_start_at(attempt.course, section)
+	var goal: Area3D = attempt.course.get_node("FinishLine") as RaceLine
+	if section + 1 < CHECKPOINT_NAMES.size():
+		goal = _checkpoint(attempt.course, section + 1)
+	attempt.run = PilotedRun.new(attempt.course.player, goal, attempt.course)
+	return attempt
+
+
+## What a cleared section shows: the runner reached the end of the section without
+## falling and stands there, and the race followed.
+func _assert_cleared(attempt: SectionRun) -> void:
+	var tuning_name: String = "tuning of the project"
+	if attempt.variant != null:
+		tuning_name = attempt.variant.resource_name
+	var context: String = "%s, %s: " % [CHECKPOINT_NAMES[attempt.section], tuning_name]
+	var race: RaceState = attempt.course.race
+	var runner: Player = attempt.course.player
+	if attempt.variant != null:
+		assert_same(runner.motor.tuning, attempt.variant, context + "the runner obeys the variant")
+	var reached: PilotedRun.Outcome = PilotedRun.Outcome.REACHED
+	assert_eq(attempt.run.outcome, reached, context + "the goal is reached without falling")
+	assert_true(runner.is_on_floor(), context + "and the runner stands on the course")
+	if attempt.section + 1 < CHECKPOINT_NAMES.size():
+		assert_eq(race.phase, RaceState.Phase.RUNNING, context + "the race is on")
+		var next: int = attempt.section + 1
+		assert_eq(race.last_checkpoint, next, context + "the next checkpoint is reached")
+	else:
+		assert_eq(race.phase, RaceState.Phase.FINISHED, context + "the finish line was crossed")
+
+
+## Plays the four sections with each variant of the tuning and checks that every one is
+## cleared. The runs are played at the same time, each on its own course: the courses
+## stand side by side, one course width of void between two of them.
+func _assert_every_section_is_cleared_with(variants: Array[MovementTuning]) -> void:
+	var attempts: Array[SectionRun] = []
+	var runs: Array[PilotedRun] = []
+	var spacing: float = 0.0
+	for variant: MovementTuning in variants:
+		for section: int in CHECKPOINT_NAMES.size():
+			var attempt: SectionRun = _section_run(section, variant, attempts.size() * spacing)
+			if attempts.is_empty():
+				spacing = 2.0 * PilotedRun.bounds_of_the_blocks(attempt.course).size.x
+			attempts.append(attempt)
+			runs.append(attempt.run)
+
+	await _play(runs)
+
+	for attempt: SectionRun in attempts:
+		_assert_cleared(attempt)
 
 
 func _wait_steps(steps: int) -> void:
