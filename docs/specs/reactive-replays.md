@@ -2,7 +2,10 @@
 
 **Statut : 🟢 Implémenté**
 
-Session du 2026-11-12, avec Jimmy.
+Session du 2026-11-12, avec Jimmy. Amendée après l'inspection, avec l'accord de Jimmy : le
+scénario « Le pilote ne saute pas devant un mur qu'il ne peut pas franchir » est ajouté
+(marqué « amendement »). Son test existait déjà, écrit par le développeur pour prouver
+la partie « franchissable d'un saut » de la décision 2.
 
 ## Contexte
 
@@ -114,6 +117,12 @@ Fonctionnalité: Tests rejoués réactifs
     Soit un coureur piloté sur un sol continu, sans vide ni marche
     Quand le pilote le parcourt
     Alors le coureur ne quitte jamais le sol
+
+  Scénario: Le pilote ne saute pas devant un mur qu'il ne peut pas franchir
+    # amendement
+    Soit un petit parcours construit par le test, barré par un mur plus haut qu'un saut
+    Quand le pilote le parcourt
+    Alors il ne demande aucun saut, et le rejeu est un échec : le bout n'est pas atteint
 
   # --- Arrondi des durées (core) ---
 
