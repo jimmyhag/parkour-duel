@@ -58,8 +58,9 @@ below are the keys at those places on a QWERTY keyboard (Z, Q, S, D on an AZERTY
 | Debug display (state, speeds, timers) | F3 | none |
 | Reload the tuning file | F4 | none |
 
-There is no sprint button: the runner accelerates up to its top speed, and a stick
-pushed halfway gives half of it.
+There is no sprint button: the runner accelerates up to its top speed. With a stick,
+the speed aimed at is proportional to how far the stick is pushed beyond its dead
+zone: a stick pushed halfway gives a little less than half of the top speed.
 
 ## Roadmap
 

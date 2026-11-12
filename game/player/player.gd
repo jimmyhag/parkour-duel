@@ -4,6 +4,9 @@ extends CharacterBody3D
 ## gives it to the motor of game/core with what it observes (floor, real velocity), and
 ## applies the velocity the motor wants. It decides nothing about the movement itself.
 
+## Emitted at the end of every fixed step, with the intent the runner just followed.
+signal stepped(intent: MoveIntent)
+
 const RELOAD_TUNING: StringName = &"reload_tuning"
 ## Where the visor sits on the capsule, as a share of its height.
 const VISOR_HEIGHT_RATIO: float = 0.8
@@ -34,6 +37,7 @@ func _physics_process(delta: float) -> void:
 	velocity = motor.step(intent, is_on_floor(), velocity, delta)
 	move_and_slide()
 	_turn_towards_movement(delta)
+	stepped.emit(intent)
 
 
 func _unhandled_input(event: InputEvent) -> void:

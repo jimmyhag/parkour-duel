@@ -50,6 +50,8 @@ extends Resource
 @export var camera_look_down_limit: float = 0.0
 ## How far the camera can look up, in degrees.
 @export var camera_look_up_limit: float = 0.0
+## Radius of the sphere that keeps the camera away from walls and floors, in m.
+@export var camera_collision_radius: float = 0.0
 ## Mouse sensitivity, in rad per pixel.
 @export var camera_mouse_sensitivity: float = 0.0
 ## Rotation speed with the stick fully pushed, in rad/s.

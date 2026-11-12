@@ -1,6 +1,6 @@
 # Déplacement de base : course, saut, caméra et parcours chronométré
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-12, avec Jimmy. Amendée le 2026-11-12 après la première inspection,
 avec l'accord de Jimmy : décisions 2, 8, 9, 14 et 17 complétées, décisions 20 et 21

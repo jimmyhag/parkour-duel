@@ -2,7 +2,8 @@ extends GutTest
 ## The test course (game/levels), played without a screen in the real physics. Each
 ## section is replayed from its checkpoint with a sequence of intents written in
 ## advance, with the tuning of movement_tuning.tres: a tuning or a course that makes a
-## section impossible fails here.
+## section impossible fails here. The tests of this file run faster than real time, with
+## the same fixed step of 1/60 s (see before_all).
 
 const MAIN_SCENE_SETTING: String = "application/run/main_scene"
 const COURSE_SCENE: String = "res://game/levels/test_course.tscn"
@@ -12,6 +13,10 @@ const RESPAWN: StringName = &"respawn"
 const RESTART: StringName = &"restart"
 const RELOAD_TUNING: StringName = &"reload_tuning"
 const FORWARD: Vector3 = Vector3.FORWARD
+
+## The fixed steps of the game, and how many times faster than real time they run here.
+const STEPS_PER_SECOND: int = 60
+const SPEED_UP: int = 10
 
 ## The checkpoints, by the section they open.
 const RUN_UP: int = 0
@@ -33,9 +38,30 @@ const FIRST_LONG_JUMP_EDGE: Vector3 = Vector3(0.0, 0.0, -49.3)
 ## Beside the course, over the void.
 const OVER_THE_VOID: Vector3 = Vector3(12.0, 0.0, -20.0)
 const NEAR: float = 0.05
+## Steps during which a pressed action stays down.
+const TAP_STEPS: int = 3
+
+var _ticks_per_second_before: int
+var _time_scale_before: float
+
+
+## Ten times more fixed steps per second, on a clock ten times faster: every step still
+## simulates 1/60 s, so the runs are the same, only sooner.
+func before_all() -> void:
+	_ticks_per_second_before = Engine.physics_ticks_per_second
+	_time_scale_before = Engine.time_scale
+	Engine.physics_ticks_per_second = STEPS_PER_SECOND * SPEED_UP
+	Engine.time_scale = SPEED_UP
+
+
+func after_all() -> void:
+	Engine.physics_ticks_per_second = _ticks_per_second_before
+	Engine.time_scale = _time_scale_before
 
 
 func after_each() -> void:
+	Input.action_release(RESPAWN)
+	Input.action_release(RESTART)
 	if FileAccess.file_exists(TUNING_COPY):
 		DirAccess.remove_absolute(TUNING_COPY)
 
@@ -88,31 +114,62 @@ func test_returning_to_the_checkpoint_works_at_any_time() -> void:
 	var course: Course = _add_course()
 	_start_at(course, SHORT_JUMPS)
 	var checkpoint: Checkpoint = _checkpoint(course, SHORT_JUMPS)
+	var inputs: IntentSource = course.player.intent_source
 
 	await _replay(course, ScriptedIntentSource.new().hold(FORWARD, false, 20), 0)
 	assert_true(course.player.is_on_floor(), "running on the floor")
 	assert_gt(course.player.velocity.length(), 1.0)
-	_trigger(RESPAWN)
+	course.player.intent_source = inputs
+	await _tap(RESPAWN)
 	await _wait_steps(SETTLE_STEPS)
 	_assert_at_rest_at(course, checkpoint)
 
 	await _replay(course, ScriptedIntentSource.new().hold(FORWARD, true, 12), 0)
 	assert_false(course.player.is_on_floor(), "in the air")
 	assert_gt(course.player.global_position.y, 1.0)
-	_trigger(RESPAWN)
+	course.player.intent_source = inputs
+	await _tap(RESPAWN)
 	await _wait_steps(SETTLE_STEPS)
 	_assert_at_rest_at(course, checkpoint)
 
 
-## Not a scenario of the spec: the restart action of its decision 14, seen from the
-## course (the rule itself is tested in test_race_state.gd).
+func test_a_respawn_does_not_touch_the_timer() -> void:
+	var course: Course = _add_course()
+	_start_at(course, SHORT_JUMPS)
+	var checkpoint: Checkpoint = _checkpoint(course, SHORT_JUMPS)
+	await _replay(course, ScriptedIntentSource.new().hold(FORWARD, false, 20), 0)
+	assert_gt(_distance_to(course, checkpoint), 1.0, "the runner left the checkpoint")
+	var steps_before: int = course.race.elapsed_steps
+
+	var back: ScriptedIntentSource = ScriptedIntentSource.new().request_respawn()
+	await _replay(course, back)
+
+	_assert_at_rest_at(course, checkpoint)
+	assert_eq(course.race.phase, RaceState.Phase.RUNNING, "the run goes on")
+	var counted: int = course.race.elapsed_steps - steps_before
+	assert_eq(counted, back.length() + SETTLE_STEPS, "the timer counted every step, no more")
+
+
+func test_a_sequence_of_intents_can_request_the_return_to_the_checkpoint() -> void:
+	var course: Course = _add_course()
+	_start_at(course, LONG_JUMPS)
+	var checkpoint: Checkpoint = _checkpoint(course, LONG_JUMPS)
+	await _replay(course, ScriptedIntentSource.new().hold(FORWARD, false, 40), 0)
+	assert_gt(_distance_to(course, checkpoint), 3.0, "far from the last checkpoint")
+
+	await _replay(course, ScriptedIntentSource.new().request_respawn())
+
+	_assert_at_rest_at(course, checkpoint)
+	assert_false(Input.is_action_pressed(RESPAWN), "no key was involved")
+
+
 func test_restarting_the_course_brings_the_runner_back_to_the_start() -> void:
 	var course: Course = _add_course()
 	_start_at(course, STEPS)
 	await _wait_steps(SETTLE_STEPS)
 	assert_gt(course.race.elapsed_steps, 0, "the timer is running")
 
-	_trigger(RESTART)
+	await _tap(RESTART)
 	await _wait_steps(SETTLE_STEPS)
 
 	_assert_at_rest_at(course, _checkpoint(course, RUN_UP))
@@ -242,15 +299,28 @@ func _replay(
 	for i: int in source.length() + settle_steps:
 		await get_tree().physics_frame
 		lowest = minf(lowest, course.player.global_position.y)
+	var step: float = course.player.get_physics_process_delta_time()
+	assert_almost_eq(step, 1.0 / STEPS_PER_SECOND, 0.000001, "a fixed step lasts 1/60 s")
 	return lowest
 
 
+func _distance_to(course: Course, checkpoint: Checkpoint) -> float:
+	return course.player.global_position.distance_to(checkpoint.global_position)
+
+
 func _assert_at_rest_at(course: Course, checkpoint: Checkpoint) -> void:
-	var offset: Vector3 = course.player.global_position - checkpoint.global_position
-	assert_lt(offset.length(), NEAR, "at the checkpoint %s" % checkpoint.name)
+	assert_lt(_distance_to(course, checkpoint), NEAR, "at the checkpoint %s" % checkpoint.name)
 	assert_lt(course.player.velocity.length(), NEAR, "at rest")
 
 
+## Holds an action of the input map down for a few fixed steps, as a finger would.
+func _tap(action: StringName) -> void:
+	Input.action_press(action)
+	await _wait_steps(TAP_STEPS)
+	Input.action_release(action)
+
+
+## Sends the press of an action to the nodes that listen to input events.
 func _trigger(action: StringName) -> void:
 	var event: InputEventAction = InputEventAction.new()
 	event.action = action

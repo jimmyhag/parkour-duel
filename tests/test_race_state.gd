@@ -1,7 +1,10 @@
 extends GutTest
-## The state of a run (game/core): timer in fixed steps, checkpoints, best time.
+## The state of a run (game/core): timer in fixed steps, checkpoints, best time, and
+## the rule that sends a runner back to a checkpoint or to the start.
 
 const STEPS_PER_SECOND: int = 60
+## The altitude under which a runner has fallen off the course.
+const FALL_LIMIT: float = -8.0
 
 
 func test_the_timer_starts_when_crossing_the_start_line() -> void:
@@ -90,17 +93,46 @@ func test_restarting_resets_the_timer_and_keeps_the_best_time() -> void:
 	assert_eq(race.elapsed_steps, 0, "and the timer waits for the start line")
 
 
-func test_a_respawn_does_not_touch_the_timer() -> void:
+func test_going_below_the_fall_limit_requests_a_respawn() -> void:
 	var race: RaceState = _running_race()
-	race.reach_checkpoint(1)
-	_tick(race, 30)
+	race.reach_checkpoint(2)
+	_tick(race, 50)
+	var no_request: MoveIntent = MoveIntent.new()
+	var above: RaceState.RespawnOrder = race.apply_respawn_rule(
+		FALL_LIMIT + 0.1, FALL_LIMIT, no_request
+	)
+	assert_eq(above, RaceState.RespawnOrder.NONE, "nothing above the limit")
 
-	var respawn_point: int = race.last_checkpoint
-	_tick(race, 30)
+	var below: RaceState.RespawnOrder = race.apply_respawn_rule(
+		FALL_LIMIT - 0.1, FALL_LIMIT, no_request
+	)
 
-	assert_eq(respawn_point, 1)
-	assert_eq(race.phase, RaceState.Phase.RUNNING)
-	assert_eq(race.elapsed_steps, 60, "the timer counted without a break")
+	assert_eq(below, RaceState.RespawnOrder.RESPAWN, "a respawn below it")
+	assert_eq(race.last_checkpoint, 2, "at the last checkpoint")
+	assert_eq(race.phase, RaceState.Phase.RUNNING, "the run goes on")
+	assert_eq(race.elapsed_steps, 50, "and the timer is not touched")
+
+	var request: MoveIntent = MoveIntent.new()
+	request.respawn_requested = true
+	var on_request: RaceState.RespawnOrder = race.apply_respawn_rule(0.0, FALL_LIMIT, request)
+	assert_eq(on_request, RaceState.RespawnOrder.RESPAWN, "a respawn on request too")
+	assert_eq(race.elapsed_steps, 50, "still without touching the timer")
+
+
+func test_restarting_wins_over_respawning() -> void:
+	var race: RaceState = _running_race()
+	race.reach_checkpoint(2)
+	_tick(race, 50)
+	var both: MoveIntent = MoveIntent.new()
+	both.respawn_requested = true
+	both.restart_requested = true
+
+	var order: RaceState.RespawnOrder = race.apply_respawn_rule(FALL_LIMIT - 0.1, FALL_LIMIT, both)
+
+	assert_eq(order, RaceState.RespawnOrder.RESTART, "the course is restarted")
+	assert_eq(race.phase, RaceState.Phase.NOT_STARTED)
+	assert_eq(race.elapsed_steps, 0, "timer at zero")
+	assert_eq(race.last_checkpoint, 0, "the respawn point is the start again")
 
 
 func _running_race() -> RaceState:

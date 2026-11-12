@@ -41,11 +41,10 @@ func test_the_camera_moves_closer_when_a_wall_passes_behind_the_runner() -> void
 	_add_box(Vector3(10.0, 10.0, 1.0), Vector3(0.0, 5.0, wall_face + 0.5))
 	await wait_physics_frames(SETTLE_FRAMES)
 
-	# What the camera shows starts at its near plane, a few centimetres in front of it:
-	# that plane is what must stay on the runner's side of the wall. (With Jolt the
-	# camera's own origin ends about a millimetre inside the wall's surface.)
-	var near_plane: float = camera.global_position.z - camera.near
-	assert_lt(near_plane, wall_face, "the camera does not see through the wall")
+	assert_lt(camera.global_position.z, wall_face, "it stays on the runner's side of the wall")
+	var clearance: float = wall_face - camera.global_position.z
+	var radius: float = player.tuning.camera_collision_radius
+	assert_almost_eq(clearance, radius, 0.01, "at the radius of its sphere from the wall")
 	assert_gt(camera.global_position.z, player.global_position.z, "and stays behind the runner")
 
 

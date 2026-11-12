@@ -23,5 +23,6 @@ camera_distance = 4.5
 camera_look_height = 1.6
 camera_look_down_limit = 60.0
 camera_look_up_limit = 50.0
+camera_collision_radius = 0.2
 camera_mouse_sensitivity = 0.0025
 camera_stick_speed = 2.6

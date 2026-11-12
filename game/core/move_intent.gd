@@ -11,3 +11,7 @@ var jump_pressed: bool = false
 var jump_held: bool = false
 ## The slide is held down (declared, no effect before the advanced moves).
 var slide_held: bool = false
+## The return to the last checkpoint was asked at this step.
+var respawn_requested: bool = false
+## Restarting the course was asked at this step.
+var restart_requested: bool = false

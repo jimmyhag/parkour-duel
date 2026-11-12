@@ -20,6 +20,14 @@ func hold(direction: Vector3, jump_held: bool, steps: int) -> ScriptedIntentSour
 	return self
 
 
+## Adds one step that asks to come back to the last checkpoint.
+func request_respawn() -> ScriptedIntentSource:
+	var intent: MoveIntent = MoveIntent.new()
+	intent.respawn_requested = true
+	_intents.append(intent)
+	return self
+
+
 ## The number of steps written so far.
 func length() -> int:
 	return _intents.size()

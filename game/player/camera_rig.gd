@@ -1,9 +1,10 @@
 class_name CameraRig
 extends SpringArm3D
 ## Free third-person camera: the mouse or the right stick turns it around the runner,
-## and the spring arm pulls it closer when an obstacle comes between them. The camera
-## is not part of the simulation: it follows frame time, and the interpolated position
-## of its target.
+## and the spring arm pulls it closer when an obstacle comes between them: the arm
+## carries a sphere, so the camera stays at a distance from a wall instead of sinking
+## into it. The camera is not part of the simulation: it follows frame time, and the
+## interpolated position of its target.
 
 const LOOK_LEFT: StringName = &"look_left"
 const LOOK_RIGHT: StringName = &"look_right"
@@ -17,6 +18,7 @@ var tuning: MovementTuning:
 	set(value):
 		tuning = value
 		spring_length = tuning.camera_distance
+		(shape as SphereShape3D).radius = tuning.camera_collision_radius
 
 
 func _ready() -> void:

@@ -7,6 +7,11 @@ const STEP: float = 1.0 / 60.0
 const FORWARD: Vector3 = Vector3.FORWARD
 const TOLERANCE: float = 0.001
 const SETTLE_STEPS: int = 60
+## The windows of the tuning below, in fixed steps at 60 steps per second: durations
+## are rounded to the nearest step (0.10 s is 6 steps, 0.12 s is 7 steps). Written out
+## on purpose, not computed: a change of rounding must fail here.
+const COYOTE_STEPS: int = 6
+const BUFFER_STEPS: int = 7
 
 
 ## A runner over a flat floor at height 0, playing the part of the player layer: it
@@ -108,7 +113,7 @@ func test_the_jump_remains_possible_during_coyote_time() -> void:
 	grounded.step(_intent(Vector3.ZERO, true, true))
 	var body: Body = _body_at_top_speed(tuning)
 
-	_leave_the_floor(body, _coyote_steps(tuning) - 1)
+	_leave_the_floor(body, COYOTE_STEPS - 1)
 	body.step(_intent(FORWARD, true, true))
 
 	assert_eq(body.motor.state, RunnerMotor.State.RISING, "the jump starts")
@@ -119,7 +124,7 @@ func test_the_jump_is_refused_after_coyote_time() -> void:
 	var tuning: MovementTuning = _tuning()
 	var body: Body = _body_at_top_speed(tuning)
 
-	_leave_the_floor(body, _coyote_steps(tuning))
+	_leave_the_floor(body, COYOTE_STEPS)
 	var before: float = body.velocity.y
 	body.step(_intent(FORWARD, true, true))
 
@@ -131,7 +136,7 @@ func test_a_jump_requested_just_before_landing_starts_on_landing() -> void:
 	var tuning: MovementTuning = _tuning()
 	var landing_step: int = _first_grounded_step(tuning)
 
-	var body: Body = _fall_and_request_jump(tuning, landing_step - _buffer_steps(tuning))
+	var body: Body = _fall_and_request_jump(tuning, landing_step - BUFFER_STEPS)
 
 	assert_eq(body.motor.state, RunnerMotor.State.RISING, "it jumps at the first step on the floor")
 	assert_gt(body.velocity.y, 0.0)
@@ -141,7 +146,7 @@ func test_a_jump_requested_too_early_before_landing_is_forgotten() -> void:
 	var tuning: MovementTuning = _tuning()
 	var landing_step: int = _first_grounded_step(tuning)
 
-	var body: Body = _fall_and_request_jump(tuning, landing_step - _buffer_steps(tuning) - 1)
+	var body: Body = _fall_and_request_jump(tuning, landing_step - BUFFER_STEPS - 1)
 
 	assert_eq(body.motor.state, RunnerMotor.State.GROUNDED, "no jump")
 	assert_eq(body.velocity.y, 0.0)
@@ -154,7 +159,7 @@ func test_one_press_gives_only_one_jump() -> void:
 	assert_eq(body.motor.state, RunnerMotor.State.RISING, "the first jump starts")
 
 	var previous: float = body.velocity.y
-	for i: int in _coyote_steps(tuning):
+	for i: int in COYOTE_STEPS:
 		body.step(_intent(Vector3.ZERO, true, true))
 		assert_lt(body.velocity.y, previous, "no second jump at air step %d" % i)
 		previous = body.velocity.y
@@ -243,14 +248,6 @@ func _intent(direction: Vector3, jump_pressed: bool = false, jump_held: bool = f
 	intent.jump_pressed = jump_pressed
 	intent.jump_held = jump_held
 	return intent
-
-
-func _coyote_steps(tuning: MovementTuning) -> int:
-	return roundi(tuning.coyote_time / STEP)
-
-
-func _buffer_steps(tuning: MovementTuning) -> int:
-	return roundi(tuning.jump_buffer_time / STEP)
 
 
 func _body_at_top_speed(tuning: MovementTuning) -> Body:

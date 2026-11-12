@@ -2,10 +2,13 @@ class_name RaceState
 extends RefCounted
 ## The state of one run on a course: not started, running or finished, the time
 ## elapsed, the last checkpoint reached and the best time of the session. Time is
-## counted in fixed steps, so the timer does not depend on the frame rate. Nothing is
-## saved to disk.
+## counted in fixed steps, so the timer does not depend on the frame rate. It also
+## holds the rule that sends a runner back to a checkpoint. Nothing is saved to disk.
 
 enum Phase { NOT_STARTED, RUNNING, FINISHED }
+## What a course must do with its runner: nothing, or put it back at the last
+## checkpoint (after a restart, that checkpoint is the start).
+enum RespawnOrder { NONE, RESPAWN, RESTART }
 
 ## The best time while no run has been finished.
 const NO_TIME: int = -1
@@ -55,6 +58,19 @@ func restart() -> void:
 	phase = Phase.NOT_STARTED
 	elapsed_steps = 0
 	last_checkpoint = FIRST_CHECKPOINT
+
+
+## The respawn rule, evaluated at every fixed step with the runner's altitude, the
+## altitude under which it has fallen off the course, and its intent. A runner that
+## fell or asks for it goes back to the last checkpoint, and the timer is not touched.
+## Restarting wins over respawning: the race itself is then restarted here.
+func apply_respawn_rule(altitude: float, fall_limit: float, intent: MoveIntent) -> RespawnOrder:
+	if intent.restart_requested:
+		restart()
+		return RespawnOrder.RESTART
+	if intent.respawn_requested or altitude < fall_limit:
+		return RespawnOrder.RESPAWN
+	return RespawnOrder.NONE
 
 
 ## A number of fixed steps as hundredths of a second, rounded down.

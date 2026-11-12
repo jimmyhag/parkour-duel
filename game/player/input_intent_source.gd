@@ -9,6 +9,8 @@ const MOVE_FORWARD: StringName = &"move_forward"
 const MOVE_BACK: StringName = &"move_back"
 const JUMP: StringName = &"jump"
 const SLIDE: StringName = &"slide"
+const RESPAWN: StringName = &"respawn"
+const RESTART: StringName = &"restart"
 
 var _camera_rig: CameraRig
 
@@ -25,4 +27,6 @@ func next_intent() -> MoveIntent:
 	intent.jump_pressed = Input.is_action_just_pressed(JUMP)
 	intent.jump_held = Input.is_action_pressed(JUMP)
 	intent.slide_held = Input.is_action_pressed(SLIDE)
+	intent.respawn_requested = Input.is_action_just_pressed(RESPAWN)
+	intent.restart_requested = Input.is_action_just_pressed(RESTART)
 	return intent
