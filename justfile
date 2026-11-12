@@ -46,9 +46,9 @@ lint:
     {{ venv_bin }}gdlint game tests
     {{ venv_bin }}gdformat --check game tests
 
-# Dead code and dependency boundaries
+# Layer boundaries, dead files and the .claude/ mirror (tools/check_structure.py)
 deadcode:
-    @echo "TO DEFINE: the dead-code and boundaries tool" && exit 1
+    {{ python }} tools/check_structure.py
 
 # Edit-loop gate, run after every change (check stays the gate before a commit)
 preflight: typecheck lint test deadcode
