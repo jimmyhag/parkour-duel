@@ -45,6 +45,11 @@ assistant. `CLAUDE.md` and `GEMINI.md` only import it: edit this file, not them.
   test of the same name: the English equivalent of the scenario title, in snake case
   after `test_`. When all tests pass and the implementation is complete, the developer
   (human or AI) updates the spec file to `**Statut : 🟢 Implémenté**`.
+- One exception to the spec rule, for tuning the feel: a change that only edits values
+  of the tuning resource, without a line of code, needs no spec, developer or inspector.
+  It still goes through a branch, a pull request and a green CI, and its description
+  says what the owner felt and which values changed. As soon as code changes, the full
+  circuit applies.
 - The feel of the game is the one thing no gate can check. Every report lists what only
   the owner can judge with the controller in hand.
 
