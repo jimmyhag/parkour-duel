@@ -15,5 +15,5 @@ cell means not assessed yet.
 | Facts (`player`) versus decisions (`core`) | `game/core/`, `game/player/` | discovered | 2026-11-12 |
 | Intents, fixed step and replayed tests | `game/core/`, `tests/` | discovered | 2026-11-12 |
 | Input map (named actions, physical keys) | `project.godot` | discovered | 2026-11-12 |
-| Timing tolerances on other moves (roll, wall-jump) | `docs/specs/movement-advanced.md` | discovered | 2026-11-12 |
+| Timing tolerances on other moves (roll, wall-jump) | `docs/specs/movement-ground.md` and `docs/specs/movement-walls.md` | discovered | 2026-11-12 |
 | Reactive test pilot versus a recorded sequence, and proving it can fail | `tests/`, first applied by `docs/specs/reactive-replays.md` | discovered | 2026-11-12 |
