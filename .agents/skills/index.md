@@ -15,7 +15,14 @@ because another one looks "main".
 
 | Task type | Paths touched | Skills to load | Extra verification |
 | :-------- | :------------ | :------------- | :----------------- |
-| [TO DEFINE: one row per layer found by `harness-setup`, e.g. `ui`, `domain`, `adapter`, `api`] | [TO DEFINE: the folders] | none yet | [TO DEFINE: what must run beyond `just check`, or "none"] |
+| `core` | `game/core/`, and its tests in `tests/` | none yet | none: every rule of `core` has a headless test |
+| `player` | `game/player/` | none yet | List under **Non vérifié** what the owner must judge by playing (movement, camera, input on keyboard and mouse and on gamepad) |
+| `world` | `game/world/` | none yet | List under **Non vérifié** what the owner must judge by playing |
+| `levels` | `game/levels/` | none yet | The course can be finished from start to end; if no test proves it, say so under **Non vérifié** |
+| `ui` | `game/ui/` | none yet | List under **Non vérifié** what the owner must look at on screen |
+| `net` | `game/net/` (roadmap step 5) | none yet | To be decided by the network spec |
+| `assets` | `assets/` | none yet | Every new file has its line in `assets/CREDITS.md` |
+| `tooling` | `justfile`, `tools/`, `project.godot`, `export_presets.cfg`, `.gutconfig.json`, `requirements-dev.txt`, `addons/`, `.github/`, `.godot-version`, `.python-version` | none (owners' files) | An owner's review; a gate that changes is seen failing once on a deliberate error |
 | `harness` | `.agents/`, `.claude/`, `docs/`, `AGENTS.md` | none (owners' files) | An owner's review |
 
 A spec in the sparring phase has no files yet: route on the files the request will

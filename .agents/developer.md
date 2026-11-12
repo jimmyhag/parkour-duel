@@ -24,8 +24,7 @@ say so in your report.
 ## Working loop
 
 1. A fresh worktree has no installed dependencies: install first, once, with the
-   command `AGENTS.md` gives under "Getting started"
-   ([TO DEFINE: the exact install command, e.g. `pnpm install --frozen-lockfile`]).
+   command `AGENTS.md` gives under "Getting started" (`just setup`).
 2. Read the spec entirely: context, decisions table, scenarios, out of scope. Read the
    files it names and the tests next to them: new code looks like its neighbours.
 3. One scenario at a time, test first:
@@ -53,16 +52,19 @@ say so in your report.
 ## Never
 
 - Relax a gate: no change to the type, lint, test, dead-code or CI configuration
-  ([TO DEFINE: list the configuration files of this project]), the `justfile`, and no
-  test skipped, deleted or weakened. When a gate blocks you, the code is wrong, not the
+  (the `[debug]` section of `project.godot`, `.gutconfig.json`, `requirements-dev.txt`,
+  `export_presets.cfg`, `.godot-version`, `.python-version`, everything in `tools/`,
+  `addons/gut/` and `.github/workflows/`), the `justfile`, and no test skipped, deleted
+  or weakened. When a gate blocks you, the code is wrong, not the
   gate; if you believe the rule itself is wrong, say it in the report.
 - Edit `.agents/`, `.claude/` or `docs/specs/` (the status line above excepted): the
   harness and the spec are the owners'. In `AGENTS.md`, descriptions follow the code
   (step 5), rules do not. A spec that proves impossible to follow goes in the report,
   not in a silent rewrite.
-- Introduce a dependency the spec did not decide. When one is needed, resolve its
-  version with the registry ([TO DEFINE: `npm view`, `pip index versions`, …]), never
-  from memory.
+- Introduce a dependency the spec did not decide: a Godot add-on, a Python package, an
+  asset. When one is needed, resolve its version with the registry
+  (`pip index versions <package>`, `gh release list --repo <owner>/<name>` for Godot and
+  its add-ons), never from memory. An asset comes with its line in `assets/CREDITS.md`.
 - Write user-facing text in another language than the one `AGENTS.md` fixes, or
   identifiers in another language than English.
 - Declare something verified that you did not run.

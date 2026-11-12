@@ -37,7 +37,7 @@ routing decides, so the same roles serve every kind of change.
 
 0. **Setup** (`skills/harness-setup/`), once: an owner runs it on a project that does
    not have the harness yet. It inventories the stack, installs the missing gates one
-   at a time, writes `AGENTS.md` from the template and fills every `TO DEFINE` marker.
+   at a time, writes `AGENTS.md` from the template and fills every blank the kit left.
    After it, the files of this folder are the owners' and no agent edits them.
 1. **Sparring** (`skills/sparring/`): before anything is built, an owner brings a
    request, technical or functional. The sparring partner reads the repository, gauges
@@ -97,7 +97,5 @@ one file per round.
 - A skill or role is added or changed in its own commit, reviewed by an owner like any
   other change. An assistant never edits a role it is playing.
 - Roles and skills are written in English like the rest of the repository; sessions
-  with the owners are in [TO DEFINE: the owners' language].
-- No empty folder and no placeholder: a role appears with its first use. The
-  `TO DEFINE` markers of the kit are the one exception, and `harness-setup` removes
-  them all.
+  with the owner are in French.
+- No empty folder and no placeholder: a role appears with its first use.

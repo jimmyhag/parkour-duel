@@ -9,8 +9,7 @@ request gets stronger before anyone builds it. You write no code and change no f
 except the spec you end with, its reference images in `docs/specs/assets/`, and
 `.agents/competences.md`.
 
-Speak the owner's language ([TO DEFINE: French]). Keep code identifiers and file names
-as they are.
+Speak the owner's language (French). Keep code identifiers and file names as they are.
 
 ## 1. Prepare (silently)
 
@@ -178,8 +177,8 @@ What was deliberately left out, and why.
 ```
 
 The status line, the Gherkin keywords and the section titles are in the owner's
-language ([TO DEFINE: the ones above are French]); the developer's test titles are
-their English equivalent.
+language (the ones above are French); the developer's test titles are their English
+equivalent.
 
 Then update `.agents/competences.md`: one row per concept rated during the session,
 with the owner's column and the date. Never lower a rating from an earlier session

@@ -17,8 +17,8 @@ unsure; never invent a rule.
 
 ## Inputs
 
-- A range to review: a branch (compared with the default branch,
-  [TO DEFINE: `origin/main`]) or a commit range. Without one, review the default
+- A range to review: a branch (compared with the default branch, `origin/main`) or a
+  commit range. Without one, review the default
   branch against `HEAD`.
 - The spec in `docs/specs/` the change implements, when there is one. If the request
   names none, look for the one the commit message names; if there is none, say so and
@@ -60,15 +60,22 @@ carry, a state derived where it should be received, are the usual shapes.
 a layer that must stay passive; a dependency that crosses a layer through a path the
 lint cannot see (a string, a dynamic import, a re-export); a side effect outside the
 place `AGENTS.md` reserves for it; a type of an external SDK crossing a contract.
-[TO DEFINE: the two or three shapes most likely in this codebase.]
+The shapes most likely in this codebase: a game rule (a state transition, a score, an
+ammunition count) decided in `player/`, `world/`, `ui/` or `levels/` instead of `core/`;
+the simulation advanced on frame time (`_process` and its delta) instead of the fixed
+step; input read anywhere else than the place that turns it into intents; a sabotage
+applied by a direct call instead of a dated message; a tuning number written in the
+code instead of the tuning resource; a resource loaded through a path built at run
+time, which hides the reference from `just deadcode`.
 
 ### 2. Wording and interface text
 
 If the project has user-facing text (`AGENTS.md`, "Interface" or equivalent): every
 string a user can see is in the language the rules fix, lives where the rules say
 (a labels file, a translation catalogue), uses the typography of that language;
-identifiers and comments stay in English. [TO DEFINE: where the strings live, or
-"not applicable".]
+identifiers and comments stay in English. On this project no rule says yet where the
+strings live: until a spec decides it, report a user-visible string written outside
+`game/ui/` as advisory.
 
 ### 3. Accessibility
 
@@ -76,13 +83,22 @@ If the project has a user interface (`AGENTS.md`, "Accessibility" or equivalent)
 semantic elements before ARIA; a keyboard path for every action; focus managed when a
 dialog opens and closes; target sizes; unavailable actions explained, not merely
 disabled; meaning never carried by colour alone; reduced motion respected.
-[TO DEFINE: the project's conventions, or "not applicable".]
+On this project `AGENTS.md` has no accessibility section yet. The two rules that exist
+are under "Working rules": keyboard bindings on physical keys, and every action
+available on keyboard and mouse and on gamepad.
 
 ### 4. Project conventions
 
 The sections of `AGENTS.md` specific to this project (a visual direction, a pipeline
-discipline, a data model rule…): [TO DEFINE: list the sections and the shapes to look
-for, or "none yet"].
+discipline, a data model rule…). On this project: the simulation rules of
+"Architecture" (intents, fixed step, dated sabotage messages, single tuning resource);
+"Out of scope" (work from a later roadmap step, anything built for mobile, a server or
+an account before step 5); the asset rule of "Working rules" (a file in `assets/`
+without its line in `assets/CREDITS.md`).
+
+The feel of the game cannot be read in a diff. Under **Non vérifiable ici**, always
+list what only the owner can judge with the controller in hand: each movement, timing
+window, camera behaviour or feedback the change touches.
 
 ### Then, always: working rules
 
