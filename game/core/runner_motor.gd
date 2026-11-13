@@ -5,7 +5,7 @@ extends RefCounted
 ## the velocity it wants. It uses nothing but its arguments and the tuning: no input, no
 ## clock, no scene.
 
-enum State { GROUNDED, RISING, FALLING, SLIDING }
+enum State { GROUNDED, RISING, FALLING, SLIDING, ROLLING, HARD_LANDING }
 
 ## Step counters start here: far enough for no tolerance window to be open.
 const LONG_AGO: int = 1 << 30
@@ -17,10 +17,15 @@ var velocity: Vector3 = Vector3.ZERO
 var _step_seconds: float = 0.0
 var _steps_in_the_air: int = LONG_AGO
 var _steps_since_jump_request: int = LONG_AGO
+var _steps_since_slide_press: int = LONG_AGO
 var _jump_spent: bool = true
 var _jump_cut: bool = false
 ## Where the slide is heading: what moves a runner that a low ceiling keeps down.
 var _slide_heading: Vector3 = Vector3.ZERO
+## The highest altitude since the runner last stood on a floor: where its fall starts.
+var _apex: float = -INF
+## Steps spent in the roll or the hard landing under way.
+var _landing_steps: int = 0
 
 
 func _init(movement_tuning: MovementTuning) -> void:
@@ -32,21 +37,22 @@ func _init(movement_tuning: MovementTuning) -> void:
 func step(intent: MoveIntent, facts: RunnerFacts, delta: float) -> Vector3:
 	velocity = facts.velocity
 	_step_seconds = delta
-	_observe_floor(facts.on_floor)
-	_remember_jump_request(intent.jump_pressed)
+	_remember_requests(intent)
+	_observe_floor(facts)
 	_choose_floor_state(intent, facts)
 	if state == State.SLIDING:
 		_slide(intent.direction, facts, delta)
-	else:
+	elif state != State.ROLLING:
+		# A roll keeps the speed it landed with.
 		_steer(intent.direction, delta)
 	if _can_jump(facts):
 		_start_jump(delta)
-	elif state == State.GROUNDED:
-		velocity.y = 0.0
 	elif state == State.SLIDING:
 		velocity.y = _speed_down_the_slope(facts.floor_normal)
-	else:
+	elif _is_in_the_air():
 		_fly(intent.jump_held, delta)
+	else:
+		velocity.y = 0.0
 	return velocity
 
 
@@ -59,11 +65,14 @@ func reset() -> void:
 	_jump_spent = true
 	_jump_cut = false
 	_slide_heading = Vector3.ZERO
+	_steps_since_slide_press = LONG_AGO
+	_apex = -INF
+	_landing_steps = 0
 
 
 ## The runner is low: its capsule has the height of a slide.
 func is_low() -> bool:
-	return state == State.SLIDING
+	return state == State.SLIDING or state == State.ROLLING
 
 
 ## Seconds during which a jump is still accepted although the floor is gone.
@@ -79,36 +88,64 @@ func jump_buffer_left() -> float:
 	return maxi(steps_left, 0) * _step_seconds
 
 
-func _observe_floor(on_floor: bool) -> void:
+func _remember_requests(intent: MoveIntent) -> void:
+	if intent.jump_pressed:
+		_steps_since_jump_request = 0
+	else:
+		_steps_since_jump_request = mini(_steps_since_jump_request + 1, LONG_AGO)
+	if intent.slide_pressed:
+		_steps_since_slide_press = 0
+	else:
+		_steps_since_slide_press = mini(_steps_since_slide_press + 1, LONG_AGO)
+
+
+func _observe_floor(facts: RunnerFacts) -> void:
 	# A jump that just started may still be reported on the floor: it has left it.
 	var taking_off: bool = state == State.RISING and velocity.y > 0.0
-	if on_floor and not taking_off:
+	if facts.on_floor and not taking_off:
 		if _is_in_the_air():
-			state = State.GROUNDED
+			_land(_apex - facts.altitude)
 		_steps_in_the_air = 0
 		_jump_spent = false
+		_apex = facts.altitude
 		return
 	_steps_in_the_air = mini(_steps_in_the_air + 1, LONG_AGO)
+	_apex = maxf(_apex, facts.altitude)
 	if not _is_in_the_air():
 		# Leaving the floor is falling, whatever the runner was doing on it.
 		state = State.FALLING
 
 
-func _remember_jump_request(jump_pressed: bool) -> void:
-	if jump_pressed:
-		_steps_since_jump_request = 0
+## The runner touches the floor after a fall of `fall_height`, measured from the highest
+## point it reached in the air. Above the height that asks for a roll, the slide must
+## have been pressed within the window before this step: a button held since earlier is
+## not a press. Otherwise the landing is hard and costs speed.
+func _land(fall_height: float) -> void:
+	_landing_steps = 0
+	if fall_height <= tuning.roll_fall_height:
+		state = State.GROUNDED
+	elif _steps_since_slide_press <= _window_steps(tuning.roll_window):
+		state = State.ROLLING
 	else:
-		_steps_since_jump_request = mini(_steps_since_jump_request + 1, LONG_AGO)
+		state = State.HARD_LANDING
+		velocity.x *= tuning.hard_landing_speed_ratio
+		velocity.z *= tuning.hard_landing_speed_ratio
 
 
 func _is_in_the_air() -> bool:
 	return state == State.RISING or state == State.FALLING
 
 
-## On the floor, standing or sliding. A slide starts while the slide is held with enough
-## speed, and ends when it is released or too slow. Under a low ceiling the runner
-## stays low whatever it asks.
+## On the floor: a roll and a hard landing last their time, then the runner stands or
+## slides. A slide starts while the slide is held with enough speed, and ends when it is
+## released or too slow. Under a low ceiling the runner stays low whatever it asks.
 func _choose_floor_state(intent: MoveIntent, facts: RunnerFacts) -> void:
+	if state == State.ROLLING or state == State.HARD_LANDING:
+		_landing_steps += 1
+		if _landing_steps > _landing_duration_steps():
+			# A roll that ends without room to stand up goes on as a slide.
+			var stands: bool = facts.can_stand or state == State.HARD_LANDING
+			state = State.GROUNDED if stands else State.SLIDING
 	var speed: float = Vector2(velocity.x, velocity.z).length()
 	if state == State.GROUNDED:
 		if intent.slide_held and speed >= tuning.slide_min_speed:
@@ -151,19 +188,26 @@ func _speed_down_the_slope(normal: Vector3) -> float:
 func _steer(direction: Vector3, delta: float) -> void:
 	var wish: Vector3 = Vector3(direction.x, 0.0, direction.z).limit_length(1.0)
 	var rate: float = tuning.air_acceleration
-	if state == State.GROUNDED:
+	var top_speed: float = tuning.top_speed
+	if state == State.HARD_LANDING:
+		top_speed *= tuning.hard_landing_speed_ratio
+	if not _is_in_the_air():
 		rate = tuning.ground_deceleration if wish.is_zero_approx() else tuning.ground_acceleration
 	elif wish.is_zero_approx():
 		# Nothing brakes in the air: the momentum of the run carries the jump.
 		return
 	var horizontal: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
-	horizontal = horizontal.move_toward(wish * tuning.top_speed, rate * delta)
+	horizontal = horizontal.move_toward(wish * top_speed, rate * delta)
+	if state == State.HARD_LANDING:
+		horizontal = horizontal.limit_length(top_speed)
 	velocity.x = horizontal.x
 	velocity.z = horizontal.z
 
 
 func _can_jump(facts: RunnerFacts) -> bool:
 	if _jump_spent:
+		return false
+	if state == State.HARD_LANDING:
 		return false
 	if is_low() and not facts.can_stand:
 		return false
@@ -197,6 +241,13 @@ func _jump_speed(delta: float) -> float:
 	var discriminant: float = gravity_step * gravity_step
 	discriminant += 8.0 * tuning.rise_gravity * tuning.jump_height
 	return (sqrt(discriminant) - gravity_step) / 2.0
+
+
+## How long the roll or the hard landing under way lasts, in fixed steps.
+func _landing_duration_steps() -> int:
+	if state == State.ROLLING:
+		return _window_steps(tuning.roll_duration)
+	return _window_steps(tuning.hard_landing_duration)
 
 
 ## A duration of the tuning, in fixed steps (rounded to the nearest step).

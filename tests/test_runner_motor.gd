@@ -281,6 +281,11 @@ func _tuning() -> MovementTuning:
 	tuning.slide_stop_speed = 2.5
 	tuning.slide_deceleration = 4.0
 	tuning.slide_turn_speed = 1.0
+	tuning.roll_fall_height = 4.0
+	tuning.roll_window = 0.20
+	tuning.roll_duration = 0.5
+	tuning.hard_landing_speed_ratio = 0.35
+	tuning.hard_landing_duration = 0.35
 	return tuning
 
 
