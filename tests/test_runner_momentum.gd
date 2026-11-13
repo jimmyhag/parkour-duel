@@ -14,15 +14,20 @@ func test_momentum_above_top_speed_is_kept_in_the_air() -> void:
 	var pushing: MotorBody = _in_the_air(tuning, fast)
 	var pushing_halfway: MotorBody = _in_the_air(tuning, fast)
 	var coasting: MotorBody = _in_the_air(tuning, fast)
+	var turning: MotorBody = _in_the_air(tuning, fast)
 
 	for i: int in 60:
 		pushing.step(_run(FORWARD))
 		pushing_halfway.step(_run(FORWARD * 0.5))
 		coasting.step(_run(Vector3.ZERO))
+		turning.step(_run(Vector3.RIGHT))
 		var context: String = "at step %d" % i
 		assert_almost_eq(pushing.horizontal_speed(), fast, TOLERANCE, "pushing forward " + context)
 		assert_almost_eq(pushing_halfway.horizontal_speed(), fast, TOLERANCE, "halfway " + context)
 		assert_almost_eq(coasting.horizontal_speed(), fast, TOLERANCE, "pushing nothing " + context)
+	# Kept without changing direction: turning costs speed, as it does under the top speed.
+	assert_lt(turning.horizontal_speed(), fast, "pushing aside, some speed went into the turn")
+	assert_gt(turning.velocity.dot(Vector3.RIGHT), 0.0, "and the runner did turn")
 
 
 func test_momentum_comes_down_slowly_on_the_floor() -> void:

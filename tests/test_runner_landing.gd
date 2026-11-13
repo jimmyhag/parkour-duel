@@ -11,7 +11,8 @@ const HARD_LANDING: RunnerMotor.State = RunnerMotor.State.HARD_LANDING
 const GROUNDED: RunnerMotor.State = RunnerMotor.State.GROUNDED
 ## The durations of the fixed tuning, in fixed steps at 60 steps per second: the roll
 ## window (0.20 s), the roll (0.5 s) and the hard landing (0.35 s). Written out on
-## purpose, not computed: a change of rounding must fail here.
+## purpose, not computed. All three are whole numbers of steps: a change of rounding
+## fails in test_a_slide_pressed_too_early_gives_no_roll, with a window that is not.
 const ROLL_WINDOW_STEPS: int = 12
 const ROLL_STEPS: int = 30
 const HARD_LANDING_STEPS: int = 21
@@ -95,6 +96,14 @@ func test_a_slide_pressed_too_early_gives_no_roll() -> void:
 
 	assert_eq(body.motor.state, HARD_LANDING, "one step before the window: a hard landing")
 
+	# A window of 0.21 s is 12.6 steps: 13 to the nearest step, 12 if truncated.
+	var longer_window: MovementTuning = MotorBody.fixed_tuning()
+	longer_window.roll_window = 0.21
+	var in_time: MotorBody = _land(longer_window, high, too_early)
+	var too_early_again: MotorBody = _land(longer_window, high, too_early - 1)
+	assert_eq(in_time.motor.state, ROLLING, "thirteen steps before the floor: in that window")
+	assert_eq(too_early_again.motor.state, HARD_LANDING, "fourteen steps before: out of it")
+
 
 func test_a_slide_held_since_before_the_window_gives_no_roll() -> void:
 	var tuning: MovementTuning = MotorBody.fixed_tuning()
@@ -141,9 +150,10 @@ func test_no_jump_during_a_hard_landing() -> void:
 func test_jumping_during_a_roll_keeps_the_speed() -> void:
 	var tuning: MovementTuning = MotorBody.fixed_tuning()
 	var high: float = tuning.roll_fall_height * 1.5
-	var body: MotorBody = _land(tuning, high, _landing_step(tuning, high) - 1)
+	var body: MotorBody = _land(tuning, high, _landing_step(tuning, high) - 1, 1, 1.5)
 	assert_eq(body.motor.state, ROLLING)
 	var roll_speed: float = body.horizontal_speed()
+	assert_gt(roll_speed, tuning.top_speed, "a roll faster than the top speed")
 
 	body.step(_jump(true))
 
@@ -198,11 +208,17 @@ func _landing_step(tuning: MovementTuning, height: float) -> int:
 
 
 ## Drops a body from `height` and returns it right after its first step on the floor.
-## The slide is pressed at the step `press_step`, if any, and held for `held_steps`.
+## The slide is pressed at the step `press_step`, if any, and held for `held_steps`. The
+## body goes forward at `pace` times the top speed.
 func _land(
-	tuning: MovementTuning, height: float, press_step: int = NEVER, held_steps: int = 1
+	tuning: MovementTuning,
+	height: float,
+	press_step: int = NEVER,
+	held_steps: int = 1,
+	pace: float = 1.0
 ) -> MotorBody:
 	var body: MotorBody = _dropped(tuning, height)
+	body.velocity *= pace
 	for i: int in _landing_step(tuning, height) + 1:
 		var intent: MoveIntent = _run(FORWARD)
 		intent.slide_pressed = i == press_step
