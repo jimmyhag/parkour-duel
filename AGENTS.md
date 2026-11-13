@@ -135,7 +135,8 @@ When one appears (the network transport, then Steam), these rules apply:
 game/               the game, one folder per layer (table above)
   core/             runner motor, intents, the facts the player observes, race state,
                     and the tuning resource
-  player/           the runner's scene: body, camera rig, intents read from the inputs
+  player/           the runner's scene: body, camera rig, intents read from the inputs,
+                    and what the body observes around it (floor, walls, ledges)
   world/            checkpoints and race lines
   ui/               timer display and debug display
   levels/           course scenes; test_course.tscn is the main scene for now
@@ -168,6 +169,11 @@ Do not create empty folders: a folder appears with its first file.
   created here: primitives while prototyping, then free packs.
 - Keyboard bindings use physical keys, and every action exists on keyboard and mouse
   and on gamepad.
+- Every wall of a level is a single block (one physics object): the runner's motor
+  recognises a wall by its object, so a wall made of two blocks could be climbed twice.
+  A wall that must not be run along goes in the `no_wall_run` group.
+- What the player observes for the motor never depends on where the visible body
+  looks: the visible body is presentation only.
 
 ## Out of scope
 
