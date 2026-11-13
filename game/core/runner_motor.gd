@@ -1,9 +1,9 @@
 class_name RunnerMotor
 extends RefCounted
 ## The runner's state machine. At every fixed step the player layer gives it an intent
-## and what it observed (on the floor or not, real velocity after collisions); it
-## answers with the state of the runner and the velocity it wants. It uses nothing but
-## its arguments and the tuning: no input, no clock, no scene.
+## and the facts it observed (RunnerFacts); it answers with the state of the runner and
+## the velocity it wants. It uses nothing but its arguments and the tuning: no input, no
+## clock, no scene.
 
 enum State { GROUNDED, RISING, FALLING }
 
@@ -27,10 +27,10 @@ func _init(movement_tuning: MovementTuning) -> void:
 
 ## Advances the runner by one fixed step of `delta` seconds and returns the velocity it
 ## wants for this step.
-func step(intent: MoveIntent, on_floor: bool, real_velocity: Vector3, delta: float) -> Vector3:
-	velocity = real_velocity
+func step(intent: MoveIntent, facts: RunnerFacts, delta: float) -> Vector3:
+	velocity = facts.velocity
 	_step_seconds = delta
-	_observe_floor(on_floor)
+	_observe_floor(facts.on_floor)
 	_remember_jump_request(intent.jump_pressed)
 	_steer(intent.direction, delta)
 	if _can_jump():

@@ -36,9 +36,16 @@ func _motor_falling_off_a_ledge() -> RunnerMotor:
 	tuning.jump_buffer_time = 0.12
 	var motor: RunnerMotor = RunnerMotor.new(tuning)
 	var running: Vector3 = Vector3(3.0, 0.0, -4.0)
-	var falling: Vector3 = motor.step(MoveIntent.new(), true, running, STEP)
-	motor.step(MoveIntent.new(), false, running + Vector3.UP * falling.y, STEP)
+	var falling: Vector3 = motor.step(MoveIntent.new(), _facts(true, running), STEP)
+	motor.step(MoveIntent.new(), _facts(false, running + Vector3.UP * falling.y), STEP)
 	return motor
+
+
+func _facts(on_floor: bool, velocity: Vector3) -> RunnerFacts:
+	var facts: RunnerFacts = RunnerFacts.new()
+	facts.on_floor = on_floor
+	facts.velocity = velocity
+	return facts
 
 
 func _trigger(action: StringName) -> void:

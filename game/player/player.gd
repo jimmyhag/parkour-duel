@@ -1,7 +1,7 @@
 class_name Player
 extends CharacterBody3D
 ## The runner's body. At every fixed step it asks its intent source for an intent,
-## gives it to the motor of game/core with what it observes (floor, real velocity), and
+## gives it to the motor of game/core with the facts it observes (RunnerFacts), and
 ## applies the velocity the motor wants. It decides nothing about the movement itself.
 
 ## Emitted at the end of every fixed step, with the intent the runner just followed.
@@ -34,7 +34,7 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	var intent: MoveIntent = intent_source.next_intent()
-	velocity = motor.step(intent, is_on_floor(), velocity, delta)
+	velocity = motor.step(intent, _observe(), delta)
 	move_and_slide()
 	_turn_towards_movement(delta)
 	stepped.emit(intent)
@@ -85,6 +85,17 @@ func teleport(spawn: Transform3D) -> void:
 	_visual.rotation.y = yaw
 	camera_rig.face(yaw)
 	reset_physics_interpolation()
+
+
+## What the motor needs to know about the body and the world around it.
+func _observe() -> RunnerFacts:
+	var facts: RunnerFacts = RunnerFacts.new()
+	facts.on_floor = is_on_floor()
+	facts.velocity = velocity
+	facts.altitude = global_position.y
+	if facts.on_floor:
+		facts.floor_normal = get_floor_normal()
+	return facts
 
 
 func _turn_towards_movement(delta: float) -> void:

@@ -30,7 +30,11 @@ class Body:
 		on_floor = start_height <= 0.0
 
 	func step(intent: MoveIntent) -> void:
-		velocity = motor.step(intent, on_floor, velocity, STEP)
+		var facts: RunnerFacts = RunnerFacts.new()
+		facts.on_floor = on_floor
+		facts.velocity = velocity
+		facts.altitude = height
+		velocity = motor.step(intent, facts, STEP)
 		height += velocity.y * STEP
 		on_floor = has_floor and height <= 0.0 and velocity.y <= 0.0
 		if on_floor:
@@ -233,8 +237,11 @@ func test_the_same_intents_give_the_same_result() -> void:
 		intent.jump_held = random.randf() < 0.5
 		if random.randf() < 0.03:
 			on_floor = not on_floor
-		var wanted: Vector3 = first.step(intent, on_floor, observed, STEP)
-		var twin: Vector3 = second.step(intent, on_floor, observed, STEP)
+		var facts: RunnerFacts = RunnerFacts.new()
+		facts.on_floor = on_floor
+		facts.velocity = observed
+		var wanted: Vector3 = first.step(intent, facts, STEP)
+		var twin: Vector3 = second.step(intent, facts, STEP)
 		if wanted != twin or first.state != second.state:
 			differences += 1
 		states_seen[first.state] = true
