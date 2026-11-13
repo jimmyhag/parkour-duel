@@ -73,12 +73,12 @@ func _floor_stops_ahead() -> bool:
 ## over it with room to stand on it. Jumping now tops the jump as the runner gets there.
 func _step_stands_ahead() -> bool:
 	var tuning: MovementTuning = _runner.tuning
-	var here: Transform3D = _runner.global_transform
-	var obstacle: KinematicCollision3D = KinematicCollision3D.new()
-	if not _runner.test_move(here, _direction * _reach(), obstacle):
+	var reach: float = _reach()
+	var free: float = _free_share(tuning.capsule_height, _direction * reach)
+	if free >= 1.0:
 		return false
-	var up_there: Transform3D = here.translated(Vector3.UP * tuning.jump_height)
-	var room: float = obstacle.get_travel().length() + 2.0 * tuning.capsule_radius
+	var up_there: Transform3D = _runner.global_transform.translated(Vector3.UP * tuning.jump_height)
+	var room: float = free * reach + 2.0 * tuning.capsule_radius
 	return not _runner.test_move(up_there, _direction * room)
 
 
@@ -141,23 +141,37 @@ func _reach() -> float:
 
 ## The share of `motion` (0 to 1) a body shaped like the runner, `height` tall, could
 ## cover from where the runner stands before something stops it. The body is probed
-## where the engine keeps the runner's own: its safe margin above the feet. Set flush
-## with the floor, it would be in it or out of it by a rounding error, and its travel
-## along the floor would stop anywhere.
+## standing on the ground under the runner's feet (see _probe_feet).
 func _free_share(height: float, motion: Vector3) -> float:
 	var capsule: CapsuleShape3D = CapsuleShape3D.new()
 	capsule.radius = _runner.tuning.capsule_radius
 	capsule.height = height
 	var query: PhysicsShapeQueryParameters3D = PhysicsShapeQueryParameters3D.new()
 	query.shape = capsule
-	var above_the_feet: float = height / 2.0 + _runner.safe_margin
-	query.transform = Transform3D(
-		Basis.IDENTITY, _runner.global_position + Vector3.UP * above_the_feet
-	)
+	query.transform = Transform3D(Basis.IDENTITY, _probe_feet() + Vector3.UP * height / 2.0)
 	query.motion = motion
 	query.collision_mask = _runner.collision_mask
 	query.exclude = [_runner.get_rid()]
 	return _runner.get_world_3d().direct_space_state.cast_motion(query)[0]
+
+
+## Where the feet of a probe body stand: on the ground under the runner's feet, or on
+## the feet themselves if they are higher (on a slope, or with no ground there), and in
+## both cases the engine's safe margin above, where it keeps the runner's own body. Never
+## lower: at the joint of two floor blocks the runner's body sinks for a step by more
+## than that margin, and a probe set from it would start inside the floor and stop on
+## the edge of the next block.
+func _probe_feet() -> Vector3:
+	var feet: Vector3 = _runner.global_position
+	var reach: Vector3 = Vector3.UP * _runner.tuning.capsule_radius
+	var ray: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
+		feet + reach, feet - reach, _runner.collision_mask, [_runner.get_rid()]
+	)
+	var ground: Dictionary = _runner.get_world_3d().direct_space_state.intersect_ray(ray)
+	if not ground.is_empty():
+		var ground_point: Vector3 = ground["position"]
+		feet.y = maxf(feet.y, ground_point.y)
+	return feet + Vector3.UP * _runner.safe_margin
 
 
 ## The speed at which the runner goes its way once this step has accelerated it.
