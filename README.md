@@ -23,7 +23,7 @@ a big drop (higher than what a landing forgives: roll), a ledge too high to jump
 (mantle), a gap too long to jump with a wall along it (wall run), a void between two
 walls facing each other with its far side higher (wall jumps), and a last combination
 of a low obstacle, a gap along a wall and a ledge before the finish line. The walls
-that can be run along are blue-grey. The timer starts at the start line and stops at the finish line; the best
+meant to be run along are blue-grey. The timer starts at the start line and stops at the finish line; the best
 time of the session stays on screen (nothing is saved to disk). Each section opens with
 a checkpoint: falling off the course brings the runner back to the last one reached,
 and the timer keeps running.
@@ -91,7 +91,8 @@ runner does in the air.
 
 Mantle: jump at a ledge too high to jump onto and keep pushing towards it. If its top
 is within reach and free, the runner climbs onto it and stands there, setting off at
-a walking pace. The climb goes to the end: jump and slide do nothing meanwhile.
+a reduced speed whatever speed it came with. The climb goes to the end: jump and slide
+do nothing meanwhile.
 
 Wall run: in the air, fast enough and high enough above the ground, push along a wall
 beside you. The runner runs along it for a moment, falling slowly, and keeps its

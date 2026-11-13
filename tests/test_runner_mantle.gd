@@ -129,6 +129,33 @@ func test_the_mantle_goes_to_the_end() -> void:
 	assert_eq(body.motor.state, GROUNDED, "and the jumps asked during the mantle are forgotten")
 	assert_eq(body.velocity.y, 0.0, "it stays on the ledge")
 
+	# A mantle is a contact with the ground: one reached by a fall from high sets off
+	# standing, even when the mantle ends a step before the floor is felt under the feet
+	# (as the real physics may report it).
+	var fallen: MotorBody = MotorBody.new(tuning, tuning.roll_fall_height * 2.0)
+	fallen.has_ledge = true
+	fallen.ledge_face = fallen.position.z - tuning.capsule_radius
+	fallen.ledge_top = tuning.roll_fall_height / 2.0
+	steps = 0
+	while fallen.motor.state != MANTLING and steps < MANY_STEPS:
+		# Straight down past the top, then towards the face.
+		var beside_the_face: bool = fallen.position.y < fallen.ledge_top
+		fallen.step(_run(FORWARD if beside_the_face else Vector3.ZERO))
+		steps += 1
+	assert_eq(fallen.motor.state, MANTLING, "after a high fall, a mantle")
+	fallen.has_floor = false
+	while fallen.motor.state == MANTLING and steps < MANY_STEPS:
+		fallen.step(_run(FORWARD))
+		steps += 1
+	assert_eq(fallen.motor.state, RunnerMotor.State.FALLING, "over, before the floor is felt")
+	fallen.has_floor = true
+	while not fallen.on_floor and steps < MANY_STEPS:
+		fallen.step(_run(FORWARD))
+		steps += 1
+	fallen.step(_run(FORWARD))
+	assert_eq(fallen.motor.state, GROUNDED, "then it stands on the ledge: no hard landing")
+	assert_almost_eq(fallen.position.y, fallen.ledge_top, TOLERANCE)
+
 
 func _run(direction: Vector3) -> MoveIntent:
 	var intent: MoveIntent = MoveIntent.new()
