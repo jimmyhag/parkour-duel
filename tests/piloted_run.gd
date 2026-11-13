@@ -6,7 +6,9 @@ extends RefCounted
 ## reads here how it ended and what the runner did while the pilot was leading it.
 
 ## REACHED: the runner entered the goal, then came to rest on the floor.
-## FELL: the runner went lower than every block of its course.
+## FELL: the runner went lower than every block of its course. A course only shows it if
+## it brings a fallen runner back from lower still (Course.fall_limit): otherwise the
+## runner is back at a checkpoint first, and the run ends OUT_OF_STEPS.
 ## OUT_OF_STEPS: the step budget ran out before either happened.
 enum Outcome { REACHED, FELL, OUT_OF_STEPS }
 
@@ -21,6 +23,16 @@ var goal_reached: bool = false
 var jumps: int = 0
 ## Steps the runner spent off the floor while the pilot was leading it.
 var steps_in_the_air: int = 0
+## Steps at which the pilot asked for the slide, pressed or held.
+var slide_requests: int = 0
+## Steps the runner spent sliding, rolling and in a hard landing while the pilot was
+## leading it.
+var steps_sliding: int = 0
+var steps_rolling: int = 0
+var steps_landing_hard: int = 0
+## Whether the pilot may ask for the slide, to pass under an obstacle or to roll. To set
+## before the run starts.
+var pilot_slides: bool = true
 
 var _runner: Player
 var _to_goal: Vector3
@@ -75,7 +87,7 @@ func observe_step() -> void:
 	elif _pilot_leads:
 		steps_in_the_air += int(not _runner.is_on_floor())
 	elif _runner.is_on_floor():
-		_runner.intent_source = PilotIntentSource.new(_runner, _to_goal)
+		_runner.intent_source = PilotIntentSource.new(_runner, _to_goal, pilot_slides)
 		_pilot_leads = true
 	if not is_over and _steps >= _budget:
 		_end(Outcome.OUT_OF_STEPS)
@@ -106,5 +118,11 @@ func _on_goal_entered(body: Node3D) -> void:
 
 
 func _on_runner_stepped(intent: MoveIntent) -> void:
-	if _pilot_leads and intent.jump_pressed:
-		jumps += 1
+	if not _pilot_leads:
+		return
+	jumps += int(intent.jump_pressed)
+	slide_requests += int(intent.slide_pressed or intent.slide_held)
+	var state: RunnerMotor.State = _runner.motor.state
+	steps_sliding += int(state == RunnerMotor.State.SLIDING)
+	steps_rolling += int(state == RunnerMotor.State.ROLLING)
+	steps_landing_hard += int(state == RunnerMotor.State.HARD_LANDING)

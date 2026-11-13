@@ -12,6 +12,8 @@ const WORLD_LAYER: int = 1
 const STEP: float = 1.0 / 60.0
 ## A few steps: enough to land on the floor under the feet, or to stand up.
 const FEW_STEPS: int = 5
+## How far a beam hung over a runner goes, before and after it.
+const BEAM_REACH: float = 1.0
 
 
 func after_each() -> void:
@@ -89,7 +91,16 @@ func test_the_capsule_lowers_while_sliding_and_rises_after() -> void:
 	assert_true(player.is_on_floor(), "it stays on the floor")
 	assert_almost_eq(_capsule_height(bystander), standing, TOLERANCE, "another runner stands")
 
+	# A beam too low to stand under, hung over the runner as its slide is released: it
+	# rises once it is out from under it, not before.
+	var clearance: float = (low + standing) / 2.0
+	var over: Vector3 = player.global_position + Vector3.UP * (clearance + 0.5)
+	_add_box(Vector3(2.0, 1.0, 2.0 * BEAM_REACH), over)
 	await _wait_steps(FEW_STEPS)
+	assert_eq(player.motor.state, RunnerMotor.State.SLIDING, "it stays low under the beam")
+	assert_almost_eq(_capsule_height(player), low, TOLERANCE, "and so does its collision shape")
+	var slowest: float = tuning.slide_stop_speed * STEP
+	await _wait_steps(ceili((BEAM_REACH + tuning.capsule_radius) / slowest))
 
 	assert_eq(player.motor.state, RunnerMotor.State.GROUNDED, "it stood up")
 	assert_almost_eq(_capsule_height(player), standing, TOLERANCE, "its shape is tall again")

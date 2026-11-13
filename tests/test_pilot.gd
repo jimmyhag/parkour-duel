@@ -37,6 +37,17 @@ class Track:
 	func add_void(void_length: float) -> void:
 		length += void_length
 
+	## Hangs a beam across the course over the point `over`: `beam_length` long, its
+	## underside `clearance` above that point, `thickness` thick.
+	func add_beam(over: Vector3, beam_length: float, clearance: float, thickness: float) -> void:
+		var box: BoxShape3D = BoxShape3D.new()
+		box.size = Vector3(WIDTH, thickness, beam_length)
+		var beam: StaticBody3D = StaticBody3D.new()
+		beam.collision_layer = WORLD_LAYER
+		beam.add_child(_collider(box))
+		beam.position = over + Vector3.UP * (clearance + thickness / 2.0)
+		add_child(beam)
+
 	## Adds a goal across the course, standing on the point `at`.
 	func add_goal(at: Vector3) -> Area3D:
 		var box: BoxShape3D = BoxShape3D.new()
@@ -71,6 +82,7 @@ func test_the_pilot_clears_a_course_it_does_not_know() -> void:
 
 	assert_eq(run.outcome, PilotedRun.Outcome.REACHED, "the end is reached, without falling")
 	assert_eq(run.jumps, 2, "one jump over the void, one onto the step, no other")
+	assert_eq(run.slide_requests, 0, "and the slide is never asked for: no fall is high")
 	assert_almost_eq(runner.global_position.y, end.y, NEAR, "and the runner stands on the step")
 
 
@@ -117,6 +129,52 @@ func test_the_pilot_does_not_jump_at_a_wall_it_cannot_clear() -> void:
 	assert_eq(run.outcome, PilotedRun.Outcome.OUT_OF_STEPS, "the wall stops the runner")
 	assert_eq(run.jumps, 0, "and the pilot does not jump at it")
 	assert_almost_eq(runner.global_position.y, start.y, NEAR, "it stands at the foot of the wall")
+
+
+func test_the_pilot_slides_under_a_low_obstacle_it_does_not_know() -> void:
+	var track: Track = _add_track()
+	var runner: Player = _add_runner(track)
+	var tuning: MovementTuning = runner.tuning
+	var start: Vector3 = track.add_block(12.3)
+	var under_the_beam: Vector3 = track.add_block(4.6)
+	# Too low to stand under, high enough for a slide, too tall to jump over.
+	var clearance: float = (tuning.slide_capsule_height + tuning.capsule_height) / 2.0
+	var beam_length: float = 2.7
+	track.add_beam(under_the_beam, beam_length, clearance, tuning.jump_height * 2.0)
+	var goal: Area3D = track.add_goal(track.add_block(9.8))
+	runner.teleport(Transform3D(Basis.IDENTITY, start))
+	# The steps at which the whole body of the runner is under the beam, and those of
+	# them at which the slide is held.
+	var steps_under: Array[bool] = []
+	var whole_body_under: float = beam_length / 2.0 - tuning.capsule_radius
+	runner.stepped.connect(
+		func(intent: MoveIntent) -> void:
+			if absf(runner.global_position.z - under_the_beam.z) < whole_body_under:
+				steps_under.append(intent.slide_held)
+	)
+
+	var run: PilotedRun = await _pilot_to(runner, goal, track)
+
+	assert_eq(run.outcome, PilotedRun.Outcome.REACHED, "the end is reached")
+	assert_gt(run.steps_sliding, 0, "by sliding")
+	assert_gt(steps_under.size(), 0, "under the beam")
+	assert_does_not_have(steps_under, false, "where the pilot never lets go of the slide")
+	assert_eq(run.jumps, 0, "without a jump")
+	assert_eq(runner.motor.state, RunnerMotor.State.GROUNDED, "and the runner stands at the end")
+
+
+func test_the_pilot_does_not_slide_without_a_reason() -> void:
+	var track: Track = _add_track()
+	var runner: Player = _add_runner(track)
+	var start: Vector3 = track.add_block(10.7)
+	var goal: Area3D = track.add_goal(track.add_block(14.9))
+	runner.teleport(Transform3D(Basis.IDENTITY, start))
+
+	var run: PilotedRun = await _pilot_to(runner, goal, track)
+
+	assert_eq(run.outcome, PilotedRun.Outcome.REACHED, "the runner ran to the goal")
+	assert_eq(run.slide_requests, 0, "without ever asking for the slide")
+	assert_eq(run.steps_sliding, 0, "and without sliding")
 
 
 func _add_track() -> Track:
