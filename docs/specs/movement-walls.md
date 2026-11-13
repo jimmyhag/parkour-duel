@@ -1,6 +1,6 @@
 # Mouvements aux murs : mantle, wall-run, wall-jump et parcours complet
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-12, relue le 2026-11-13 avec Jimmy, une première fois à la scission de
 `docs/specs/movement-advanced.md`, une seconde fois après la fusion des mouvements au sol
