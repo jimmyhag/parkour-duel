@@ -320,14 +320,15 @@ Le code a tranché ces points là où la spec se taisait. Ils sont acceptés tel
 - **Coureur baissé qui atterrit sans la place de se tenir debout** (seconde inspection) :
   il continue en glissade, sans test de roulade ni réception lourde, même après une
   chute de plus de 4 m. Le cas n'existe pas sur le parcours ; à rouvrir si un niveau le
-  crée.
+  crée. **Remplacé** par la décision 18 de `docs/specs/movement-walls.md`.
 - **Glissade lente au-dessus d'une fente sous un plafond bas** (troisième passe) : en
   l'air, la vitesse plancher de la décision 6 ne s'applique pas ; avec un ralentissement
   de glissade de 7 m/s² (hors de la plage garantie), le coureur reste pris dans une fente
   plus étroite que lui, construite par le test du pilote. Le parcours n'a pas de fente ;
   le retour au checkpoint en sort. Si Jimmy règle cette valeur au-delà de 6 m/s², ou si un
   niveau crée une fente sous un obstacle bas, la vitesse plancher s'étend à l'air : à
-  traiter avec la relecture de `docs/specs/movement-walls.md`.
+  traiter avec la relecture de `docs/specs/movement-walls.md`. **Remplacé** par la
+  décision 18 de `docs/specs/movement-walls.md`.
 - **Feuille de route du README** : la ligne de l'étape 1 dit que les mouvements au sol
   sont en place ; elle devient vraie à la fusion.
 
