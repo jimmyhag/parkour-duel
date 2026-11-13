@@ -12,6 +12,33 @@ const FORWARD: Vector3 = Vector3.FORWARD
 const LOW_OBSTACLE: String = "Blocks/LowBeam"
 
 
+## One runner leaving a ledge, followed step by step until it lands.
+class Flight:
+	var state_on_the_ledge: RunnerMotor.State = RunnerMotor.State.FALLING
+	## The vertical speed at the first step off the floor: negative when going down.
+	var speed_down_at_take_off: float = 0.0
+	var steps_in_the_air: int = 0
+	var has_landed: bool = false
+
+	var _runner: Player
+
+	func _init(runner: Player) -> void:
+		_runner = runner
+
+	## To call after every fixed step.
+	func observe() -> void:
+		if has_landed:
+			return
+		if not _runner.is_on_floor():
+			if steps_in_the_air == 0:
+				speed_down_at_take_off = _runner.velocity.y
+			steps_in_the_air += 1
+		elif steps_in_the_air == 0:
+			state_on_the_ledge = _runner.motor.state
+		else:
+			has_landed = true
+
+
 ## Runs forward, and holds the slide for as long as the floor goes down under its runner.
 class SlopeSlider:
 	extends IntentSource
@@ -101,31 +128,34 @@ func test_sliding_off_a_ledge_does_not_push_the_runner_down() -> void:
 	runner.intent_source = ScriptedIntentSource.new().hold(FORWARD, false, budget)
 
 	# Each one is followed from the ledge, through the air, to the floor it lands on.
-	var flights: Array[float] = [0.0, 0.0]
-	var flew: Array[bool] = [false, false]
-	var states_on_the_ledge: Array[RunnerMotor.State] = [SLIDING, SLIDING]
-	var landed: int = 0
+	# They do not reach the edge at the same speed (the floor takes less from a slide
+	# than from a run), so what is compared is what a push down changes whatever the
+	# speed: how fast each one goes down as it leaves the ledge, and how long it takes to
+	# fall to the same floor.
+	var flights: Array[Flight] = [Flight.new(slider), Flight.new(runner)]
 	var steps: int = 0
-	while landed < flights.size() and steps < budget:
+	while not (flights[0].has_landed and flights[1].has_landed) and steps < budget:
 		await get_tree().physics_frame
 		steps += 1
-		landed = 0
-		for index: int in flights.size():
-			var body: Player = slider if index == 0 else runner
-			if not body.is_on_floor():
-				flew[index] = true
-			elif not flew[index]:
-				states_on_the_ledge[index] = body.motor.state
-			elif flights[index] == 0.0:
-				flights[index] = body.global_position.dot(FORWARD)
-			landed += int(flights[index] != 0.0)
+		for flight: Flight in flights:
+			flight.observe()
 
-	assert_eq(landed, 2, "both left the ledge and landed")
+	var sliding: Flight = flights[0]
+	var running: Flight = flights[1]
+	assert_true(sliding.has_landed and running.has_landed, "both left the ledge and landed")
 	assert_lt(slider.global_position.y, ledge_altitude - NEAR, "lower than the ledge")
-	assert_lt(runner.global_position.y, ledge_altitude - NEAR, "both of them")
-	assert_eq(states_on_the_ledge[0], SLIDING, "one slid off the ledge")
-	assert_eq(states_on_the_ledge[1], RunnerMotor.State.GROUNDED, "the other ran off it")
-	assert_gte(flights[0], flights[1], "the one that slides lands at least as far")
+	assert_almost_eq(slider.global_position.y, runner.global_position.y, NEAR, "on one floor")
+	assert_eq(sliding.state_on_the_ledge, SLIDING, "one slid off the ledge")
+	assert_eq(running.state_on_the_ledge, RunnerMotor.State.GROUNDED, "the other ran off it")
+	assert_gte(
+		sliding.speed_down_at_take_off,
+		running.speed_down_at_take_off,
+		"the one that slides leaves the ledge going down no faster than the one that runs"
+	)
+	# Within one fixed step: how many steps a body takes to roll off the corner of the
+	# ledge depends on where its steps fall, not on a push.
+	var longest_fall: int = running.steps_in_the_air
+	assert_gte(sliding.steps_in_the_air + 1, longest_fall, "and it falls for as long, to the step")
 
 
 func test_the_low_passage_stops_a_standing_runner() -> void:

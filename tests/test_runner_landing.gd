@@ -74,6 +74,16 @@ func test_a_hard_landing_costs_speed() -> void:
 	assert_eq(body.motor.state, GROUNDED, "then the runner runs again")
 	assert_gt(body.horizontal_speed(), kept, "and picks up speed")
 
+	# Faster than the top speed, the landing still ends at that share of the top speed.
+	var fast: MotorBody = _dropped(tuning, tuning.roll_fall_height * 1.5)
+	fast.velocity *= 1.5
+	_fall_to_the_floor(fast)
+	assert_eq(fast.motor.state, HARD_LANDING, "a fast hard landing")
+	assert_lte(fast.horizontal_speed(), kept + TOLERANCE, "no faster than the share of top speed")
+	for i: int in HARD_LANDING_STEPS - 1:
+		fast.step(_run(FORWARD))
+		assert_lte(fast.horizontal_speed(), kept + TOLERANCE, "nor at step %d" % i)
+
 	var slow: MotorBody = _dropped(tuning, tuning.roll_fall_height * 1.5)
 	slow.velocity = FORWARD * tuning.top_speed / 2.0
 	_fall_to_the_floor(slow)
