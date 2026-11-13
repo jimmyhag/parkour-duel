@@ -28,6 +28,10 @@ class BesideAWall:
 	var wall: StaticBody3D
 	## The runner ran along the wall at some step.
 	var did_run_along: bool = false
+	## It ran along the wall from its very first step, its visible body still looking at
+	## the wall.
+	var ran_along_at_once: bool = false
+	var _steps: int = 0
 
 	## A wall whose face, at the height of the middle of the runner's body, stands
 	## `gap` metres from its side, leaning by `tilt` degrees, `height` tall; and, if
@@ -61,11 +65,17 @@ class BesideAWall:
 
 	func launch() -> void:
 		runner.teleport(Transform3D(Basis.IDENTITY, global_position + START))
+		# The visible body looks at the wall: what the runner observes must not depend on
+		# it (decision 22).
+		(runner.get_node("Visual") as Node3D).rotation.y = PI / 2.0
 		runner.velocity = FORWARD * runner.tuning.top_speed
 		runner.intent_source = ScriptedIntentSource.new().hold(FORWARD, false, STEPS)
 
 	func _on_runner_stepped(_intent: MoveIntent) -> void:
-		did_run_along = did_run_along or runner.motor.state == WALL_RUNNING
+		_steps += 1
+		var along: bool = runner.motor.state == WALL_RUNNING
+		ran_along_at_once = ran_along_at_once or (along and _steps == 1)
+		did_run_along = did_run_along or along
 
 
 func test_an_excluded_wall_gives_no_wall_run() -> void:
@@ -77,6 +87,7 @@ func test_an_excluded_wall_gives_no_wall_run() -> void:
 	await _launch([plain, excluded])
 
 	assert_true(plain.did_run_along, "a plain wall gives a wall run")
+	assert_true(plain.ran_along_at_once, "at once, wherever the visible body looks")
 	assert_false(excluded.did_run_along, "the same wall, excluded by its level, gives none")
 	assert_lt(excluded.runner.velocity.y, 0.0, "the runner falls")
 

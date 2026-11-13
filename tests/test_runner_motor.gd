@@ -301,6 +301,7 @@ func _tuning() -> MovementTuning:
 	tuning.hard_landing_duration = 0.35
 	tuning.momentum_deceleration = 6.0
 	tuning.max_horizontal_speed = 22.0
+	tuning.push_split_angle = 45.0
 	tuning.mantle_min_height = 0.9
 	tuning.mantle_max_height = 2.2
 	tuning.mantle_duration = 0.35

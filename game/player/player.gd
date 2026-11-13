@@ -39,7 +39,7 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	var intent: MoveIntent = intent_source.next_intent()
-	velocity = motor.step(intent, _observe(), delta)
+	velocity = motor.step(intent, _observe(intent), delta)
 	_fit_capsule()
 	move_and_slide()
 	_turn_towards_movement(delta)
@@ -89,8 +89,9 @@ func teleport(spawn: Transform3D) -> void:
 	reset_physics_interpolation()
 
 
-## What the motor needs to know about the body and the world around it.
-func _observe() -> RunnerFacts:
+## What the motor needs to know about the body and the world around it. Nothing of it
+## depends on where the visible body looks: that is presentation only.
+func _observe(intent: MoveIntent) -> RunnerFacts:
 	var facts: RunnerFacts = RunnerFacts.new()
 	facts.on_floor = is_on_floor()
 	facts.velocity = velocity
@@ -99,8 +100,8 @@ func _observe() -> RunnerFacts:
 		facts.floor_normal = _normal_of_the_ground_underfoot()
 	facts.can_stand = not motor.is_low() or _has_headroom()
 	facts.ground_clearance = _ground_clearance()
-	_observe_the_wall_beside(facts)
-	_observe_the_ledge_ahead(facts)
+	_observe_the_wall_beside(facts, intent)
+	_observe_the_ledge_ahead(facts, intent)
 	return facts
 
 
@@ -122,10 +123,17 @@ func _ground_clearance() -> float:
 
 
 ## The nearest wall at the runner's left or right, probed straight aside from the middle
-## of its body, as far as a wall run reaches. A wall is a fixed body (a static body)
-## that its level did not exclude; its identity is the identity of the body.
-func _observe_the_wall_beside(facts: RunnerFacts) -> void:
-	var right: Vector3 = _facing().cross(Vector3.UP)
+## of its body, as far as a wall run reaches: aside from the way the body moves, or from
+## the way the runner pushes when the body hardly moves. A wall is a fixed body (a
+## static body) that its level did not exclude; its identity is the identity of the
+## body.
+func _observe_the_wall_beside(facts: RunnerFacts, intent: MoveIntent) -> void:
+	var heading: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
+	if heading.is_zero_approx():
+		heading = Vector3(intent.direction.x, 0.0, intent.direction.z)
+	if heading.is_zero_approx():
+		return
+	var right: Vector3 = heading.normalized().cross(Vector3.UP)
 	var middle: Vector3 = global_position + Vector3.UP * _capsule_height() / 2.0
 	var reach: float = tuning.capsule_radius + tuning.wall_run_distance
 	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
@@ -162,22 +170,21 @@ func _height_of(body: CollisionObject3D, shape_index: int) -> float:
 	return box.size.y
 
 
-## The ledge the runner ran into in front of it at the last step, if any: the face it
-## touched, more in front of it than beside it, and the top of the block behind that
-## face, probed from above as high as the highest ledge a mantle climbs plus a standing
-## body, down to the feet. Its top is free when a standing body fits on it.
-func _observe_the_ledge_ahead(facts: RunnerFacts) -> void:
-	var facing: Vector3 = _facing()
+## The ledge the runner pushes against, if any: of the faces the body touched at the
+## last step, the one the push goes most into (the motor judges whether it is enough),
+## and the top of the block behind that face, probed from above as high as the highest
+## ledge a mantle climbs plus a standing body, down to the feet. Its top is free when a
+## standing body fits on it.
+func _observe_the_ledge_ahead(facts: RunnerFacts, intent: MoveIntent) -> void:
+	var push: Vector3 = Vector3(intent.direction.x, 0.0, intent.direction.z)
 	var front: KinematicCollision3D = null
-	var most_in_front: float = 0.0
+	var most_into: float = 0.0
 	for index: int in get_slide_collision_count():
 		var collision: KinematicCollision3D = get_slide_collision(index)
 		var normal: Vector3 = collision.get_normal()
-		var across: Vector3 = Vector3(normal.x, 0.0, normal.z).normalized()
-		var into: float = -facing.dot(across)
-		# In front rather than beside: more into the face than along it.
-		if into > (facing + across * into).length() and into > most_in_front:
-			most_in_front = into
+		var into: float = -push.dot(Vector3(normal.x, 0.0, normal.z).normalized())
+		if into > most_into:
+			most_into = into
 			front = collision
 	if front == null:
 		return

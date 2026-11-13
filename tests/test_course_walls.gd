@@ -98,10 +98,13 @@ func test_returning_to_the_checkpoint_works_from_the_mantle_and_the_wall_run() -
 		var runner: Player = attempt.course.player
 		var standing: float = runner.tuning.capsule_height
 
-		while not _is_in(runner, index) and not attempt.run.is_over:
+		var before: RunnerMotor.State = runner.motor.state
+		while not _is_in(runner, index, before) and not attempt.run.is_over:
+			before = runner.motor.state
 			await get_tree().physics_frame
 			attempt.run.observe_step()
-		assert_true(_is_in(runner, index), "the pilot led the runner into the " + context)
+		var into_it: bool = _is_in(runner, index, before)
+		assert_true(into_it, "the pilot led the runner into the " + context)
 
 		runner.intent_source = ScriptedIntentSource.new().request_respawn()
 		await _wait_steps(1)
@@ -121,10 +124,12 @@ func test_returning_to_the_checkpoint_works_from_the_mantle_and_the_wall_run() -
 
 ## Whether the runner is in the move of the case `index`: a mantle, a wall run, or the
 ## flight that follows a wall jump.
-func _is_in(runner: Player, index: int) -> bool:
+func _is_in(runner: Player, index: int, before: RunnerMotor.State) -> bool:
 	match index:
 		0:
 			return runner.motor.state == MANTLING
 		1:
 			return runner.motor.state == WALL_RUNNING
-	return runner.motor.jumped_off_a_wall
+	# Rising, where it ran along a wall the step before: it jumped off it.
+	var rising: bool = runner.motor.state == RunnerMotor.State.RISING
+	return rising and before == WALL_RUNNING

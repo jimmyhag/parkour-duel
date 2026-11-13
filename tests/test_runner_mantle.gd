@@ -87,10 +87,14 @@ func test_no_mantle_without_pushing_towards_the_ledge() -> void:
 			body.step(_run(direction))
 			assert_ne(body.motor.state, MANTLING, context + "no mantle at step %d" % i)
 
-	# Pushing mostly towards the ledge is pushing towards it.
+	# Pushing mostly towards the ledge is pushing towards it, and so is a push exactly on
+	# the limit of the tuning (the keyboard diagonal, at the default one).
 	var almost: MotorBody = _against_a_ledge(tuning, height)
 	almost.step(_run((FORWARD * 2.0 + Vector3.RIGHT).normalized()))
 	assert_eq(almost.motor.state, MANTLING, "pushing mostly towards the ledge climbs it")
+	var on_the_limit: MotorBody = _against_a_ledge(tuning, height)
+	on_the_limit.step(_run((FORWARD + Vector3.RIGHT).normalized()))
+	assert_eq(on_the_limit.motor.state, MANTLING, "a push on the limit climbs it too")
 
 
 func test_no_mantle_if_the_top_is_blocked() -> void:

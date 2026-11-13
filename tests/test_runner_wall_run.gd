@@ -74,6 +74,43 @@ func test_the_wall_run_starts_by_itself_along_a_wall() -> void:
 		)
 
 
+func test_the_keyboard_diagonal_starts_a_wall_run() -> void:
+	var tuning: MovementTuning = MotorBody.fixed_tuning()
+	# Forward and the key towards the wall at its left: exactly the default limit.
+	var diagonal: Vector3 = (FORWARD - LEFT_WALL).normalized()
+	var body: MotorBody = _beside_a_wall(tuning, tuning.top_speed)
+
+	body.step(_run(diagonal))
+
+	assert_eq(body.motor.state, WALL_RUNNING, "on the limit, the push counts as along the wall")
+	# The limit is the one of the tuning: narrower, the same push is towards the wall.
+	var narrower: MovementTuning = MotorBody.fixed_tuning()
+	narrower.push_split_angle = tuning.push_split_angle * 2.0 / 3.0
+	var refused: MotorBody = _beside_a_wall(narrower, narrower.top_speed)
+	refused.step(_run(diagonal))
+	assert_eq(refused.motor.state, FALLING, "with a narrower limit, no wall run")
+
+
+func test_a_too_steep_approach_does_not_spoil_the_wall() -> void:
+	var tuning: MovementTuning = MotorBody.fixed_tuning()
+	# Fast, but nearly head-on: slower along the wall than a wall run ends.
+	var along: float = tuning.wall_run_stop_speed * 0.9
+	var towards: float = tuning.top_speed * 1.2
+	var body: MotorBody = _beside_a_wall(tuning, along)
+	body.velocity += -LEFT_WALL * towards
+	assert_gt(body.horizontal_speed(), tuning.wall_run_start_speed, "fast")
+
+	body.step(_run(FORWARD))
+	assert_eq(body.motor.state, FALLING, "the first time, no wall run")
+	body.step(_run(FORWARD))
+	assert_eq(body.motor.state, FALLING, "nor at the next step")
+
+	body.velocity = FORWARD * tuning.top_speed + Vector3.UP * body.velocity.y
+	body.step(_run(FORWARD))
+	assert_false(body.on_floor, "without having touched the ground")
+	assert_eq(body.motor.state, WALL_RUNNING, "back along the wall fast enough: a wall run")
+
+
 func test_no_wall_run_without_speed() -> void:
 	var tuning: MovementTuning = MotorBody.fixed_tuning()
 	var too_slow: float = tuning.wall_run_start_speed - 0.1
@@ -199,7 +236,9 @@ func test_pushing_away_from_the_wall_detaches() -> void:
 	var tuning: MovementTuning = MotorBody.fixed_tuning()
 	var mostly_along: Vector3 = (FORWARD * 2.0 + LEFT_WALL).normalized()
 	var into_the_wall: Vector3 = -LEFT_WALL
-	for direction: Vector3 in [mostly_along, into_the_wall]:
+	# Exactly on the limit, away from the wall: leaving it takes a push beyond the limit.
+	var on_the_limit: Vector3 = (FORWARD + LEFT_WALL).normalized()
+	for direction: Vector3 in [mostly_along, into_the_wall, on_the_limit]:
 		var staying: MotorBody = _wall_runner(tuning, tuning.top_speed)
 		staying.step(_run(direction))
 		assert_eq(staying.motor.state, WALL_RUNNING, "pushing %s keeps the runner on" % direction)
@@ -219,7 +258,7 @@ func test_the_wall_jump_pushes_away_from_the_wall() -> void:
 	body.step(_jump(true))
 
 	assert_eq(body.motor.state, RISING, "the runner jumps")
-	assert_true(body.motor.jumped_off_a_wall, "off the wall")
+	assert_true(_jumped_off(body, LEFT_WALL), "off the wall")
 	assert_almost_eq(body.velocity.y, tuning.wall_jump_up_speed, TOLERANCE, "upwards")
 	var away: float = body.velocity.dot(LEFT_WALL)
 	assert_almost_eq(away, tuning.wall_jump_away_speed, TOLERANCE, "away from the wall")
@@ -244,6 +283,18 @@ func test_the_wall_jump_pushes_away_from_the_wall() -> void:
 	assert_lt(released_top - start, (held_top - start) / 2.0, "released early, it rises less")
 
 
+func test_the_wall_jump_does_not_exceed_the_absolute_cap() -> void:
+	var tuning: MovementTuning = MotorBody.fixed_tuning()
+	var cap: float = tuning.max_horizontal_speed
+	var body: MotorBody = _wall_runner(tuning, cap)
+	assert_almost_eq(body.horizontal_speed(), cap, TOLERANCE, "along the wall at the cap")
+
+	body.step(_jump(true))
+
+	assert_true(_jumped_off(body, LEFT_WALL), "a wall jump")
+	assert_lte(body.horizontal_speed(), cap + TOLERANCE, "no faster than the cap, from its step")
+
+
 func test_the_wall_jump_remains_possible_just_after_detaching() -> void:
 	var tuning: MovementTuning = MotorBody.fixed_tuning()
 	var in_time: MotorBody = _detached(tuning, GRACE_STEPS - 1)
@@ -253,11 +304,11 @@ func test_the_wall_jump_remains_possible_just_after_detaching() -> void:
 	too_late.step(_jump(true))
 
 	assert_eq(in_time.motor.state, RISING, "at the last step of the grace: a jump")
-	assert_true(in_time.motor.jumped_off_a_wall, "off the wall it left")
+	assert_true(_jumped_off(in_time, LEFT_WALL), "off the wall it left")
 	assert_almost_eq(in_time.velocity.dot(LEFT_WALL), tuning.wall_jump_away_speed, TOLERANCE)
 	assert_almost_eq(in_time.velocity.y, tuning.wall_jump_up_speed, TOLERANCE)
 	assert_eq(too_late.motor.state, FALLING, "one step later: no jump")
-	assert_false(too_late.motor.jumped_off_a_wall)
+	assert_false(_jumped_off(too_late, LEFT_WALL))
 	assert_lt(too_late.velocity.y, 0.0, "it keeps falling")
 
 
@@ -267,11 +318,11 @@ func test_a_jump_requested_just_before_the_wall_gives_a_wall_jump() -> void:
 	var too_early: MotorBody = _jumping_towards_a_wall(tuning, BUFFER_STEPS + 1)
 
 	assert_eq(in_time.motor.state, RISING, "at the first step along the wall: a jump")
-	assert_true(in_time.motor.jumped_off_a_wall, "off the wall")
+	assert_true(_jumped_off(in_time, LEFT_WALL), "off the wall")
 	assert_almost_eq(in_time.velocity.dot(LEFT_WALL), tuning.wall_jump_away_speed, TOLERANCE)
 	assert_almost_eq(in_time.velocity.y, tuning.wall_jump_up_speed, TOLERANCE)
 	assert_eq(too_early.motor.state, WALL_RUNNING, "asked too early: a wall run, no jump")
-	assert_false(too_early.motor.jumped_off_a_wall)
+	assert_false(_jumped_off(too_early, LEFT_WALL))
 
 
 func test_the_same_wall_is_refused_twice_in_a_row() -> void:
@@ -288,7 +339,7 @@ func test_the_same_wall_is_refused_twice_in_a_row() -> void:
 	jumping.step(_jump(true))
 	jumping.set_wall(A_WALL, LEFT_WALL, CLOSE, TALL)
 	jumping.step(_jump(false))
-	assert_false(jumping.motor.jumped_off_a_wall, "no wall jump off it")
+	assert_false(_jumped_off(jumping, LEFT_WALL), "no wall jump off it")
 	assert_ne(jumping.motor.state, WALL_RUNNING, "and no wall run")
 
 
@@ -303,7 +354,7 @@ func test_another_wall_is_accepted() -> void:
 
 	# Once the runner ran along another wall, the first one is accepted again.
 	body.step(_jump(true))
-	assert_true(body.motor.jumped_off_a_wall, "a wall jump off the other wall")
+	assert_true(_jumped_off(body, RIGHT_WALL), "a wall jump off the other wall")
 	body.set_wall(A_WALL, LEFT_WALL, CLOSE, TALL)
 	body.step(_run(FORWARD))
 	assert_eq(body.motor.state, WALL_RUNNING, "back along the first wall")
@@ -344,6 +395,14 @@ func _jump(pressed: bool) -> MoveIntent:
 	intent.jump_pressed = pressed
 	intent.jump_held = true
 	return intent
+
+
+## The step just played was a jump off the wall of normal `normal`: the body rises at
+## the speed of a wall jump, moving away from that wall.
+func _jumped_off(body: MotorBody, normal: Vector3) -> bool:
+	var rising: bool = body.motor.state == RISING
+	var up: float = body.motor.tuning.wall_jump_up_speed
+	return rising and is_equal_approx(body.velocity.y, up) and body.velocity.dot(normal) > 0.0
 
 
 ## A body in the air at `altitude`, going forward at `speed`, beside a tall wall close
@@ -394,7 +453,7 @@ func _flying_off_a_wall(tuning: MovementTuning, id: int) -> MotorBody:
 	body.wall_id = id
 	body.step(_run(FORWARD))
 	body.step(_jump(true))
-	assert_true(body.motor.jumped_off_a_wall, "a wall jump")
+	assert_true(_jumped_off(body, LEFT_WALL), "a wall jump")
 	body.remove_wall()
 	for i: int in SOME_STEPS:
 		body.step(_jump(false))

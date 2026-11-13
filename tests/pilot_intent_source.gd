@@ -22,7 +22,7 @@ var _highest: float = 0.0
 var _floor_altitude: float = 0.0
 var _slide_was_held: bool = false
 var _roll_asked: bool = false
-## The runner jumped off a wall and has not reached anything since.
+## The pilot jumped off a wall, and the runner has not reached anything since.
 var _flying_off_a_wall: bool = false
 
 
@@ -47,7 +47,7 @@ func next_intent() -> MoveIntent:
 	_roll_asked = _roll_asked and not on_floor
 	var in_the_air: bool = motor.state == RunnerMotor.State.RISING
 	in_the_air = in_the_air or motor.state == RunnerMotor.State.FALLING
-	_flying_off_a_wall = (_flying_off_a_wall or motor.jumped_off_a_wall) and in_the_air
+	_flying_off_a_wall = _flying_off_a_wall and in_the_air
 	if _flying_off_a_wall:
 		# Off a wall, the jump carries the runner: it pushes the way it flies.
 		var flight: Vector3 = Vector3(_runner.velocity.x, 0.0, _runner.velocity.z)
@@ -61,6 +61,7 @@ func next_intent() -> MoveIntent:
 		intent.jump_pressed = intent.jump_pressed or _ledge_stands_ahead()
 	elif motor.state == RunnerMotor.State.WALL_RUNNING:
 		intent.jump_pressed = _another_wall_stands_across()
+		_flying_off_a_wall = intent.jump_pressed
 	elif _slides and not _roll_asked and _high_landing_is_near():
 		intent.slide_pressed = true
 		intent.slide_held = true

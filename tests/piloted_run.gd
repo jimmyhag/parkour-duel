@@ -30,8 +30,9 @@ var slide_requests: int = 0
 var steps_sliding: int = 0
 var steps_rolling: int = 0
 var steps_landing_hard: int = 0
-## Steps the runner spent mantling and running along a wall, and the jumps it made off
-## a wall, while the pilot was leading it.
+## Steps the runner spent mantling and running along a wall, while the pilot was leading
+## it, and the jumps it made off a wall: the steps at which the pilot pressed the jump
+## along a wall and the runner rose from it.
 var steps_mantling: int = 0
 var steps_wall_running: int = 0
 var wall_jumps: int = 0
@@ -44,6 +45,8 @@ var pilot_slides: bool = true
 var _runner: Player
 var _to_goal: Vector3
 var _steps: int = 0
+## The state of the runner at the end of the step before.
+var _state_before: RunnerMotor.State = RunnerMotor.State.FALLING
 var _budget: int
 var _under_the_blocks: float
 var _pilot_leads: bool = false
@@ -136,4 +139,6 @@ func _on_runner_stepped(intent: MoveIntent) -> void:
 	steps_landing_hard += int(state == RunnerMotor.State.HARD_LANDING)
 	steps_mantling += int(state == RunnerMotor.State.MANTLING)
 	steps_wall_running += int(state == RunnerMotor.State.WALL_RUNNING)
-	wall_jumps += int(_runner.motor.jumped_off_a_wall)
+	var off_a_wall: bool = _state_before == RunnerMotor.State.WALL_RUNNING
+	wall_jumps += int(intent.jump_pressed and off_a_wall and state == RunnerMotor.State.RISING)
+	_state_before = state

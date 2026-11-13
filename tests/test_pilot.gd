@@ -178,8 +178,11 @@ func test_the_pilot_does_not_jump_without_a_reason() -> void:
 func test_the_pilot_does_not_jump_at_a_wall_it_cannot_clear() -> void:
 	var track: Track = _add_track()
 	var runner: Player = _add_runner(track)
+	var tuning: MovementTuning = runner.tuning
 	var start: Vector3 = track.add_block(9.4)
-	var goal: Area3D = track.add_goal(track.add_block(5.1, runner.tuning.jump_height * 2.0))
+	# Higher than a jump followed by a mantle, by a whole body.
+	var wall: float = tuning.jump_height + tuning.mantle_max_height + tuning.capsule_height
+	var goal: Area3D = track.add_goal(track.add_block(5.1, wall))
 	runner.teleport(Transform3D(Basis.IDENTITY, start))
 
 	var run: PilotedRun = await _pilot_to(runner, goal, track)

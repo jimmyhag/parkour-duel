@@ -63,6 +63,12 @@ extends Resource
 ## The horizontal speed nothing can exceed, in m/s.
 @export var max_horizontal_speed: float = 0.0
 
+@export_group("Push")
+## Where a push stops being along a wall or a ledge and becomes towards it or away from
+## it: its angle from the surface, in degrees. A push exactly on the limit counts for a
+## wall run and for a mantle; leaving a wall takes a push beyond it.
+@export_range(0.0, 90.0) var push_split_angle: float = 0.0
+
 @export_group("Mantle")
 ## Lowest height of a ledge above the feet that a mantle climbs, in m.
 @export var mantle_min_height: float = 0.0

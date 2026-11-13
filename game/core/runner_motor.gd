@@ -22,8 +22,6 @@ const LONG_AGO: int = 1 << 30
 var tuning: MovementTuning
 var state: State = State.FALLING
 var velocity: Vector3 = Vector3.ZERO
-## The runner jumped off a wall at the last step.
-var jumped_off_a_wall: bool = false
 
 var _step_seconds: float = 0.0
 var _steps_in_the_air: int = LONG_AGO
@@ -70,7 +68,6 @@ func _init(movement_tuning: MovementTuning) -> void:
 func step(intent: MoveIntent, facts: RunnerFacts, delta: float) -> Vector3:
 	velocity = facts.velocity
 	_step_seconds = delta
-	jumped_off_a_wall = false
 	_remember_requests(intent)
 	_observe_floor(facts)
 	if state != State.MANTLING:
@@ -87,7 +84,6 @@ func step(intent: MoveIntent, facts: RunnerFacts, delta: float) -> Vector3:
 func reset() -> void:
 	state = State.FALLING
 	velocity = Vector3.ZERO
-	jumped_off_a_wall = false
 	_steps_in_the_air = LONG_AGO
 	_steps_since_jump_request = LONG_AGO
 	_jump_spent = true
@@ -303,8 +299,9 @@ func _start_mantle(facts: RunnerFacts) -> void:
 
 ## The runner rises along the face of its ledge up to its top, while it pushes onto it
 ## at the exit speed; the last stretch of the mantle carries it one body width forward,
-## over the top. When the mantle is over the runner stands on the ledge, or falls if it
-## did not get there.
+## over the top, pressing it onto the top with the weight of one step, so that it stands
+## there. When the mantle is over the runner stands on the ledge, or falls if it did not
+## get there.
 func _mantle(facts: RunnerFacts, delta: float) -> void:
 	_mantle_steps += 1
 	var steps: int = _mantle_duration_steps()
@@ -317,13 +314,17 @@ func _mantle(facts: RunnerFacts, delta: float) -> void:
 	if _mantle_steps <= rising_steps:
 		var steps_left: int = rising_steps - _mantle_steps + 1
 		velocity.y = (_ledge_top - facts.altitude) / (steps_left * delta)
+	else:
+		velocity.y = -tuning.fall_gravity * delta
 	_cap_horizontal_speed()
 	if _mantle_steps >= steps:
 		state = State.GROUNDED if facts.on_floor else State.FALLING
 
 
 ## A wall beside the runner that can be run along, not refused, high enough above the
-## ground, at a speed enough to start, and the runner pushes along it.
+## ground, at a speed along it enough to start (what goes towards the wall does not
+## count: too steep an approach gives no wall run, and leaves the wall free), and the
+## runner pushes along it.
 func _can_run_along(intent: MoveIntent, facts: RunnerFacts) -> bool:
 	if facts.wall_id == RunnerFacts.NO_WALL or facts.wall_id == _refused_wall:
 		return false
@@ -331,9 +332,10 @@ func _can_run_along(intent: MoveIntent, facts: RunnerFacts) -> bool:
 		return false
 	if facts.ground_clearance < tuning.wall_run_min_height:
 		return false
-	if Vector2(velocity.x, velocity.z).length() < tuning.wall_run_start_speed:
+	var away: Vector3 = _horizontal_unit(facts.wall_normal)
+	if _along(velocity, away).length() < tuning.wall_run_start_speed:
 		return false
-	return _pushes_along(intent.direction, _horizontal_unit(facts.wall_normal))
+	return _pushes_along(intent.direction, away)
 
 
 ## The wall is close enough, near enough to vertical and tall enough.
@@ -365,9 +367,9 @@ func _stays_on_the_wall(intent: MoveIntent, facts: RunnerFacts) -> bool:
 	if facts.wall_id != _wall_id or not _is_runnable(facts):
 		return false
 	_away_from_the_wall = _horizontal_unit(facts.wall_normal)
-	if _along_the_wall(velocity).length() < tuning.wall_run_stop_speed:
+	if _along(velocity, _away_from_the_wall).length() < tuning.wall_run_stop_speed:
 		return false
-	return not _pushes_into(intent.direction, -_away_from_the_wall)
+	return not _pushes_away(intent.direction, _away_from_the_wall)
 
 
 ## The velocity of this step, from the state chosen.
@@ -376,7 +378,7 @@ func _move(intent: MoveIntent, facts: RunnerFacts, delta: float) -> void:
 		_slide(intent.direction, facts, delta)
 	elif state == State.WALL_RUNNING:
 		# Along the wall the speed is kept as it is, as in the air.
-		var along: Vector3 = _along_the_wall(velocity)
+		var along: Vector3 = _along(velocity, _away_from_the_wall)
 		velocity.x = along.x
 		velocity.z = along.z
 	elif state != State.ROLLING:
@@ -492,13 +494,14 @@ func _can_wall_jump() -> bool:
 	)
 
 
-## Away from the wall and upwards, keeping the speed along the wall.
+## Away from the wall and upwards, keeping the speed along the wall; the cap holds from
+## this very step.
 func _wall_jump() -> void:
-	var along: Vector3 = _along_the_wall(velocity)
+	var along: Vector3 = _along(velocity, _away_from_the_wall)
 	var away: Vector3 = _away_from_the_wall * tuning.wall_jump_away_speed
 	velocity = Vector3(along.x + away.x, tuning.wall_jump_up_speed, along.z + away.z)
+	_cap_horizontal_speed()
 	state = State.RISING
-	jumped_off_a_wall = true
 	_jump_spent = true
 	_jump_cut = false
 	_steps_since_jump_request = LONG_AGO
@@ -551,28 +554,51 @@ func _jump_speed(delta: float) -> float:
 	return (sqrt(discriminant) - gravity_step) / 2.0
 
 
-## The horizontal part of `vector` that runs along the wall of the wall run.
-func _along_the_wall(vector: Vector3) -> Vector3:
+## The horizontal part of `vector` that runs along a wall whose horizontal normal is
+## `normal`.
+func _along(vector: Vector3, normal: Vector3) -> Vector3:
 	var horizontal: Vector3 = Vector3(vector.x, 0.0, vector.z)
-	return horizontal - _away_from_the_wall * horizontal.dot(_away_from_the_wall)
+	return horizontal - normal * horizontal.dot(normal)
 
 
-## Pushing along a surface whose horizontal normal is `normal`: more along it than
-## towards it or away from it.
-func _pushes_along(direction: Vector3, normal: Vector3) -> bool:
+## The angle of a push off a surface whose horizontal normal is `normal`, in radians:
+## 0 along the surface, positive away from it, negative towards it; NAN without a push.
+func _push_angle(direction: Vector3, normal: Vector3) -> float:
 	var wish: Vector3 = Vector3(direction.x, 0.0, direction.z)
 	if wish.is_zero_approx():
-		return false
+		return NAN
 	var across: float = wish.dot(normal)
-	return (wish - normal * across).length() > absf(across)
+	return atan2(across, (wish - normal * across).length())
 
 
-## Pushing into a surface whose horizontal normal is `normal`: more towards it than
-## along it.
+## Pushing along a surface: within the split angle of the tuning, the limit included.
+func _pushes_along(direction: Vector3, normal: Vector3) -> bool:
+	var angle: float = absf(_push_angle(direction, normal))
+	return not is_nan(angle) and _within_the_split(angle)
+
+
+## Pushing into a surface: towards it by the split angle at least, the limit included.
 func _pushes_into(direction: Vector3, normal: Vector3) -> bool:
-	var wish: Vector3 = Vector3(direction.x, 0.0, direction.z)
-	var into: float = -wish.dot(normal)
-	return into > 0.0 and into > (wish + normal * into).length()
+	var angle: float = -_push_angle(direction, normal)
+	if is_nan(angle):
+		return false
+	return _on_the_split(angle) or not _within_the_split(angle)
+
+
+## Pushing away from a surface: beyond the split angle, the limit excluded.
+func _pushes_away(direction: Vector3, normal: Vector3) -> bool:
+	var angle: float = _push_angle(direction, normal)
+	return not is_nan(angle) and not _within_the_split(angle)
+
+
+## The angle is at most the split angle of the tuning, or on it (a push exactly on the
+## limit, as the keyboard diagonal, computed with rounding errors).
+func _within_the_split(angle: float) -> bool:
+	return angle < deg_to_rad(tuning.push_split_angle) or _on_the_split(angle)
+
+
+func _on_the_split(angle: float) -> bool:
+	return is_equal_approx(angle, deg_to_rad(tuning.push_split_angle))
 
 
 ## The horizontal direction of `vector`, of length 1; ZERO if it has none.
