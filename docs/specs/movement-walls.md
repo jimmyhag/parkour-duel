@@ -1,6 +1,6 @@
 # Mouvements aux murs : mantle, wall-run, wall-jump et parcours complet
 
-**Statut : 🟢 Implémenté**
+**Statut : 🟡 Prêt pour le dev**
 
 Session du 2026-11-12, relue le 2026-11-13 avec Jimmy, une première fois à la scission de
 `docs/specs/movement-advanced.md`, une seconde fois après la fusion des mouvements au sol
@@ -15,6 +15,12 @@ la décision 22 est ajoutée, six scénarios sont ajoutés (marqués « amendeme
 test existant est redimensionné, et la section « Choix acceptés à l'inspection » liste
 ce que le code a tranché là où la spec se taisait. Jimmy peut revenir sur chacun de
 ces choix après avoir joué.
+
+Amendée une seconde fois le même jour après la seconde inspection : la décision 3
+ne demande plus de pousser « le long du mur » mais de ne pas pousser à l'opposé, le
+scénario de la diagonale du clavier se prouve aussi dans la vraie physique avec une
+caméra qui n'est pas exactement parallèle au mur, la décision 10 garde de la marge au
+zigzag, et la liste des choix acceptés s'allonge.
 
 ## Contexte
 
@@ -54,14 +60,14 @@ de `docs/specs/movement-ground.md`, sauf les deux que la décision 18 remplace.
 | - | -------- | -------- | -------- |
 | 1 | Où vivent les nouveaux mouvements ? | Deux nouveaux états du coureur dans `core` : mantle, wall-run. `player` ajoute à `RunnerFacts` : mur à gauche ou à droite, avec sa normale et son identité ; rebord devant, avec sa hauteur au-dessus des pieds et si son dessus est libre. `core` décide. | Même coupe que la base. |
 | 2 | Mantle | Automatique : en l'air, en poussant vers un rebord situé dans la plage de hauteur réglée, dont le dessus est libre, le coureur se hisse et repart debout sur le rebord avec la vitesse de sortie vers l'avant. Aucun bouton. **Amendement** : le rebord se repère par la face que le corps touche et la direction où le joueur pousse, jamais par la direction où regarde le corps visible (décision 22). Le mantle se termine au sol : dans la vraie physique, le pas qui suit le mantle trouve le coureur debout sur le rebord, à la vitesse de sortie, sans passer par une chute. | Décision Q5. L'action contextuelle reste libre. Amendement : Jimmy a vu le mantle refusé quand le corps visible tournait contre la face ; l'inspection a mesuré deux pas de chute après chaque mantle. |
-| 3 | Wall-run | Automatique : en l'air, le long d'un mur, avec assez de vitesse horizontale, en poussant le long du mur, assez haut au-dessus du sol. Durée limitée ; la gravité y est très réduite. Il se termine quand la durée est écoulée, que le mur s'arrête, que la vitesse tombe trop bas, que le joueur pousse à l'opposé du mur, qu'il saute ou qu'il touche le sol. **Amendement** : « assez de vitesse » se compte le long du mur, une fois retirée la part dirigée vers lui ; une approche trop raide ne donne pas de wall-run et ne rend pas le mur refusé. Le partage entre « le long de », « vers » et « à l'opposé de » est un angle de la ressource de réglage, 45° au départ. Une poussée exactement sur la limite compte pour le mouvement : la diagonale du clavier (avant et la touche vers le mur) lance un wall-run, et une poussée à la limite vers un rebord lance un mantle ; décrocher demande de pousser au-delà de la limite. | Décision Q2. Amendement : l'inspection a montré que la diagonale exacte du clavier ne lançait rien, et qu'une approche raide donnait un wall-run d'un seul pas qui gâchait le mur. |
+| 3 | Wall-run | Automatique : en l'air, le long d'un mur, avec assez de vitesse horizontale, en poussant le long du mur, assez haut au-dessus du sol. Durée limitée ; la gravité y est très réduite. Il se termine quand la durée est écoulée, que le mur s'arrête, que la vitesse tombe trop bas, que le joueur pousse à l'opposé du mur, qu'il saute ou qu'il touche le sol. **Amendement** : « assez de vitesse » se compte le long du mur, une fois retirée la part dirigée vers lui ; une approche trop raide ne donne pas de wall-run et ne rend pas le mur refusé. Le partage entre « le long de », « vers » et « à l'opposé de » est un angle de la ressource de réglage, 45° au départ. Une poussée exactement sur la limite compte pour le mouvement : une poussée à la limite vers un rebord lance un mantle ; décrocher demande de pousser au-delà de la limite. **Second amendement** : le wall-run ne demande plus de pousser le long du mur, seulement de ne pas pousser à l'opposé : pousser le long du mur, en diagonale vers lui ou droit vers lui le lance, si la vitesse le long du mur suffit. C'est cette vitesse qui sépare le wall-run du mantle : une face abordée presque de face donne un mantle si elle est à portée, une face longée vite donne un wall-run. | Décision Q2. Amendement : l'inspection a montré que la diagonale exacte du clavier ne lançait rien, et qu'une approche raide donnait un wall-run d'un seul pas qui gâchait le mur. Second amendement : la seconde inspection a montré que la diagonale ne marchait qu'avec une caméra exactement parallèle au mur ; à un degré près, un mur sur deux du zigzag tombait du côté « vers le mur ». |
 | 4 | Wall-jump | Sauter pendant un wall-run repousse à l'opposé du mur et vers le haut, en gardant la vitesse le long du mur. Encore possible pendant une courte tolérance après avoir décroché. Relâcher le saut tôt écourte la montée comme pour un saut au sol. **Amendement** : le plafond absolu de vitesse horizontale s'applique dès le pas du wall-jump. | Décisions Q2 et Q15. Amendement : l'inspection a mesuré 23,1 m/s sur le pas du saut pour un plafond de 22. |
 | 5 | Pas de montée infinie | Après un wall-run ou un wall-jump, le même mur est refusé tant que le coureur n'a pas touché le sol ou couru sur un autre mur. | Décision Q2. |
 | 6 | Quels murs | Tout mur fixe à peu près vertical et assez haut. Celui qui construit un niveau peut en exclure un en le rangeant dans un groupe prévu pour ça. **Un mur est un seul objet physique** : son identité est celle de l'objet. Règle de construction : chaque mur d'un niveau est fait d'un seul bloc, sinon on pourrait remonter le « même » mur en passant d'un bloc à l'autre. | Décision Q8 ; Q6 de la seconde relecture. |
 | 7 | Capsule lisible | Elle penche du côté du mur en wall-run. | Décision Q15. |
 | 8 | Parcours complet | Après la grande chute, dans cet ordre : rebord à franchir, wall-run au-dessus d'un vide, zigzag de wall-jumps entre deux murs, enchaînement final qui mêle plusieurs mouvements, arrivée. Un checkpoint par section. Un passage propre du parcours entier dure de l'ordre de 45 à 60 secondes : c'est un ordre de grandeur que Jimmy juge en jouant, pas un test. | Décision Q14 ; Q7 de la seconde relecture. |
 | 9 | Pilote de test | Il apprend ce que ces sections demandent : pousser vers un rebord, tenir le long d'un mur, sauter d'un mur à l'autre, et relâcher le saut tôt quand le tenir le ferait dépasser sa réception. Toujours sans nombre calé sur le parcours ou les réglages. Il ne court pas sur un mur sans raison. | Avec l'élan conservé les vitesses montent : un pilote qui tient toujours le saut dépasserait les blocs. |
-| 10 | Plage de réglages garantie | Les quatre nouvelles sections rejoignent les six premières dans les quatre tests à plus et moins 10 % (vitesse de pointe, gravité en montée, gravité en chute, hauteur de saut). Les nouvelles valeurs ne sont pas garanties par des tests ; le développeur rejoue chaque nouvelle section avec au moins trois des nouvelles valeurs changées de 10 % en plus et en moins, une à la fois, et donne les résultats dans son rapport. | Décision de la relecture ; Q7 de la seconde relecture : un test peut passer au rouge sur un simple réglage. |
+| 10 | Plage de réglages garantie | Les quatre nouvelles sections rejoignent les six premières dans les quatre tests à plus et moins 10 % (vitesse de pointe, gravité en montée, gravité en chute, hauteur de saut). Les nouvelles valeurs ne sont pas garanties par des tests ; le développeur rejoue chaque nouvelle section avec au moins trois des nouvelles valeurs changées de 10 % en plus et en moins, une à la fois, et donne les résultats dans son rapport. **Amendement** : une valeur nouvelle changée de 10 % ne doit pas faire passer au rouge les quatre tests garantis ; le zigzag a la marge pour cela. | Décision de la relecture ; Q7 de la seconde relecture : un test peut passer au rouge sur un simple réglage. |
 | 11 | Jamais coincé | Le retour au dernier checkpoint fonctionne depuis le mantle, le wall-run et le vol d'un wall-jump. | Critère du plan. |
 | 12 | Affichage de debug | Il nomme les deux nouveaux états et montre la durée de wall-run restante et la tolérance de wall-jump restante. | Suite de la décision 18 de la base. |
 | 13 | README | La section « Controls » décrit les mouvements automatiques. | Règle du plan. |
@@ -135,7 +141,8 @@ Fonctionnalité: Mouvements aux murs
   Scénario: La diagonale du clavier lance un wall-run
     # amendement
     Soit un coureur en l'air, assez rapide, assez haut, le long d'un mur vertical
-    Quand il pousse exactement à la limite entre le long du mur et vers le mur, comme avant et la touche vers le mur au clavier
+    # second amendement : la caméra n'est pas exactement parallèle au mur, dans la vraie physique aussi
+    Quand il pousse en diagonale vers le mur, comme avant et la touche vers le mur au clavier, la caméra à quelques degrés du mur d'un côté ou de l'autre
     Alors il passe en wall-run
 
   Scénario: Une approche trop raide ne gâche pas le mur
@@ -349,6 +356,23 @@ Le code a tranché ces points là où la spec se taisait. Ils sont acceptés tel
 - **Rebord sous une couverture mince** : si le dessus de la couverture elle-même est à
   portée d'un saut suivi d'un mantle, le coureur peut se hisser sur la couverture. C'est
   une limite de construction de niveau : une couverture au-dessus d'un rebord est épaisse.
+- **Entrée en wall-run en tombant vite** : la vitesse verticale est gardée, seule la
+  gravité change ; un coureur qui attrape un mur en tombant vite descend encore vite.
+- **Distance au mur** : le wall-run part et dure jusqu'à la distance réglée (0,6 m),
+  rien ne colle le coureur au mur, et la capsule penche vers un mur qui peut être à
+  cette distance.
+- **Sortie du mantle** : perpendiculaire à la face, quel que soit l'angle d'approche ;
+  le coureur se réoriente ensuite au sol.
+- **Face haute abordée de biais** : une face assez haute pour être un mur et à portée
+  d'un mantle, longée assez vite, donne un wall-run avant que le coureur la touche ; pour
+  s'y hisser, il faut l'aborder plus de face.
+- **Deux murs à portée** : le plus proche l'emporte, même s'il est refusé ; dans un
+  couloir plus étroit que deux portées de wall-run, le mur d'en face est ignoré tant que
+  le mur refusé reste le plus proche. Les murs du zigzag sont à 4 m.
+- **Direction des rayons vers les murs** : elle vient du mouvement du corps, et de
+  l'intention quand le corps est à l'arrêt.
+- **Affichage de debug** : « WALL JUMP » montre toute la tolérance pendant le
+  wall-run, puis son décompte après le décrochage.
 - **Ce qui est un mur** : tout corps fixe (`StaticBody3D`) hors du groupe d'exclusion,
   y compris un `AnimatableBody3D`. À rouvrir quand des plateformes mobiles arriveront.
 - **Hauteur d'un mur** : celle de la forme touchée, partie enterrée comprise ; c'est à
