@@ -39,6 +39,15 @@ func test_a_successful_roll_keeps_the_speed() -> void:
 	assert_eq(body.motor.state, GROUNDED, "then the runner is back on its feet")
 	assert_almost_eq(body.horizontal_speed(), tuning.top_speed, TOLERANCE, "nothing was lost")
 
+	# Unless the roll ends where there is no room to stand up: the runner stays low.
+	pressed_last.can_stand = false
+	for i: int in ROLL_STEPS:
+		pressed_last.step(_run(FORWARD))
+	assert_true(pressed_last.motor.is_low(), "low under a low ceiling once the roll is over")
+	pressed_last.can_stand = true
+	pressed_last.step(_run(FORWARD))
+	assert_eq(pressed_last.motor.state, GROUNDED, "and back on its feet as soon as there is room")
+
 
 func test_a_hard_landing_costs_speed() -> void:
 	var tuning: MovementTuning = MotorBody.fixed_tuning()

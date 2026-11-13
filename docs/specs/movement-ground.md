@@ -1,6 +1,6 @@
 # Mouvements au sol : glissade, roulade et conservation de l'élan
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-12, relue le 2026-11-13, avec Jimmy.
 

@@ -71,12 +71,14 @@ func reload_tuning() -> void:
 		apply_tuning(fresh)
 
 
-## Puts the runner at `spawn`, at rest, facing its -Z axis, with the camera in its back.
+## Puts the runner at `spawn`, standing and at rest, facing its -Z axis, with the camera
+## in its back.
 func teleport(spawn: Transform3D) -> void:
 	var yaw: float = spawn.basis.get_euler().y
 	global_position = spawn.origin
 	velocity = Vector3.ZERO
 	motor.reset()
+	_fit_capsule()
 	_visual.rotation.y = yaw
 	camera_rig.face(yaw)
 	reset_physics_interpolation()

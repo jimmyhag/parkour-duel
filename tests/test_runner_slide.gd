@@ -47,6 +47,16 @@ func test_the_slide_does_not_start_in_the_air() -> void:
 		body.step(_slide(FORWARD))
 		assert_eq(body.motor.state, FALLING, "still falling at step %d" % i)
 
+	# Nor does a slide go on in the air: when its floor ends, the runner falls.
+	var slider: MotorBody = _slider(tuning, tuning.top_speed)
+	slider.has_floor = false
+	slider.step(_slide(FORWARD))
+	var slide_speed: float = slider.horizontal_speed()
+	slider.step(_slide(Vector3.ZERO))
+	assert_eq(slider.motor.state, FALLING, "a slide that leaves the floor is a fall")
+	assert_lt(slider.velocity.y, 0.0)
+	assert_almost_eq(slider.horizontal_speed(), slide_speed, TOLERANCE, "with the speed it had")
+
 
 func test_holding_the_slide_while_landing_starts_it() -> void:
 	var tuning: MovementTuning = MotorBody.fixed_tuning()
@@ -160,6 +170,11 @@ func test_the_runner_does_not_get_stuck_under_a_low_ceiling() -> void:
 	var advance: float = (body.position - there).dot(FORWARD)
 	assert_almost_eq(advance, tuning.slide_stop_speed * STEP, TOLERANCE, "and keeps going forward")
 
+	# Even stopped dead by a bump, with nothing asked: it sets off again the way it went.
+	body.velocity = Vector3.ZERO
+	body.step(_run(Vector3.ZERO))
+	assert_almost_eq(body.velocity.dot(FORWARD), tuning.slide_stop_speed, TOLERANCE, "off again")
+
 
 func test_no_jump_under_a_low_ceiling() -> void:
 	var tuning: MovementTuning = MotorBody.fixed_tuning()
@@ -194,6 +209,27 @@ func test_jumping_while_sliding_keeps_the_speed() -> void:
 	assert_gt(jumper.horizontal_speed(), tuning.top_speed, "faster than the top speed")
 	var slide_speed: float = slider.horizontal_speed()
 	assert_almost_eq(jumper.horizontal_speed(), slide_speed, TOLERANCE, "the speed of the slide")
+
+
+## Not a scenario of the spec: its decision 4 says that the direction of a slide is only
+## corrected slowly, at a tuned pace, and no scenario shows it.
+func test_the_direction_of_a_slide_is_corrected_slowly() -> void:
+	var tuning: MovementTuning = MotorBody.fixed_tuning()
+	var turning: MotorBody = _slider(tuning, tuning.top_speed)
+	var straight: MotorBody = _slider(tuning, tuning.top_speed)
+	var steps: int = 30
+
+	for i: int in steps:
+		turning.step(_slide(Vector3.RIGHT))
+		straight.step(_slide(FORWARD))
+
+	var heading: Vector3 = Vector3(turning.velocity.x, 0.0, turning.velocity.z)
+	var turned: float = FORWARD.angle_to(heading)
+	var allowed: float = tuning.slide_turn_speed * steps * STEP
+	assert_almost_eq(turned, allowed, TOLERANCE, "it turned by what the tuned pace allows")
+	assert_gt(heading.dot(Vector3.RIGHT), 0.0, "towards the wanted direction")
+	var same_speed: float = straight.horizontal_speed()
+	assert_almost_eq(turning.horizontal_speed(), same_speed, TOLERANCE, "at no cost in speed")
 
 
 func _run(direction: Vector3) -> MoveIntent:

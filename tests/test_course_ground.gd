@@ -113,12 +113,16 @@ func test_returning_to_the_checkpoint_stands_the_runner_up() -> void:
 		if runner.motor.is_low():
 			assert_lt(_capsule_height(runner), standing, "%s: its capsule is low" % state_name)
 
-		await _replay(attempt.course, ScriptedIntentSource.new().request_respawn())
+		runner.intent_source = ScriptedIntentSource.new().request_respawn()
+		await _wait_steps(1)
+		var height: float = _capsule_height(runner)
+		assert_almost_eq(height, standing, NEAR, "%s: back with a standing capsule" % state_name)
+		await _wait_steps(SETTLE_STEPS)
 
 		_assert_at_rest_at(attempt.course, _checkpoint(attempt.course, section))
 		var grounded: RunnerMotor.State = RunnerMotor.State.GROUNDED
 		assert_eq(runner.motor.state, grounded, "after %s: standing" % state_name)
-		var height: float = _capsule_height(runner)
+		height = _capsule_height(runner)
 		assert_almost_eq(height, standing, NEAR, "after %s: its capsule stands" % state_name)
 
 
