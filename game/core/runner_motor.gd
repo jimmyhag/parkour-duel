@@ -45,6 +45,7 @@ func step(intent: MoveIntent, facts: RunnerFacts, delta: float) -> Vector3:
 	elif state != State.ROLLING:
 		# A roll keeps the speed it landed with.
 		_steer(intent.direction, delta)
+	_cap_horizontal_speed()
 	if _can_jump(facts):
 		_start_jump(delta)
 	elif state == State.SLIDING:
@@ -189,17 +190,36 @@ func _steer(direction: Vector3, delta: float) -> void:
 	var wish: Vector3 = Vector3(direction.x, 0.0, direction.z).limit_length(1.0)
 	var rate: float = tuning.air_acceleration
 	var top_speed: float = tuning.top_speed
+	# What the floor takes, per step, from a speed above the top speed; the air takes
+	# nothing.
+	var momentum_loss: float = 0.0
 	if state == State.HARD_LANDING:
 		top_speed *= tuning.hard_landing_speed_ratio
 	if not _is_in_the_air():
 		rate = tuning.ground_deceleration if wish.is_zero_approx() else tuning.ground_acceleration
+		momentum_loss = tuning.momentum_deceleration * delta
 	elif wish.is_zero_approx():
 		# Nothing brakes in the air: the momentum of the run carries the jump.
 		return
 	var horizontal: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
-	horizontal = horizontal.move_toward(wish * top_speed, rate * delta)
+	var target: Vector3 = wish * top_speed
+	var speed: float = horizontal.length()
 	if state == State.HARD_LANDING:
 		horizontal = horizontal.limit_length(top_speed)
+	elif speed > top_speed and not wish.is_zero_approx():
+		# Momentum: the runner goes where it wants at the speed it has, which only comes
+		# back down towards the top speed at the pace of the loss.
+		var kept: float = maxf(speed - momentum_loss, top_speed)
+		target = wish.normalized() * maxf(target.length(), kept)
+	horizontal = horizontal.move_toward(target, rate * delta)
+	velocity.x = horizontal.x
+	velocity.z = horizontal.z
+
+
+## Nothing takes the horizontal speed above its absolute cap.
+func _cap_horizontal_speed() -> void:
+	var horizontal: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
+	horizontal = horizontal.limit_length(tuning.max_horizontal_speed)
 	velocity.x = horizontal.x
 	velocity.z = horizontal.z
 

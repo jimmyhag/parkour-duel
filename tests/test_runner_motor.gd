@@ -286,6 +286,8 @@ func _tuning() -> MovementTuning:
 	tuning.roll_duration = 0.5
 	tuning.hard_landing_speed_ratio = 0.35
 	tuning.hard_landing_duration = 0.35
+	tuning.momentum_deceleration = 6.0
+	tuning.max_horizontal_speed = 22.0
 	return tuning
 
 

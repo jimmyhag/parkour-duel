@@ -56,6 +56,18 @@ func test_a_hard_landing_costs_speed() -> void:
 	assert_eq(body.motor.state, GROUNDED, "then the runner runs again")
 	assert_gt(body.horizontal_speed(), kept, "and picks up speed")
 
+	var slow: MotorBody = _dropped(tuning, tuning.roll_fall_height * 1.5)
+	slow.velocity = FORWARD * tuning.top_speed / 2.0
+	_fall_to_the_floor(slow)
+	assert_eq(slow.motor.state, HARD_LANDING)
+	assert_almost_eq(slow.horizontal_speed(), kept / 2.0, TOLERANCE, "the same share when slower")
+
+	# From under the height that asks for a roll, a leap that tops above it.
+	var leaping: MotorBody = _dropped(tuning, tuning.roll_fall_height * 0.75)
+	leaping.velocity.y = sqrt(tuning.rise_gravity * tuning.roll_fall_height)
+	_fall_to_the_floor(leaping)
+	assert_eq(leaping.motor.state, HARD_LANDING, "the fall is measured from the highest point")
+
 
 func test_a_slide_pressed_too_early_gives_no_roll() -> void:
 	var tuning: MovementTuning = MotorBody.fixed_tuning()
@@ -144,6 +156,17 @@ func _dropped(tuning: MovementTuning, height: float) -> MotorBody:
 	var body: MotorBody = MotorBody.new(tuning, height)
 	body.velocity = FORWARD * tuning.top_speed
 	return body
+
+
+## Lets a body in the air come down, pushing forward as fast as it goes, up to its first
+## step on the floor.
+func _fall_to_the_floor(body: MotorBody) -> void:
+	var pace: float = minf(body.horizontal_speed() / body.motor.tuning.top_speed, 1.0)
+	var steps: int = 0
+	while not body.on_floor and steps < MANY_STEPS:
+		body.step(_run(FORWARD * pace))
+		steps += 1
+	body.step(_run(FORWARD * pace))
 
 
 ## The index of the first step at which a body dropped from `height` is seen on the

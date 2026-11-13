@@ -34,6 +34,7 @@ func _motor_falling_off_a_ledge() -> RunnerMotor:
 	tuning.max_fall_speed = 40.0
 	tuning.coyote_time = 0.10
 	tuning.jump_buffer_time = 0.12
+	tuning.max_horizontal_speed = 22.0
 	var motor: RunnerMotor = RunnerMotor.new(tuning)
 	var running: Vector3 = Vector3(3.0, 0.0, -4.0)
 	var falling: Vector3 = motor.step(MoveIntent.new(), _facts(true, running), STEP)
