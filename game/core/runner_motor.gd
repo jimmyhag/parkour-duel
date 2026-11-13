@@ -5,7 +5,16 @@ extends RefCounted
 ## the velocity it wants. It uses nothing but its arguments and the tuning: no input, no
 ## clock, no scene.
 
-enum State { GROUNDED, RISING, FALLING, SLIDING, ROLLING, HARD_LANDING }
+enum State {
+	GROUNDED,
+	RISING,
+	FALLING,
+	SLIDING,
+	ROLLING,
+	HARD_LANDING,
+	MANTLING,
+	WALL_RUNNING,
+}
 
 ## Step counters start here: far enough for no tolerance window to be open.
 const LONG_AGO: int = 1 << 30
@@ -13,6 +22,8 @@ const LONG_AGO: int = 1 << 30
 var tuning: MovementTuning
 var state: State = State.FALLING
 var velocity: Vector3 = Vector3.ZERO
+## The runner jumped off a wall at the last step.
+var jumped_off_a_wall: bool = false
 
 var _step_seconds: float = 0.0
 var _steps_in_the_air: int = LONG_AGO
@@ -25,12 +36,29 @@ var _slide_heading: Vector3 = Vector3.ZERO
 ## The last slide ended because it was too slow, and the slide has been held ever since:
 ## it takes a new press to slide again.
 var _slide_spent: bool = false
-## The runner lost the floor while it was low, and has had no room to stand up since.
-var _low_in_the_air: bool = false
-## The highest altitude since the runner last stood on a floor: where its fall starts.
+## The runner was low and has had no room to stand up since: it stays low, in the air
+## as on the floor, whatever its state.
+var _held_low: bool = false
+## The highest altitude since the runner last touched the ground: where its fall starts.
 var _apex: float = -INF
 ## Steps spent in the roll or the hard landing under way.
 var _landing_steps: int = 0
+## The wall of the wall run under way, or of the last one: which one it is, and the
+## horizontal direction that points away from it.
+var _wall_id: int = RunnerFacts.NO_WALL
+var _away_from_the_wall: Vector3 = Vector3.ZERO
+## The wall the runner may not run along again before it touches the ground or runs
+## along another wall: the one of its last wall run.
+var _refused_wall: int = RunnerFacts.NO_WALL
+## Steps spent in the wall run under way.
+var _wall_run_steps: int = 0
+## Steps since the runner left its wall: 0 while it runs along it.
+var _steps_off_the_wall: int = LONG_AGO
+## The mantle under way: the altitude of the top of its ledge, the horizontal direction
+## onto it, and the steps spent.
+var _ledge_top: float = 0.0
+var _onto_the_ledge: Vector3 = Vector3.ZERO
+var _mantle_steps: int = 0
 
 
 func _init(movement_tuning: MovementTuning) -> void:
@@ -42,23 +70,16 @@ func _init(movement_tuning: MovementTuning) -> void:
 func step(intent: MoveIntent, facts: RunnerFacts, delta: float) -> Vector3:
 	velocity = facts.velocity
 	_step_seconds = delta
+	jumped_off_a_wall = false
 	_remember_requests(intent)
 	_observe_floor(facts)
-	_choose_floor_state(intent, facts)
-	if state == State.SLIDING:
-		_slide(intent.direction, facts, delta)
-	elif state != State.ROLLING:
-		# A roll keeps the speed it landed with.
-		_steer(intent.direction, delta)
-	_cap_horizontal_speed()
-	if _can_jump(facts):
-		_start_jump(delta)
-	elif state == State.SLIDING:
-		velocity.y = _speed_down_the_slope(facts.floor_normal)
-	elif _is_in_the_air():
-		_fly(intent.jump_held, delta)
+	if state != State.MANTLING:
+		_choose_floor_state(intent, facts)
+		_choose_air_state(intent, facts)
+	if state == State.MANTLING:
+		_mantle(facts, delta)
 	else:
-		velocity.y = 0.0
+		_move(intent, facts, delta)
 	return velocity
 
 
@@ -66,22 +87,31 @@ func step(intent: MoveIntent, facts: RunnerFacts, delta: float) -> Vector3:
 func reset() -> void:
 	state = State.FALLING
 	velocity = Vector3.ZERO
+	jumped_off_a_wall = false
 	_steps_in_the_air = LONG_AGO
 	_steps_since_jump_request = LONG_AGO
 	_jump_spent = true
 	_jump_cut = false
 	_slide_heading = Vector3.ZERO
 	_slide_spent = false
-	_low_in_the_air = false
+	_held_low = false
 	_steps_since_slide_press = LONG_AGO
 	_apex = -INF
 	_landing_steps = 0
+	_wall_id = RunnerFacts.NO_WALL
+	_away_from_the_wall = Vector3.ZERO
+	_refused_wall = RunnerFacts.NO_WALL
+	_wall_run_steps = 0
+	_steps_off_the_wall = LONG_AGO
+	_ledge_top = 0.0
+	_onto_the_ledge = Vector3.ZERO
+	_mantle_steps = 0
 
 
 ## The runner is low: its capsule has the height of a slide. It is in a slide and in a
-## roll, and stays so in the air if it lost the floor where it cannot stand up.
+## roll, and stays so, in the air as on the floor, wherever it has no room to stand up.
 func is_low() -> bool:
-	return state == State.SLIDING or state == State.ROLLING or _low_in_the_air
+	return state == State.SLIDING or state == State.ROLLING or _held_low
 
 
 ## Seconds during which a jump is still accepted although the floor is gone.
@@ -110,48 +140,92 @@ func landing_time_left() -> float:
 	return maxi(_landing_duration_steps() - _landing_steps, 0) * _step_seconds
 
 
+## Seconds left of the mantle under way.
+func mantle_time_left() -> float:
+	if state != State.MANTLING:
+		return 0.0
+	return maxi(_mantle_duration_steps() - _mantle_steps, 0) * _step_seconds
+
+
+## Seconds left of the wall run under way.
+func wall_run_time_left() -> float:
+	if state != State.WALL_RUNNING:
+		return 0.0
+	return maxi(_window_steps(tuning.wall_run_duration) - _wall_run_steps, 0) * _step_seconds
+
+
+## Seconds during which a jump is still a wall jump: all of it while the runner runs
+## along a wall, then what is left once it has left it.
+func wall_jump_time_left() -> float:
+	var steps_left: int = _window_steps(tuning.wall_jump_grace_time) - _steps_off_the_wall
+	return maxi(steps_left, 0) * _step_seconds
+
+
+## The horizontal direction away from the wall the runner runs along; ZERO when it runs
+## along none.
+func wall_run_normal() -> Vector3:
+	if state != State.WALL_RUNNING:
+		return Vector3.ZERO
+	return _away_from_the_wall
+
+
+## A press of the jump or of the slide is remembered, except during a mantle, which
+## ignores them.
 func _remember_requests(intent: MoveIntent) -> void:
-	if intent.jump_pressed:
+	var heeded: bool = state != State.MANTLING
+	if intent.jump_pressed and heeded:
 		_steps_since_jump_request = 0
 	else:
 		_steps_since_jump_request = mini(_steps_since_jump_request + 1, LONG_AGO)
-	if intent.slide_pressed:
+	if intent.slide_pressed and heeded:
 		_steps_since_slide_press = 0
 	else:
 		_steps_since_slide_press = mini(_steps_since_slide_press + 1, LONG_AGO)
 
 
 func _observe_floor(facts: RunnerFacts) -> void:
+	var was_low: bool = is_low()
+	if state == State.MANTLING:
+		# A mantle is a contact with the ground: what follows it starts from there.
+		_touch_the_ground(facts)
+		return
 	# A jump that just started may still be reported on the floor: it has left it.
 	var taking_off: bool = state == State.RISING and velocity.y > 0.0
 	if facts.on_floor and not taking_off:
-		if _low_in_the_air and not facts.can_stand:
-			# Back on a floor before there is room to stand up: it goes on as a slide.
-			state = State.SLIDING
-		elif _is_in_the_air():
-			_land(_apex - facts.altitude)
-		_low_in_the_air = false
-		_steps_in_the_air = 0
+		if _is_in_the_air():
+			_land(_apex - facts.altitude, was_low and not facts.can_stand)
+		_held_low = was_low and not facts.can_stand
+		_touch_the_ground(facts)
 		_jump_spent = false
-		_apex = facts.altitude
 		return
 	_steps_in_the_air = mini(_steps_in_the_air + 1, LONG_AGO)
+	_steps_off_the_wall = mini(_steps_off_the_wall + 1, LONG_AGO)
 	_apex = maxf(_apex, facts.altitude)
 	# A low runner that loses the floor stays low for as long as it cannot stand up.
-	_low_in_the_air = is_low() and not facts.can_stand
+	_held_low = was_low and not facts.can_stand
 	if not _is_in_the_air():
 		# Leaving the floor is falling, whatever the runner was doing on it.
 		state = State.FALLING
 
 
+## The ground under the feet: the fall starts again from here, any wall may be run along
+## again, and no wall is left to jump off.
+func _touch_the_ground(facts: RunnerFacts) -> void:
+	_steps_in_the_air = 0
+	_apex = facts.altitude
+	_refused_wall = RunnerFacts.NO_WALL
+	_steps_off_the_wall = LONG_AGO
+
+
 ## The runner touches the floor after a fall of `fall_height`, measured from the highest
-## point it reached in the air. Above the height that asks for a roll, the slide must
-## have been pressed within the window before this step: a button held since earlier is
-## not a press. Otherwise the landing is hard and costs speed.
-func _land(fall_height: float) -> void:
+## point it reached since it last touched the ground. Above the height that asks for a
+## roll, the slide must have been pressed within the window before this step: a button
+## held since earlier is not a press. Otherwise the landing is hard and costs speed. A
+## runner kept `low` by a ceiling lands the same way, and slides where it would stand.
+func _land(fall_height: float, low: bool) -> void:
 	_landing_steps = 0
 	if fall_height <= tuning.roll_fall_height:
-		state = State.GROUNDED
+		state = State.SLIDING if low else State.GROUNDED
 	elif _steps_since_slide_press <= _window_steps(tuning.roll_window):
 		state = State.ROLLING
 	else:
@@ -160,23 +234,23 @@ func _land(fall_height: float) -> void:
 		velocity.z *= tuning.hard_landing_speed_ratio
 
 
+## The runner is off the floor: rising, falling, or running along a wall.
 func _is_in_the_air() -> bool:
-	return state == State.RISING or state == State.FALLING
+	return state == State.RISING or state == State.FALLING or state == State.WALL_RUNNING
 
 
-## On the floor: a roll and a hard landing last their time, then the runner stands or
-## slides. A slide starts while the slide is held with enough speed, and ends when it is
-## released or too slow; one that ended too slow does not start again until the slide is
-## released. Under a low ceiling the runner stays low whatever it asks.
+## On the floor: a roll and a hard landing last their time, then the runner stands, or
+## slides if there is no room to stand up. A slide starts while the slide is held with
+## enough speed, and ends when it is released or too slow; one that ended too slow does
+## not start again until the slide is released. Under a low ceiling the runner stays low
+## whatever it asks.
 func _choose_floor_state(intent: MoveIntent, facts: RunnerFacts) -> void:
 	if not intent.slide_held:
 		_slide_spent = false
 	if state == State.ROLLING or state == State.HARD_LANDING:
 		_landing_steps += 1
 		if _landing_steps > _landing_duration_steps():
-			# A roll that ends without room to stand up goes on as a slide.
-			var stands: bool = facts.can_stand or state == State.HARD_LANDING
-			state = State.GROUNDED if stands else State.SLIDING
+			state = State.GROUNDED if facts.can_stand else State.SLIDING
 	var speed: float = Vector2(velocity.x, velocity.z).length()
 	if state == State.GROUNDED:
 		if intent.slide_held and not _slide_spent and speed >= tuning.slide_min_speed:
@@ -185,6 +259,143 @@ func _choose_floor_state(intent: MoveIntent, facts: RunnerFacts) -> void:
 		if not intent.slide_held or speed < tuning.slide_stop_speed:
 			state = State.GROUNDED
 			_slide_spent = intent.slide_held
+
+
+## In the air: a wall run goes on while its wall does, and a runner that stands (not
+## low) and does not run along a wall starts a mantle or a wall run when the facts and
+## its intent allow it. The ledge in front comes before the wall beside.
+func _choose_air_state(intent: MoveIntent, facts: RunnerFacts) -> void:
+	if state == State.WALL_RUNNING:
+		_wall_run_steps += 1
+		if _stays_on_the_wall(intent, facts):
+			_steps_off_the_wall = 0
+			return
+		# It leaves the wall: the time it may still jump off it starts now.
+		state = State.FALLING
+		return
+	if not _is_in_the_air() or is_low():
+		return
+	if _can_mantle(intent, facts):
+		_start_mantle(facts)
+	elif _can_run_along(intent, facts):
+		_start_wall_run(facts)
+
+
+## A ledge in front, its top within the heights a mantle climbs and free to stand on,
+## and the runner pushes towards it.
+func _can_mantle(intent: MoveIntent, facts: RunnerFacts) -> bool:
+	if facts.ledge_normal.is_zero_approx() or not facts.ledge_clear:
+		return false
+	if facts.ledge_height < tuning.mantle_min_height:
+		return false
+	if facts.ledge_height > tuning.mantle_max_height:
+		return false
+	return _pushes_into(intent.direction, _horizontal_unit(facts.ledge_normal))
+
+
+func _start_mantle(facts: RunnerFacts) -> void:
+	state = State.MANTLING
+	_mantle_steps = 0
+	_ledge_top = facts.altitude + facts.ledge_height
+	_onto_the_ledge = -_horizontal_unit(facts.ledge_normal)
+	_jump_spent = true
+
+
+## The runner rises along the face of its ledge up to its top, while it pushes onto it
+## at the exit speed; the last stretch of the mantle carries it one body width forward,
+## over the top. When the mantle is over the runner stands on the ledge, or falls if it
+## did not get there.
+func _mantle(facts: RunnerFacts, delta: float) -> void:
+	_mantle_steps += 1
+	var steps: int = _mantle_duration_steps()
+	var crossing_steps: int = 0
+	if tuning.mantle_exit_speed > 0.0:
+		var crossing: float = 2.0 * tuning.capsule_radius / tuning.mantle_exit_speed
+		crossing_steps = roundi(crossing / delta)
+	var rising_steps: int = maxi(steps - crossing_steps, 1)
+	velocity = _onto_the_ledge * tuning.mantle_exit_speed
+	if _mantle_steps <= rising_steps:
+		var steps_left: int = rising_steps - _mantle_steps + 1
+		velocity.y = (_ledge_top - facts.altitude) / (steps_left * delta)
+	_cap_horizontal_speed()
+	if _mantle_steps >= steps:
+		state = State.GROUNDED if facts.on_floor else State.FALLING
+
+
+## A wall beside the runner that can be run along, not refused, high enough above the
+## ground, at a speed enough to start, and the runner pushes along it.
+func _can_run_along(intent: MoveIntent, facts: RunnerFacts) -> bool:
+	if facts.wall_id == RunnerFacts.NO_WALL or facts.wall_id == _refused_wall:
+		return false
+	if not _is_runnable(facts):
+		return false
+	if facts.ground_clearance < tuning.wall_run_min_height:
+		return false
+	if Vector2(velocity.x, velocity.z).length() < tuning.wall_run_start_speed:
+		return false
+	return _pushes_along(intent.direction, _horizontal_unit(facts.wall_normal))
+
+
+## The wall is close enough, near enough to vertical and tall enough.
+func _is_runnable(facts: RunnerFacts) -> bool:
+	if facts.wall_normal.is_zero_approx():
+		return false
+	if facts.wall_distance > tuning.wall_run_distance:
+		return false
+	if facts.wall_height < tuning.wall_run_min_wall_height:
+		return false
+	var tilt: float = absf(facts.wall_normal.normalized().y)
+	return tilt <= sin(deg_to_rad(tuning.wall_run_max_tilt))
+
+
+func _start_wall_run(facts: RunnerFacts) -> void:
+	state = State.WALL_RUNNING
+	_wall_run_steps = 1
+	_wall_id = facts.wall_id
+	_refused_wall = facts.wall_id
+	_away_from_the_wall = _horizontal_unit(facts.wall_normal)
+	_steps_off_the_wall = 0
+
+
+## A wall run lasts its time, along the same wall, fast enough, unless the runner pushes
+## away from the wall.
+func _stays_on_the_wall(intent: MoveIntent, facts: RunnerFacts) -> bool:
+	if _wall_run_steps > _window_steps(tuning.wall_run_duration):
+		return false
+	if facts.wall_id != _wall_id or not _is_runnable(facts):
+		return false
+	_away_from_the_wall = _horizontal_unit(facts.wall_normal)
+	if _along_the_wall(velocity).length() < tuning.wall_run_stop_speed:
+		return false
+	return not _pushes_into(intent.direction, -_away_from_the_wall)
+
+
+## The velocity of this step, from the state chosen.
+func _move(intent: MoveIntent, facts: RunnerFacts, delta: float) -> void:
+	if state == State.SLIDING:
+		_slide(intent.direction, facts, delta)
+	elif state == State.WALL_RUNNING:
+		# Along the wall the speed is kept as it is, as in the air.
+		var along: Vector3 = _along_the_wall(velocity)
+		velocity.x = along.x
+		velocity.z = along.z
+	elif state != State.ROLLING:
+		# A roll keeps the speed it landed with.
+		_steer(intent.direction, delta)
+	_keep_a_low_runner_moving()
+	_cap_horizontal_speed()
+	if _can_wall_jump():
+		_wall_jump()
+	elif _can_jump(facts):
+		_start_jump(delta)
+	elif state == State.SLIDING:
+		velocity.y = _speed_down_the_slope(facts.floor_normal)
+	elif state == State.WALL_RUNNING:
+		_fall_along_the_wall(delta)
+	elif _is_in_the_air():
+		_fly(intent.jump_held, delta)
+	else:
+		velocity.y = 0.0
 
 
 ## A slide takes no acceleration from the runner: it slows down at its own pace, the
@@ -208,6 +419,20 @@ func _slide(direction: Vector3, facts: RunnerFacts, delta: float) -> void:
 		horizontal = _slide_heading * tuning.slide_stop_speed
 	velocity.x = horizontal.x
 	velocity.z = horizontal.z
+
+
+## A runner kept low by a ceiling, out of a slide (in the air over a crack, in a roll or
+## a hard landing), never goes slower than the least speed of a slide, the way it went:
+## it never stays stuck.
+func _keep_a_low_runner_moving() -> void:
+	if not _held_low or state == State.SLIDING:
+		return
+	var horizontal: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
+	if not horizontal.is_zero_approx():
+		_slide_heading = horizontal.normalized()
+	if horizontal.length() < tuning.slide_stop_speed:
+		velocity.x = _slide_heading.x * tuning.slide_stop_speed
+		velocity.z = _slide_heading.z * tuning.slide_stop_speed
 
 
 ## The vertical speed that keeps a slide on a floor that goes down under it.
@@ -255,6 +480,31 @@ func _cap_horizontal_speed() -> void:
 	velocity.z = horizontal.z
 
 
+## A jump asked for (now, or within the jump buffer) while the runner runs along a wall,
+## or shortly after it left it, is a jump off that wall.
+func _can_wall_jump() -> bool:
+	if _steps_since_jump_request > _window_steps(tuning.jump_buffer_time):
+		return false
+	if state == State.WALL_RUNNING:
+		return true
+	return (
+		state == State.FALLING and _steps_off_the_wall <= _window_steps(tuning.wall_jump_grace_time)
+	)
+
+
+## Away from the wall and upwards, keeping the speed along the wall.
+func _wall_jump() -> void:
+	var along: Vector3 = _along_the_wall(velocity)
+	var away: Vector3 = _away_from_the_wall * tuning.wall_jump_away_speed
+	velocity = Vector3(along.x + away.x, tuning.wall_jump_up_speed, along.z + away.z)
+	state = State.RISING
+	jumped_off_a_wall = true
+	_jump_spent = true
+	_jump_cut = false
+	_steps_since_jump_request = LONG_AGO
+	_steps_off_the_wall = LONG_AGO
+
+
 func _can_jump(facts: RunnerFacts) -> bool:
 	if _jump_spent:
 		return false
@@ -285,6 +535,13 @@ func _fly(jump_held: bool, delta: float) -> void:
 		state = State.FALLING
 
 
+## Along a wall the fall is slowed down: the wall run's own gravity on the way down. A
+## runner still rising goes on with the gravity of its jump: no wall run climbs.
+func _fall_along_the_wall(delta: float) -> void:
+	var gravity: float = tuning.rise_gravity if velocity.y > 0.0 else tuning.wall_run_gravity
+	velocity.y = maxf(velocity.y - gravity * delta, -tuning.max_fall_speed)
+
+
 ## The take-off speed that makes a held jump top at the tuned height, given that the
 ## body moves by `velocity * delta` at every step (the first step moves at full speed).
 func _jump_speed(delta: float) -> float:
@@ -294,11 +551,45 @@ func _jump_speed(delta: float) -> float:
 	return (sqrt(discriminant) - gravity_step) / 2.0
 
 
+## The horizontal part of `vector` that runs along the wall of the wall run.
+func _along_the_wall(vector: Vector3) -> Vector3:
+	var horizontal: Vector3 = Vector3(vector.x, 0.0, vector.z)
+	return horizontal - _away_from_the_wall * horizontal.dot(_away_from_the_wall)
+
+
+## Pushing along a surface whose horizontal normal is `normal`: more along it than
+## towards it or away from it.
+func _pushes_along(direction: Vector3, normal: Vector3) -> bool:
+	var wish: Vector3 = Vector3(direction.x, 0.0, direction.z)
+	if wish.is_zero_approx():
+		return false
+	var across: float = wish.dot(normal)
+	return (wish - normal * across).length() > absf(across)
+
+
+## Pushing into a surface whose horizontal normal is `normal`: more towards it than
+## along it.
+func _pushes_into(direction: Vector3, normal: Vector3) -> bool:
+	var wish: Vector3 = Vector3(direction.x, 0.0, direction.z)
+	var into: float = -wish.dot(normal)
+	return into > 0.0 and into > (wish + normal * into).length()
+
+
+## The horizontal direction of `vector`, of length 1; ZERO if it has none.
+func _horizontal_unit(vector: Vector3) -> Vector3:
+	return Vector3(vector.x, 0.0, vector.z).normalized()
+
+
 ## How long the roll or the hard landing under way lasts, in fixed steps.
 func _landing_duration_steps() -> int:
 	if state == State.ROLLING:
 		return _window_steps(tuning.roll_duration)
 	return _window_steps(tuning.hard_landing_duration)
+
+
+## How long a mantle lasts, in fixed steps: at least one.
+func _mantle_duration_steps() -> int:
+	return maxi(_window_steps(tuning.mantle_duration), 1)
 
 
 ## A duration of the tuning, in fixed steps (rounded to the nearest step).
