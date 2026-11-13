@@ -5,7 +5,7 @@ extends RefCounted
 ## the velocity it wants. It uses nothing but its arguments and the tuning: no input, no
 ## clock, no scene.
 
-enum State { GROUNDED, RISING, FALLING }
+enum State { GROUNDED, RISING, FALLING, SLIDING }
 
 ## Step counters start here: far enough for no tolerance window to be open.
 const LONG_AGO: int = 1 << 30
@@ -19,6 +19,8 @@ var _steps_in_the_air: int = LONG_AGO
 var _steps_since_jump_request: int = LONG_AGO
 var _jump_spent: bool = true
 var _jump_cut: bool = false
+## Where the slide is heading: what moves a runner that a low ceiling keeps down.
+var _slide_heading: Vector3 = Vector3.ZERO
 
 
 func _init(movement_tuning: MovementTuning) -> void:
@@ -32,11 +34,17 @@ func step(intent: MoveIntent, facts: RunnerFacts, delta: float) -> Vector3:
 	_step_seconds = delta
 	_observe_floor(facts.on_floor)
 	_remember_jump_request(intent.jump_pressed)
-	_steer(intent.direction, delta)
-	if _can_jump():
+	_choose_floor_state(intent, facts)
+	if state == State.SLIDING:
+		_slide(intent.direction, facts, delta)
+	else:
+		_steer(intent.direction, delta)
+	if _can_jump(facts):
 		_start_jump(delta)
 	elif state == State.GROUNDED:
 		velocity.y = 0.0
+	elif state == State.SLIDING:
+		velocity.y = _speed_down_the_slope(facts.floor_normal)
 	else:
 		_fly(intent.jump_held, delta)
 	return velocity
@@ -50,6 +58,12 @@ func reset() -> void:
 	_steps_since_jump_request = LONG_AGO
 	_jump_spent = true
 	_jump_cut = false
+	_slide_heading = Vector3.ZERO
+
+
+## The runner is low: its capsule has the height of a slide.
+func is_low() -> bool:
+	return state == State.SLIDING
 
 
 ## Seconds during which a jump is still accepted although the floor is gone.
@@ -69,12 +83,14 @@ func _observe_floor(on_floor: bool) -> void:
 	# A jump that just started may still be reported on the floor: it has left it.
 	var taking_off: bool = state == State.RISING and velocity.y > 0.0
 	if on_floor and not taking_off:
-		state = State.GROUNDED
+		if _is_in_the_air():
+			state = State.GROUNDED
 		_steps_in_the_air = 0
 		_jump_spent = false
 		return
 	_steps_in_the_air = mini(_steps_in_the_air + 1, LONG_AGO)
-	if state == State.GROUNDED:
+	if not _is_in_the_air():
+		# Leaving the floor is falling, whatever the runner was doing on it.
 		state = State.FALLING
 
 
@@ -83,6 +99,53 @@ func _remember_jump_request(jump_pressed: bool) -> void:
 		_steps_since_jump_request = 0
 	else:
 		_steps_since_jump_request = mini(_steps_since_jump_request + 1, LONG_AGO)
+
+
+func _is_in_the_air() -> bool:
+	return state == State.RISING or state == State.FALLING
+
+
+## On the floor, standing or sliding. A slide starts while the slide is held with enough
+## speed, and ends when it is released or too slow. Under a low ceiling the runner
+## stays low whatever it asks.
+func _choose_floor_state(intent: MoveIntent, facts: RunnerFacts) -> void:
+	var speed: float = Vector2(velocity.x, velocity.z).length()
+	if state == State.GROUNDED:
+		if intent.slide_held and speed >= tuning.slide_min_speed:
+			state = State.SLIDING
+	elif state == State.SLIDING and facts.can_stand:
+		if not intent.slide_held or speed < tuning.slide_stop_speed:
+			state = State.GROUNDED
+
+
+## A slide takes no acceleration from the runner: it slows down at its own pace, the
+## slope pulls it with the fall gravity, and its direction only follows the wanted one
+## slowly. Without room to stand up, it never goes slower than its least speed.
+func _slide(direction: Vector3, facts: RunnerFacts, delta: float) -> void:
+	var horizontal: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
+	var speed: float = horizontal.length()
+	if not horizontal.is_zero_approx():
+		_slide_heading = horizontal / speed
+	var wish: Vector3 = Vector3(direction.x, 0.0, direction.z)
+	if not wish.is_zero_approx() and not _slide_heading.is_zero_approx():
+		var turn: float = tuning.slide_turn_speed * delta
+		var angle: float = _slide_heading.signed_angle_to(wish, Vector3.UP)
+		_slide_heading = _slide_heading.rotated(Vector3.UP, clampf(angle, -turn, turn))
+	horizontal = _slide_heading * maxf(speed - tuning.slide_deceleration * delta, 0.0)
+	var normal: Vector3 = facts.floor_normal
+	var downhill: Vector3 = Vector3(normal.x, 0.0, normal.z) * normal.y
+	horizontal += downhill * tuning.fall_gravity * delta
+	if not facts.can_stand and horizontal.length() < tuning.slide_stop_speed:
+		horizontal = _slide_heading * tuning.slide_stop_speed
+	velocity.x = horizontal.x
+	velocity.z = horizontal.z
+
+
+## The vertical speed that keeps a slide on a floor that goes down under it.
+func _speed_down_the_slope(normal: Vector3) -> float:
+	if normal.y <= 0.0:
+		return 0.0
+	return minf(-(normal.x * velocity.x + normal.z * velocity.z) / normal.y, 0.0)
 
 
 func _steer(direction: Vector3, delta: float) -> void:
@@ -99,8 +162,10 @@ func _steer(direction: Vector3, delta: float) -> void:
 	velocity.z = horizontal.z
 
 
-func _can_jump() -> bool:
+func _can_jump(facts: RunnerFacts) -> bool:
 	if _jump_spent:
+		return false
+	if is_low() and not facts.can_stand:
 		return false
 	if _steps_since_jump_request > _window_steps(tuning.jump_buffer_time):
 		return false

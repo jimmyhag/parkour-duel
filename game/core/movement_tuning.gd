@@ -31,6 +31,38 @@ extends Resource
 ## Time before landing during which a jump press is remembered, in s.
 @export var jump_buffer_time: float = 0.0
 
+@export_group("Slide")
+## Slowest horizontal speed at which a slide can start, in m/s.
+@export var slide_min_speed: float = 0.0
+## Speed under which a slide ends, and the least speed of a runner kept low by a low
+## ceiling, in m/s.
+@export var slide_stop_speed: float = 0.0
+## How fast a slide slows down on flat ground, in m/s².
+@export var slide_deceleration: float = 0.0
+## How fast the direction of a slide can be corrected, in rad/s.
+@export var slide_turn_speed: float = 0.0
+## Height of the capsule during a slide and a roll, in m.
+@export var slide_capsule_height: float = 0.0
+
+@export_group("Landing")
+## Fall height above which a landing must be rolled, in m.
+@export var roll_fall_height: float = 0.0
+## Time before a landing during which a slide press makes it a roll, in s.
+@export var roll_window: float = 0.0
+## How long a roll lasts, in s.
+@export var roll_duration: float = 0.0
+## Share of the horizontal speed kept by a hard landing, and share of the top speed
+## the runner cannot exceed while it lasts (0 to 1).
+@export_range(0.0, 1.0) var hard_landing_speed_ratio: float = 0.0
+## How long a hard landing lasts, in s.
+@export var hard_landing_duration: float = 0.0
+
+@export_group("Momentum")
+## How fast a speed above the top speed comes back down on the floor, in m/s².
+@export var momentum_deceleration: float = 0.0
+## The horizontal speed nothing can exceed, in m/s.
+@export var max_horizontal_speed: float = 0.0
+
 @export_group("Character")
 ## Dead zone of both sticks (0 to 1).
 @export_range(0.0, 1.0) var stick_deadzone: float = 0.0
