@@ -7,6 +7,7 @@ extends CourseTest
 const SLIDING: RunnerMotor.State = RunnerMotor.State.SLIDING
 const ROLLING: RunnerMotor.State = RunnerMotor.State.ROLLING
 const HARD_LANDING: RunnerMotor.State = RunnerMotor.State.HARD_LANDING
+const FORWARD: Vector3 = Vector3.FORWARD
 ## The obstacle of the low passage.
 const LOW_OBSTACLE: String = "Blocks/LowBeam"
 
@@ -16,6 +17,10 @@ class SlopeSlider:
 	extends IntentSource
 
 	var steps_sliding_downhill: int = 0
+	## Steps the runner spent off the floor between the top of the slope and its bottom.
+	var steps_off_the_slope: int = 0
+	## The horizontal speed of the runner as its slide started down the slope.
+	var speed_at_the_top: float = 0.0
 	## The runner went down a slope, and stands on level ground again.
 	var is_past_the_slope: bool = false
 
@@ -30,7 +35,11 @@ class SlopeSlider:
 		var on_floor: bool = _runner.is_on_floor()
 		var downhill: bool = on_floor and _runner.get_floor_normal().dot(intent.direction) > NEAR
 		intent.slide_held = downhill
+		if steps_sliding_downhill > 0 and not is_past_the_slope and not on_floor:
+			steps_off_the_slope += 1
 		if downhill and _runner.motor.state == RunnerMotor.State.SLIDING:
+			if steps_sliding_downhill == 0:
+				speed_at_the_top = Vector2(_runner.velocity.x, _runner.velocity.z).length()
 			steps_sliding_downhill += 1
 		is_past_the_slope = steps_sliding_downhill > 0 and on_floor and not downhill
 		return intent
@@ -43,6 +52,80 @@ func test_the_low_passage_can_be_cleared_by_sliding() -> void:
 
 	_assert_cleared(attempt)
 	assert_gt(attempt.run.steps_sliding, 0, "the runner slid")
+
+
+## The proof, in the real physics, that the low passage has a ramp going down and that a
+## slide follows it and gains speed on it: the player layer reports the slope of the
+## floor, game/core does the rest.
+func test_a_slide_gains_speed_on_the_ramp_of_the_low_passage() -> void:
+	var course: Course = _add_course()
+	_start_at(course, LOW_PASSAGE)
+	var runner: Player = course.player
+	var slider: SlopeSlider = SlopeSlider.new(runner)
+	runner.intent_source = slider
+	var budget: int = _step_budget(course, _checkpoint(course, BIG_DROP))
+
+	var fastest: float = 0.0
+	var steps: int = 0
+	while not slider.is_past_the_slope and steps < budget:
+		await get_tree().physics_frame
+		fastest = maxf(fastest, _horizontal_speed(runner))
+		steps += 1
+
+	assert_true(slider.is_past_the_slope, "the runner slid down a ramp, to level ground")
+	var start_altitude: float = _checkpoint(course, LOW_PASSAGE).global_position.y
+	assert_lt(runner.global_position.y, start_altitude - NEAR, "lower than where it started")
+	assert_eq(slider.steps_off_the_slope, 0, "without ever leaving the floor")
+	var speed_at_the_bottom: float = _horizontal_speed(runner)
+	assert_gt(speed_at_the_bottom, slider.speed_at_the_top + NEAR, "faster at the bottom")
+	assert_gt(fastest, runner.tuning.top_speed + NEAR, "and faster than it can run")
+
+
+## The ledge is the edge of the big drop. Both runners are launched from its checkpoint
+## faster than the top speed: on the way to the edge the floor takes less speed from a
+## slide than from a run, so nothing but a push down can make the slider land shorter.
+func test_sliding_off_a_ledge_does_not_push_the_runner_down() -> void:
+	var courses: Array[Course] = [_add_course()]
+	courses.append(_add_course(2.0 * PilotedRun.bounds_of_the_blocks(courses[0]).size.x))
+	for course: Course in courses:
+		_start_at(course, BIG_DROP)
+	await _wait_steps(SETTLE_STEPS)
+	var slider: Player = courses[0].player
+	var runner: Player = courses[1].player
+	var budget: int = _step_budget(courses[0], courses[0].get_node("FinishLine") as RaceLine)
+	var launch_speed: float = slider.tuning.top_speed * 1.5
+	var ledge_altitude: float = slider.global_position.y
+	slider.velocity = FORWARD * launch_speed
+	runner.velocity = FORWARD * launch_speed
+	slider.intent_source = ScriptedIntentSource.new().slide(FORWARD, budget)
+	runner.intent_source = ScriptedIntentSource.new().hold(FORWARD, false, budget)
+
+	# Each one is followed from the ledge, through the air, to the floor it lands on.
+	var flights: Array[float] = [0.0, 0.0]
+	var flew: Array[bool] = [false, false]
+	var states_on_the_ledge: Array[RunnerMotor.State] = [SLIDING, SLIDING]
+	var landed: int = 0
+	var steps: int = 0
+	while landed < flights.size() and steps < budget:
+		await get_tree().physics_frame
+		steps += 1
+		landed = 0
+		for index: int in flights.size():
+			var body: Player = slider if index == 0 else runner
+			if not body.is_on_floor():
+				flew[index] = true
+			elif not flew[index]:
+				states_on_the_ledge[index] = body.motor.state
+			elif flights[index] == 0.0:
+				flights[index] = body.global_position.dot(FORWARD)
+			landed += int(flights[index] != 0.0)
+
+	assert_eq(landed, 2, "both left the ledge and landed")
+	assert_lt(slider.global_position.y, ledge_altitude - NEAR, "lower than the ledge")
+	assert_lt(runner.global_position.y, ledge_altitude - NEAR, "both of them")
+	assert_eq(states_on_the_ledge[0], SLIDING, "one slid off the ledge")
+	assert_eq(states_on_the_ledge[1], RunnerMotor.State.GROUNDED, "the other ran off it")
+	assert_gte(flights[0], flights[1], "the one that slides lands at least as far")
 
 
 func test_the_low_passage_stops_a_standing_runner() -> void:
@@ -126,30 +209,16 @@ func test_returning_to_the_checkpoint_stands_the_runner_up() -> void:
 		assert_almost_eq(height, standing, NEAR, "after %s: its capsule stands" % state_name)
 
 
-## Not a scenario of the spec: the proof, in the real physics, that the low passage has
-## a ramp going down and that a slide gains speed on it (the player layer reports the
-## slope of the floor, game/core does the rest).
-func test_a_slide_gains_speed_down_the_ramp_of_the_low_passage() -> void:
-	var course: Course = _add_course()
-	_start_at(course, LOW_PASSAGE)
-	var runner: Player = course.player
-	var slider: SlopeSlider = SlopeSlider.new(runner)
-	runner.intent_source = slider
-	var section_length: float = _distance_to(course, _checkpoint(course, BIG_DROP))
-	var seconds_at_top_speed: float = section_length / runner.tuning.top_speed
-	var budget: int = PilotedRun.BUDGET_MARGIN * ceili(seconds_at_top_speed * STEPS_PER_SECOND)
+## The steps a run from where the runner of `course` is to `goal` may last: as many
+## times the time its distance takes at top speed as a piloted run is given.
+func _step_budget(course: Course, goal: Area3D) -> int:
+	var distance: float = course.player.global_position.distance_to(goal.global_position)
+	var seconds_at_top_speed: float = distance / course.player.tuning.top_speed
+	return PilotedRun.BUDGET_MARGIN * ceili(seconds_at_top_speed * STEPS_PER_SECOND)
 
-	var fastest: float = 0.0
-	var steps: int = 0
-	while not slider.is_past_the_slope and steps < budget:
-		await get_tree().physics_frame
-		fastest = maxf(fastest, Vector2(runner.velocity.x, runner.velocity.z).length())
-		steps += 1
 
-	assert_true(slider.is_past_the_slope, "the runner slid down a ramp, to level ground")
-	var start_altitude: float = _checkpoint(course, LOW_PASSAGE).global_position.y
-	assert_lt(runner.global_position.y, start_altitude - NEAR, "lower than where it started")
-	assert_gt(fastest, runner.tuning.top_speed + NEAR, "and went faster than it can run")
+func _horizontal_speed(runner: Player) -> float:
+	return Vector2(runner.velocity.x, runner.velocity.z).length()
 
 
 func _capsule_height(runner: Player) -> float:

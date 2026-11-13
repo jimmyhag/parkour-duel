@@ -9,7 +9,8 @@ var on_floor: bool = false
 var velocity: Vector3 = Vector3.ZERO
 ## The altitude of the runner's feet, in m.
 var altitude: float = 0.0
-## The normal of the floor the runner stands on; straight up when it stands on none.
+## The normal of the ground under the runner's feet: its slope. Straight up when there
+## is none there, as in the air or over the edge of a block.
 var floor_normal: Vector3 = Vector3.UP
 ## There is room above the runner to stand up.
 var can_stand: bool = true

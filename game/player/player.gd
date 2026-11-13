@@ -91,9 +91,25 @@ func _observe() -> RunnerFacts:
 	facts.velocity = velocity
 	facts.altitude = global_position.y
 	if facts.on_floor:
-		facts.floor_normal = get_floor_normal()
+		facts.floor_normal = _normal_of_the_ground_underfoot()
 	facts.can_stand = not motor.is_low() or _has_headroom()
 	return facts
+
+
+## The normal of the ground right under the runner's feet, probed straight down as deep
+## as the steepest floor can be under a capsule that rests on it; straight up when there
+## is no ground there. The contact the body reports is not used: over the edge of a
+## block it is tilted like a slope, and the edge of a block is not a slope.
+func _normal_of_the_ground_underfoot() -> Vector3:
+	var reach: Vector3 = Vector3.UP * tuning.capsule_radius
+	var ray: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
+		global_position + reach, global_position - reach, collision_mask, [get_rid()]
+	)
+	var ground: Dictionary = get_world_3d().direct_space_state.intersect_ray(ray)
+	if ground.is_empty():
+		return Vector3.UP
+	var normal: Vector3 = ground["normal"]
+	return normal
 
 
 ## Whether the capsule, low as it is, could rise to its standing height where it is.
