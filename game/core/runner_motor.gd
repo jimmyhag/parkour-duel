@@ -89,6 +89,19 @@ func jump_buffer_left() -> float:
 	return maxi(steps_left, 0) * _step_seconds
 
 
+## Seconds during which the last slide press still makes a roll of a high landing.
+func roll_window_left() -> float:
+	var steps_left: int = _window_steps(tuning.roll_window) - _steps_since_slide_press
+	return maxi(steps_left, 0) * _step_seconds
+
+
+## Seconds left of the roll or of the hard landing under way.
+func landing_time_left() -> float:
+	if state != State.ROLLING and state != State.HARD_LANDING:
+		return 0.0
+	return maxi(_landing_duration_steps() - _landing_steps, 0) * _step_seconds
+
+
 func _remember_requests(intent: MoveIntent) -> void:
 	if intent.jump_pressed:
 		_steps_since_jump_request = 0

@@ -5,8 +5,10 @@
 [ext_resource type="Resource" path="res://game/core/movement_tuning.tres" id="3_tuning"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_body"]
+resource_local_to_scene = true
 
 [sub_resource type="CapsuleMesh" id="CapsuleMesh_body"]
+resource_local_to_scene = true
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_visor"]
 albedo_color = Color(0.08, 0.09, 0.12, 1)

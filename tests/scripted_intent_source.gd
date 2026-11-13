@@ -20,6 +20,18 @@ func hold(direction: Vector3, jump_held: bool, steps: int) -> ScriptedIntentSour
 	return self
 
 
+## Adds `steps` steps going in `direction` (in the world) with the slide held. The slide
+## counts as pressed at the first of them.
+func slide(direction: Vector3, steps: int) -> ScriptedIntentSource:
+	for i: int in steps:
+		var intent: MoveIntent = MoveIntent.new()
+		intent.direction = direction
+		intent.slide_held = true
+		intent.slide_pressed = i == 0
+		_intents.append(intent)
+	return self
+
+
 ## Adds one step that asks to come back to the last checkpoint.
 func request_respawn() -> ScriptedIntentSource:
 	var intent: MoveIntent = MoveIntent.new()
