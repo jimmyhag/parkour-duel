@@ -190,6 +190,42 @@ func test_no_jump_under_a_low_ceiling() -> void:
 	assert_eq(body.velocity.y, 0.0, "it stays on the floor")
 
 
+func test_the_runner_stays_low_when_leaving_the_floor_under_a_low_ceiling() -> void:
+	var tuning: MovementTuning = MotorBody.fixed_tuning()
+	var body: MotorBody = _slider(tuning, tuning.top_speed)
+	body.can_stand = false
+	body.has_floor = false
+	body.step(_slide(FORWARD))
+
+	var jump: MoveIntent = _run(FORWARD)
+	jump.jump_pressed = true
+	jump.jump_held = true
+	for i: int in 10:
+		body.step(jump if i == 0 else _run(FORWARD))
+		assert_eq(body.motor.state, FALLING, "it falls at air step %d" % i)
+		assert_true(body.motor.is_low(), "and stays low, slide released")
+	assert_lt(body.velocity.y, 0.0, "no jump took it up")
+
+	body.can_stand = true
+	body.step(_run(FORWARD))
+	assert_eq(body.motor.state, FALLING, "still falling")
+	assert_false(body.motor.is_low(), "it straightens up as soon as there is room")
+
+	# One that finds the floor again before the room: it goes on low, as a slide.
+	var landing: MotorBody = _slider(tuning, tuning.top_speed)
+	landing.can_stand = false
+	landing.has_floor = false
+	landing.step(_slide(FORWARD))
+	landing.step(_run(FORWARD))
+	landing.has_floor = true
+	landing.step(_run(FORWARD))
+	landing.step(_run(FORWARD))
+	assert_eq(landing.motor.state, SLIDING, "back on a floor under the ceiling: still low")
+	landing.can_stand = true
+	landing.step(_run(FORWARD))
+	assert_eq(landing.motor.state, GROUNDED, "and up once there is room")
+
+
 func test_a_slide_ended_by_slowness_does_not_restart_by_itself() -> void:
 	var tuning: MovementTuning = MotorBody.fixed_tuning()
 	var body: MotorBody = _slider(tuning, tuning.top_speed)

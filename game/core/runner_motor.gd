@@ -25,6 +25,8 @@ var _slide_heading: Vector3 = Vector3.ZERO
 ## The last slide ended because it was too slow, and the slide has been held ever since:
 ## it takes a new press to slide again.
 var _slide_spent: bool = false
+## The runner lost the floor while it was low, and has had no room to stand up since.
+var _low_in_the_air: bool = false
 ## The highest altitude since the runner last stood on a floor: where its fall starts.
 var _apex: float = -INF
 ## Steps spent in the roll or the hard landing under way.
@@ -70,14 +72,16 @@ func reset() -> void:
 	_jump_cut = false
 	_slide_heading = Vector3.ZERO
 	_slide_spent = false
+	_low_in_the_air = false
 	_steps_since_slide_press = LONG_AGO
 	_apex = -INF
 	_landing_steps = 0
 
 
-## The runner is low: its capsule has the height of a slide.
+## The runner is low: its capsule has the height of a slide. It is in a slide and in a
+## roll, and stays so in the air if it lost the floor where it cannot stand up.
 func is_low() -> bool:
-	return state == State.SLIDING or state == State.ROLLING
+	return state == State.SLIDING or state == State.ROLLING or _low_in_the_air
 
 
 ## Seconds during which a jump is still accepted although the floor is gone.
@@ -121,14 +125,20 @@ func _observe_floor(facts: RunnerFacts) -> void:
 	# A jump that just started may still be reported on the floor: it has left it.
 	var taking_off: bool = state == State.RISING and velocity.y > 0.0
 	if facts.on_floor and not taking_off:
-		if _is_in_the_air():
+		if _low_in_the_air and not facts.can_stand:
+			# Back on a floor before there is room to stand up: it goes on as a slide.
+			state = State.SLIDING
+		elif _is_in_the_air():
 			_land(_apex - facts.altitude)
+		_low_in_the_air = false
 		_steps_in_the_air = 0
 		_jump_spent = false
 		_apex = facts.altitude
 		return
 	_steps_in_the_air = mini(_steps_in_the_air + 1, LONG_AGO)
 	_apex = maxf(_apex, facts.altitude)
+	# A low runner that loses the floor stays low for as long as it cannot stand up.
+	_low_in_the_air = is_low() and not facts.can_stand
 	if not _is_in_the_air():
 		# Leaving the floor is falling, whatever the runner was doing on it.
 		state = State.FALLING
