@@ -136,8 +136,9 @@ Fonctionnalité: Tests rejoués réactifs
 
 - Tout changement de comportement du jeu et toute valeur de réglage.
 - Le pilote pour les mouvements avancés (glissade, roulade, mantle, wall-run,
-  wall-jump) : il sera étendu par `docs/specs/movement-advanced.md`, à relire en
-  tenant compte de cette spec.
+  wall-jump) : il sera étendu par `docs/specs/movement-ground.md` et
+  `docs/specs/movement-walls.md` (qui remplacent `movement-advanced.md`, scindée le
+  2026-11-13), écrites en tenant compte de cette spec.
 - Un adversaire piloté par l'ordinateur : c'est le bot de l'étape 4. Le pilote reste un
   outil de test dans `tests/`.
 - La lecture d'`Engine.time_scale` par le jeu (constat de la seconde inspection) : à

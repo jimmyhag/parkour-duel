@@ -11,8 +11,9 @@ ajoutées, cinq scénarios ajoutés ou déplacés (marqués « amendement »).
 Première moitié de l'étape 1 de la feuille de route (prototype solo du déplacement).
 L'étape a été coupée en deux specs pour que Jimmy ait la course, le saut et la caméra
 en main avant qu'on construise par-dessus : celle-ci pose la base, et
-`docs/specs/movement-advanced.md` ajoutera la glissade, la roulade, le mantle, le
-wall-run et le wall-jump une fois cette base réglée.
+`docs/specs/movement-ground.md` puis `docs/specs/movement-walls.md` (qui remplacent
+`movement-advanced.md`, scindée le 2026-11-13) ajouteront la glissade, la roulade, le
+mantle, le wall-run et le wall-jump.
 
 Ce qui existe aujourd'hui : `game/levels/sandbox.tscn` (un sol, une caméra fixe, une
 lumière), scène principale du projet, et `tests/test_sandbox_scene.gd` qui vérifie
