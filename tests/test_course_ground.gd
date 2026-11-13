@@ -178,7 +178,7 @@ func test_the_low_passage_stops_a_standing_runner() -> void:
 	assert_almost_eq(before_the_obstacle, radius, NEAR, "against the obstacle")
 
 
-func test_the_big_drop_leads_to_the_finish() -> void:
+func test_the_big_drop_can_be_cleared() -> void:
 	var attempt: SectionRun = _section_run(BIG_DROP)
 
 	await _play([attempt.run])
@@ -201,8 +201,9 @@ func test_the_roll_saves_time_on_the_big_drop() -> void:
 	assert_gt(rolling.run.steps_rolling, 0, "one runner rolled")
 	assert_eq(landing_hard.run.slide_requests, 0, "the other never pressed the slide")
 	assert_gt(landing_hard.run.steps_landing_hard, 0, "and landed hard")
-	var steps_rolling: int = rolling.course.race.elapsed_steps
-	var steps_landing_hard: int = landing_hard.course.race.elapsed_steps
+	# Both counted up to the checkpoint of the ledge, which ends the section.
+	var steps_rolling: int = rolling.run.steps_to_the_goal
+	var steps_landing_hard: int = landing_hard.run.steps_to_the_goal
 	assert_lt(steps_rolling, steps_landing_hard, "the one that rolls finishes in fewer steps")
 
 

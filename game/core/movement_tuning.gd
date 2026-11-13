@@ -63,6 +63,50 @@ extends Resource
 ## The horizontal speed nothing can exceed, in m/s.
 @export var max_horizontal_speed: float = 0.0
 
+@export_group("Push")
+## Where a push stops being along a wall or a ledge and becomes towards it or away from
+## it: its angle from the surface, in degrees. A push exactly on the limit counts for a
+## wall run and for a mantle; leaving a wall takes a push beyond it.
+@export_range(0.0, 90.0) var push_split_angle: float = 0.0
+
+@export_group("Mantle")
+## Lowest height of a ledge above the feet that a mantle climbs, in m.
+@export var mantle_min_height: float = 0.0
+## Highest height of a ledge above the feet that a mantle climbs, in m.
+@export var mantle_max_height: float = 0.0
+## How long a mantle lasts, from the air to standing on the ledge, in s.
+@export var mantle_duration: float = 0.0
+## Speed at which a mantle leaves the runner on its ledge, forwards, in m/s.
+@export var mantle_exit_speed: float = 0.0
+
+@export_group("Wall run")
+## Farthest a wall can be from the runner's side for a wall run, in m.
+@export var wall_run_distance: float = 0.0
+## How far from vertical a wall may lean and still be run along, in degrees.
+@export var wall_run_max_tilt: float = 0.0
+## Shortest wall that can be run along, from its foot to its top, in m.
+@export var wall_run_min_wall_height: float = 0.0
+## Least height of the feet above the ground for a wall run to start, in m.
+@export var wall_run_min_height: float = 0.0
+## Least horizontal speed for a wall run to start, in m/s.
+@export var wall_run_start_speed: float = 0.0
+## Speed along the wall under which a wall run ends, in m/s.
+@export var wall_run_stop_speed: float = 0.0
+## Longest a wall run lasts, in s.
+@export var wall_run_duration: float = 0.0
+## Gravity of a wall run on its way down, in m/s².
+@export var wall_run_gravity: float = 0.0
+## How far the capsule one sees leans towards the wall it runs along, in degrees.
+@export var wall_run_lean: float = 0.0
+
+@export_group("Wall jump")
+## Speed a wall jump gives away from the wall, in m/s.
+@export var wall_jump_away_speed: float = 0.0
+## Speed a wall jump gives upwards, in m/s.
+@export var wall_jump_up_speed: float = 0.0
+## Time after leaving a wall run during which a jump is still a wall jump, in s.
+@export var wall_jump_grace_time: float = 0.0
+
 @export_group("Character")
 ## Dead zone of both sticks (0 to 1).
 @export_range(0.0, 1.0) var stick_deadzone: float = 0.0

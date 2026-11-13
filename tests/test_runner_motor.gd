@@ -249,6 +249,19 @@ func test_the_same_intents_give_the_same_result() -> void:
 		)
 		facts.floor_normal = tilt.normalized()
 		facts.can_stand = random.randf() < 0.9
+		# Walls beside and ledges ahead of any kind, near or far, tall or short.
+		facts.ground_clearance = random.randf_range(0.0, 5.0)
+		facts.wall_id = random.randi_range(RunnerFacts.NO_WALL, 2)
+		if facts.wall_id != RunnerFacts.NO_WALL:
+			var across: Vector3 = Vector3(random.randf_range(-1, 1), 0, random.randf_range(-1, 1))
+			facts.wall_normal = (across + Vector3.UP * random.randf_range(-0.3, 0.3)).normalized()
+			facts.wall_distance = random.randf_range(0.0, 1.0)
+			facts.wall_height = random.randf_range(0.0, 10.0)
+		if random.randf() < 0.5:
+			var face: Vector3 = Vector3(random.randf_range(-1, 1), 0, random.randf_range(-1, 1))
+			facts.ledge_normal = face.normalized()
+			facts.ledge_height = random.randf_range(0.0, 3.0)
+			facts.ledge_clear = random.randf() < 0.5
 		var wanted: Vector3 = first.step(intent, facts, STEP)
 		var twin: Vector3 = second.step(intent, facts, STEP)
 		if wanted != twin or first.state != second.state:
@@ -288,6 +301,24 @@ func _tuning() -> MovementTuning:
 	tuning.hard_landing_duration = 0.35
 	tuning.momentum_deceleration = 6.0
 	tuning.max_horizontal_speed = 22.0
+	tuning.push_split_angle = 45.0
+	tuning.mantle_min_height = 0.9
+	tuning.mantle_max_height = 2.2
+	tuning.mantle_duration = 0.35
+	tuning.mantle_exit_speed = 4.0
+	tuning.wall_run_distance = 0.6
+	tuning.wall_run_max_tilt = 15.0
+	tuning.wall_run_min_wall_height = 2.0
+	tuning.wall_run_min_height = 1.0
+	tuning.wall_run_start_speed = 6.0
+	tuning.wall_run_stop_speed = 4.0
+	tuning.wall_run_duration = 1.2
+	tuning.wall_run_gravity = 6.0
+	tuning.wall_jump_away_speed = 7.0
+	tuning.wall_jump_up_speed = 9.5
+	tuning.wall_jump_grace_time = 0.10
+	tuning.capsule_height = 1.8
+	tuning.capsule_radius = 0.35
 	return tuning
 
 

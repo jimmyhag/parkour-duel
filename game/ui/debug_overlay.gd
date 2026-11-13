@@ -2,8 +2,9 @@ class_name DebugOverlay
 extends Label
 ## The debug display, for tuning the feel: the runner's state, its horizontal and
 ## vertical speeds, and what is left of its coyote time, of its jump buffer, of its roll
-## window and of the roll or the hard landing under way. Hidden until its action shows
-## it.
+## window, of the roll or the hard landing under way, of the mantle under way, of the
+## wall run under way and of the time a jump is still a jump off a wall. Hidden until
+## its action shows it.
 
 const TOGGLE_DEBUG: StringName = &"toggle_debug"
 const LINES: Array[String] = [
@@ -14,6 +15,9 @@ const LINES: Array[String] = [
 	"BUFFER %.2f s",
 	"ROLL WINDOW %.2f s",
 	"LANDING %.2f s",
+	"MANTLE %.2f s",
+	"WALL RUN %.2f s",
+	"WALL JUMP %.2f s",
 ]
 
 ## The runner to display.
@@ -47,5 +51,8 @@ func refresh() -> void:
 			motor.jump_buffer_left(),
 			motor.roll_window_left(),
 			motor.landing_time_left(),
+			motor.mantle_time_left(),
+			motor.wall_run_time_left(),
+			motor.wall_jump_time_left(),
 		]
 	)

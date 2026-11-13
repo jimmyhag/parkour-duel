@@ -2,22 +2,28 @@ class_name PilotIntentSource
 extends IntentSource
 ## The test pilot: a source of intents that, at every fixed step, looks at its runner
 ## and at the physical world around it, then decides. It runs in a given direction,
-## jumps when the floor stops just ahead or when a step it can clear stands just ahead,
-## and holds the jump up to its top. It holds the slide when a low obstacle stands just
-## ahead, in one go until there is room to stand up again, and presses it just before
-## the floor when it falls from high enough to need a roll. It never jumps in the air or
-## on a floor that goes on, and never asks for the slide without one of these two
-## reasons.
+## jumps when the floor stops just ahead, when a step it can clear stands just ahead, or
+## when a ledge it can climb stands right in front of it, and holds the jump up to its
+## top unless holding it would carry it past the floor it can land on. It holds the
+## slide when a low obstacle stands just ahead, in one go until there is room to stand
+## up again, and presses it just before the floor when it falls from high enough to need
+## a roll. Along a wall, it jumps off when another wall stands across, and lets the jump
+## carry it to that wall. It never jumps in the air or on a floor that goes on but off a
+## wall, and never asks for the slide without one of its two reasons.
 ## It knows no course: only what it probes, the state of the runner and the tuning,
 ## from which its look-ahead distances are worked out.
 
 var _runner: Player
 var _direction: Vector3
 var _slides: bool
-## The highest altitude of the runner since it last stood on a floor.
+## The highest altitude of the runner since it last stood on a floor, and the altitude
+## of that floor.
 var _highest: float = 0.0
+var _floor_altitude: float = 0.0
 var _slide_was_held: bool = false
 var _roll_asked: bool = false
+## The pilot jumped off a wall, and the runner has not reached anything since.
+var _flying_off_a_wall: bool = false
 
 
 ## `direction` is where to run, in the world; only its horizontal part counts. A pilot
@@ -32,22 +38,37 @@ func _init(runner: Player, direction: Vector3, slides: bool = true) -> void:
 func next_intent() -> MoveIntent:
 	var intent: MoveIntent = MoveIntent.new()
 	intent.direction = _direction
+	var motor: RunnerMotor = _runner.motor
 	var altitude: float = _runner.global_position.y
 	var on_floor: bool = _runner.is_on_floor()
 	_highest = altitude if on_floor else maxf(_highest, altitude)
+	if on_floor:
+		_floor_altitude = altitude
 	_roll_asked = _roll_asked and not on_floor
+	var in_the_air: bool = motor.state == RunnerMotor.State.RISING
+	in_the_air = in_the_air or motor.state == RunnerMotor.State.FALLING
+	_flying_off_a_wall = _flying_off_a_wall and in_the_air
+	if _flying_off_a_wall:
+		# Off a wall, the jump carries the runner: it pushes the way it flies.
+		var flight: Vector3 = Vector3(_runner.velocity.x, 0.0, _runner.velocity.z)
+		intent.direction = flight.normalized()
 	if _slides and (_ceiling_is_low() or (on_floor and _low_obstacle_stands_ahead())):
 		# Under a low ceiling the slide stays held, floor or not: a crack is no way out.
 		intent.slide_held = true
 		intent.slide_pressed = not _slide_was_held
 	elif on_floor:
 		intent.jump_pressed = _floor_stops_ahead() or _step_stands_ahead()
+		intent.jump_pressed = intent.jump_pressed or _ledge_stands_ahead()
+	elif motor.state == RunnerMotor.State.WALL_RUNNING:
+		intent.jump_pressed = _another_wall_stands_across()
+		_flying_off_a_wall = intent.jump_pressed
 	elif _slides and not _roll_asked and _high_landing_is_near():
 		intent.slide_pressed = true
 		intent.slide_held = true
 		_roll_asked = true
 	_slide_was_held = intent.slide_held
-	intent.jump_held = intent.jump_pressed or _runner.motor.state == RunnerMotor.State.RISING
+	var rising: bool = motor.state == RunnerMotor.State.RISING
+	intent.jump_held = intent.jump_pressed or (rising and not _holding_overshoots())
 	return intent
 
 
@@ -72,12 +93,26 @@ func _floor_stops_ahead() -> bool:
 ## it covers while a jump rises, and the same body, lifted by a jump height, would pass
 ## over it with room to stand on it. Jumping now tops the jump as the runner gets there.
 func _step_stands_ahead() -> bool:
+	return _clears_what_stops_it(_reach(), _runner.tuning.jump_height)
+
+
+## A ledge stands right in front when something would stop the runner's body before the
+## end of this step, and the same body, lifted by the highest ledge a mantle climbs,
+## would pass over it with room to stand on it. Jumping now puts the runner in the air
+## against its face, where the mantle takes it up.
+func _ledge_stands_ahead() -> bool:
+	var stride: float = _speed_ahead() * _runner.get_physics_process_delta_time()
+	return _clears_what_stops_it(stride, _runner.tuning.mantle_max_height)
+
+
+## Something would stop the runner's body within `reach`, and the same body, lifted by
+## `lift`, would pass over it with room to stand on it.
+func _clears_what_stops_it(reach: float, lift: float) -> bool:
 	var tuning: MovementTuning = _runner.tuning
-	var reach: float = _reach()
 	var free: float = _free_share(tuning.capsule_height, _direction * reach)
 	if free >= 1.0:
 		return false
-	var up_there: Transform3D = _runner.global_transform.translated(Vector3.UP * tuning.jump_height)
+	var up_there: Transform3D = _runner.global_transform.translated(Vector3.UP * lift)
 	var room: float = free * reach + 2.0 * tuning.capsule_radius
 	return not _runner.test_move(up_there, _direction * room)
 
@@ -101,6 +136,65 @@ func _ceiling_is_low() -> bool:
 	var tuning: MovementTuning = _runner.tuning
 	var rise: float = tuning.capsule_height - tuning.slide_capsule_height
 	return _free_share(tuning.slide_capsule_height, Vector3.UP * rise) < 1.0
+
+
+## Along a wall, another wall stands across, on the side the wall pushes the runner to,
+## within the distance a jump off the wall carries it away before it falls back to the
+## height it jumped from.
+func _another_wall_stands_across() -> bool:
+	var tuning: MovementTuning = _runner.tuning
+	var away: Vector3 = _runner.motor.wall_run_normal()
+	var rise_seconds: float = tuning.wall_jump_up_speed / tuning.rise_gravity
+	var top: float = tuning.wall_jump_up_speed * rise_seconds / 2.0
+	var fall_seconds: float = sqrt(2.0 * top / tuning.fall_gravity)
+	var across: float = tuning.wall_jump_away_speed * (rise_seconds + fall_seconds)
+	var middle: Vector3 = _runner.global_position + Vector3.UP * tuning.capsule_height / 2.0
+	var ray: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
+		middle,
+		middle + away * (tuning.capsule_radius + across),
+		_runner.collision_mask,
+		[_runner.get_rid()]
+	)
+	return not _runner.get_world_3d().direct_space_state.intersect_ray(ray).is_empty()
+
+
+## Holding the jump up to its top would carry the runner past every floor, where letting
+## it go now would land it on one.
+func _holding_overshoots() -> bool:
+	var tuning: MovementTuning = _runner.tuning
+	var rising_speed: float = _runner.velocity.y
+	if rising_speed <= 0.0:
+		return false
+	if _lands_on_a_floor(rising_speed):
+		return false
+	return _lands_on_a_floor(rising_speed * tuning.jump_release_velocity_ratio)
+
+
+## Whether the feet of the runner, rising from now at `rising_speed` with the gravities
+## of the tuning and keeping their horizontal speed, meet a floor before they are a jump
+## height below the floor they jumped from: followed step by step, the first thing they
+## meet must be a floor the body can stand on.
+func _lands_on_a_floor(rising_speed: float) -> bool:
+	var tuning: MovementTuning = _runner.tuning
+	var step: float = _runner.get_physics_process_delta_time()
+	var lowest: float = _floor_altitude - tuning.jump_height
+	var horizontal: Vector3 = Vector3(_runner.velocity.x, 0.0, _runner.velocity.z)
+	var feet: Vector3 = _runner.global_position
+	var speed: float = rising_speed
+	var space: PhysicsDirectSpaceState3D = _runner.get_world_3d().direct_space_state
+	while feet.y > lowest:
+		var gravity: float = tuning.rise_gravity if speed > 0.0 else tuning.fall_gravity
+		speed = maxf(speed - gravity * step, -tuning.max_fall_speed)
+		var next: Vector3 = feet + (horizontal + Vector3.UP * speed) * step
+		var ray: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
+			feet, next, _runner.collision_mask, [_runner.get_rid()]
+		)
+		var hit: Dictionary = space.intersect_ray(ray)
+		if not hit.is_empty():
+			var normal: Vector3 = hit["normal"]
+			return normal.angle_to(Vector3.UP) <= _runner.floor_max_angle
+		feet = next
+	return false
 
 
 ## The runner is falling from higher than what a landing without a roll allows, and

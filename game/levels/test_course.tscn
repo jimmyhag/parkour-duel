@@ -1,4 +1,4 @@
-[gd_scene load_steps=35 format=3]
+[gd_scene load_steps=53 format=3]
 
 [ext_resource type="Script" path="res://game/levels/course.gd" id="1_course"]
 [ext_resource type="PackedScene" path="res://game/player/player.tscn" id="2_player"]
@@ -97,8 +97,70 @@ size = Vector3(6, 1, 30)
 material = SubResource("StandardMaterial3D_block")
 size = Vector3(6, 1, 30)
 
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wall"]
+albedo_color = Color(0.45, 0.5, 0.62, 1)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_ledge"]
+size = Vector3(6, 3, 12)
+
+[sub_resource type="BoxMesh" id="BoxMesh_ledge"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(6, 3, 12)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_wall_run_wall"]
+size = Vector3(1, 9, 7)
+
+[sub_resource type="BoxMesh" id="BoxMesh_wall_run_wall"]
+material = SubResource("StandardMaterial3D_wall")
+size = Vector3(1, 9, 7)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_zigzag_wall"]
+size = Vector3(1, 15, 9)
+
+[sub_resource type="BoxMesh" id="BoxMesh_zigzag_wall"]
+material = SubResource("StandardMaterial3D_wall")
+size = Vector3(1, 15, 9)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_zigzag_landing"]
+size = Vector3(24, 3, 21)
+
+[sub_resource type="BoxMesh" id="BoxMesh_zigzag_landing"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(24, 3, 21)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_final_beam"]
+size = Vector3(24, 3, 3)
+
+[sub_resource type="BoxMesh" id="BoxMesh_final_beam"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(24, 3, 3)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_final_wall"]
+size = Vector3(1, 12, 7)
+
+[sub_resource type="BoxMesh" id="BoxMesh_final_wall"]
+material = SubResource("StandardMaterial3D_wall")
+size = Vector3(1, 12, 7)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_final_landing"]
+size = Vector3(6, 3, 8)
+
+[sub_resource type="BoxMesh" id="BoxMesh_final_landing"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(6, 3, 8)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_final_ledge"]
+size = Vector3(6, 3, 10)
+
+[sub_resource type="BoxMesh" id="BoxMesh_final_ledge"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(6, 3, 10)
+
 [sub_resource type="BoxShape3D" id="BoxShape3D_trigger"]
 size = Vector3(6, 3, 1)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_trigger_wide"]
+size = Vector3(24, 3, 1)
 
 [sub_resource type="BoxMesh" id="BoxMesh_line"]
 material = SubResource("StandardMaterial3D_line")
@@ -227,6 +289,96 @@ shape = SubResource("BoxShape3D_big_drop_landing")
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/BigDropLanding"]
 mesh = SubResource("BoxMesh_big_drop_landing")
 
+[node name="Ledge" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -3.6, -167.9)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/Ledge"]
+shape = SubResource("BoxShape3D_ledge")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/Ledge"]
+mesh = SubResource("BoxMesh_ledge")
+
+[node name="WallRunWall" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.25, -2.6, -177.4)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/WallRunWall"]
+shape = SubResource("BoxShape3D_wall_run_wall")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/WallRunWall"]
+mesh = SubResource("BoxMesh_wall_run_wall")
+
+[node name="WallRunLanding" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -3.6, -186.9)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/WallRunLanding"]
+shape = SubResource("BoxShape3D_ledge")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/WallRunLanding"]
+mesh = SubResource("BoxMesh_ledge")
+
+[node name="ZigzagLeft" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.25, 0.4, -197.4)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/ZigzagLeft"]
+shape = SubResource("BoxShape3D_zigzag_wall")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/ZigzagLeft"]
+mesh = SubResource("BoxMesh_zigzag_wall")
+
+[node name="ZigzagRight" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.95, 0.4, -197.4)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/ZigzagRight"]
+shape = SubResource("BoxShape3D_zigzag_wall")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/ZigzagRight"]
+mesh = SubResource("BoxMesh_zigzag_wall")
+
+[node name="ZigzagLanding" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.6, -212.4)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/ZigzagLanding"]
+shape = SubResource("BoxShape3D_zigzag_landing")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/ZigzagLanding"]
+mesh = SubResource("BoxMesh_zigzag_landing")
+
+[node name="FinalBeam" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.6, -215.4)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/FinalBeam"]
+shape = SubResource("BoxShape3D_final_beam")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/FinalBeam"]
+mesh = SubResource("BoxMesh_final_beam")
+
+[node name="FinalWall" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.25, -1.1, -226.4)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/FinalWall"]
+shape = SubResource("BoxShape3D_final_wall")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/FinalWall"]
+mesh = SubResource("BoxMesh_final_wall")
+
+[node name="FinalLanding" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.6, -233.9)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/FinalLanding"]
+shape = SubResource("BoxShape3D_final_landing")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/FinalLanding"]
+mesh = SubResource("BoxMesh_final_landing")
+
+[node name="FinalLedge" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.3, -242.9)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/FinalLedge"]
+shape = SubResource("BoxShape3D_final_ledge")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/FinalLedge"]
+mesh = SubResource("BoxMesh_final_ledge")
+
 [node name="Checkpoints" type="Node3D" parent="."]
 
 [node name="RunUp" type="Area3D" parent="Checkpoints"]
@@ -300,6 +452,54 @@ index = 5
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
 shape = SubResource("BoxShape3D_trigger")
 
+[node name="Ledge" type="Area3D" parent="Checkpoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -4, -151.9)
+collision_layer = 0
+collision_mask = 2
+monitorable = false
+script = ExtResource("3_checkpoint")
+index = 6
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Checkpoints/Ledge"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+shape = SubResource("BoxShape3D_trigger")
+
+[node name="WallRun" type="Area3D" parent="Checkpoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -2.1, -165.9)
+collision_layer = 0
+collision_mask = 2
+monitorable = false
+script = ExtResource("3_checkpoint")
+index = 7
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Checkpoints/WallRun"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+shape = SubResource("BoxShape3D_trigger")
+
+[node name="Zigzag" type="Area3D" parent="Checkpoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -2.1, -186.9)
+collision_layer = 0
+collision_mask = 2
+monitorable = false
+script = ExtResource("3_checkpoint")
+index = 8
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Checkpoints/Zigzag"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+shape = SubResource("BoxShape3D_trigger")
+
+[node name="Final" type="Area3D" parent="Checkpoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, -207.9)
+collision_layer = 0
+collision_mask = 2
+monitorable = false
+script = ExtResource("3_checkpoint")
+index = 9
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Checkpoints/Final"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+shape = SubResource("BoxShape3D_trigger_wide")
+
 [node name="StartLine" type="Area3D" parent="."]
 collision_layer = 0
 collision_mask = 2
@@ -314,7 +514,7 @@ shape = SubResource("BoxShape3D_trigger")
 mesh = SubResource("BoxMesh_line")
 
 [node name="FinishLine" type="Area3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -4, -151.9)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.8, -243.9)
 collision_layer = 0
 collision_mask = 2
 monitorable = false
