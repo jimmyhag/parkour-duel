@@ -4,9 +4,10 @@ extends IntentSource
 ## and at the physical world around it, then decides. It runs in a given direction,
 ## jumps when the floor stops just ahead or when a step it can clear stands just ahead,
 ## and holds the jump up to its top. It holds the slide when a low obstacle stands just
-## ahead, until there is room to stand up again, and presses it just before the floor
-## when it falls from high enough to need a roll. It never jumps in the air or on a
-## floor that goes on, and never asks for the slide without one of these two reasons.
+## ahead, in one go until there is room to stand up again, and presses it just before
+## the floor when it falls from high enough to need a roll. It never jumps in the air or
+## on a floor that goes on, and never asks for the slide without one of these two
+## reasons.
 ## It knows no course: only what it probes, the state of the runner and the tuning,
 ## from which its look-ahead distances are worked out.
 
@@ -32,20 +33,19 @@ func next_intent() -> MoveIntent:
 	var intent: MoveIntent = MoveIntent.new()
 	intent.direction = _direction
 	var altitude: float = _runner.global_position.y
-	if _runner.is_on_floor():
-		_highest = altitude
-		_roll_asked = false
-		if _slides and (_low_obstacle_stands_ahead() or _ceiling_is_low()):
-			intent.slide_held = true
-			intent.slide_pressed = not _slide_was_held
-		else:
-			intent.jump_pressed = _floor_stops_ahead() or _step_stands_ahead()
-	else:
-		_highest = maxf(_highest, altitude)
-		if _slides and not _roll_asked and _high_landing_is_near():
-			intent.slide_pressed = true
-			intent.slide_held = true
-			_roll_asked = true
+	var on_floor: bool = _runner.is_on_floor()
+	_highest = altitude if on_floor else maxf(_highest, altitude)
+	_roll_asked = _roll_asked and not on_floor
+	if _slides and (_ceiling_is_low() or (on_floor and _low_obstacle_stands_ahead())):
+		# Under a low ceiling the slide stays held, floor or not: a crack is no way out.
+		intent.slide_held = true
+		intent.slide_pressed = not _slide_was_held
+	elif on_floor:
+		intent.jump_pressed = _floor_stops_ahead() or _step_stands_ahead()
+	elif _slides and not _roll_asked and _high_landing_is_near():
+		intent.slide_pressed = true
+		intent.slide_held = true
+		_roll_asked = true
 	_slide_was_held = intent.slide_held
 	intent.jump_held = intent.jump_pressed or _runner.motor.state == RunnerMotor.State.RISING
 	return intent
@@ -140,15 +140,19 @@ func _reach() -> float:
 
 
 ## The share of `motion` (0 to 1) a body shaped like the runner, `height` tall, could
-## cover from where the runner stands before something stops it.
+## cover from where the runner stands before something stops it. The body is probed
+## where the engine keeps the runner's own: its safe margin above the feet. Set flush
+## with the floor, it would be in it or out of it by a rounding error, and its travel
+## along the floor would stop anywhere.
 func _free_share(height: float, motion: Vector3) -> float:
 	var capsule: CapsuleShape3D = CapsuleShape3D.new()
 	capsule.radius = _runner.tuning.capsule_radius
 	capsule.height = height
 	var query: PhysicsShapeQueryParameters3D = PhysicsShapeQueryParameters3D.new()
 	query.shape = capsule
+	var above_the_feet: float = height / 2.0 + _runner.safe_margin
 	query.transform = Transform3D(
-		Basis.IDENTITY, _runner.global_position + Vector3.UP * height / 2.0
+		Basis.IDENTITY, _runner.global_position + Vector3.UP * above_the_feet
 	)
 	query.motion = motion
 	query.collision_mask = _runner.collision_mask
