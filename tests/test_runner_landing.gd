@@ -39,6 +39,14 @@ func test_a_successful_roll_keeps_the_speed() -> void:
 	assert_eq(body.motor.state, GROUNDED, "then the runner is back on its feet")
 	assert_almost_eq(body.horizontal_speed(), tuning.top_speed, TOLERANCE, "nothing was lost")
 
+	# A roll that ends with the slide still held goes on as a slide.
+	var holding: MotorBody = _land(tuning, high, landing_step, MANY_STEPS)
+	for i: int in ROLL_STEPS:
+		var held: MoveIntent = _run(FORWARD)
+		held.slide_held = true
+		holding.step(held)
+	assert_eq(holding.motor.state, RunnerMotor.State.SLIDING, "a roll held into a slide")
+
 	# Unless the roll ends where there is no room to stand up: the runner stays low.
 	pressed_last.can_stand = false
 	for i: int in ROLL_STEPS:

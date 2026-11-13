@@ -190,6 +190,28 @@ func test_no_jump_under_a_low_ceiling() -> void:
 	assert_eq(body.velocity.y, 0.0, "it stays on the floor")
 
 
+func test_a_slide_ended_by_slowness_does_not_restart_by_itself() -> void:
+	var tuning: MovementTuning = MotorBody.fixed_tuning()
+	var body: MotorBody = _slider(tuning, tuning.top_speed)
+	var steps: int = 0
+	while body.motor.state == SLIDING and steps < MANY_STEPS:
+		body.step(_slide(FORWARD))
+		steps += 1
+	assert_eq(body.motor.state, GROUNDED, "the slide ended, too slow")
+
+	for i: int in 60:
+		body.step(_slide(FORWARD))
+		assert_eq(body.motor.state, GROUNDED, "still standing at step %d, the slide held" % i)
+	assert_almost_eq(body.horizontal_speed(), tuning.top_speed, TOLERANCE, "and running fast")
+
+	body.step(_run(FORWARD))
+	assert_eq(body.motor.state, GROUNDED, "standing once the slide is released")
+	var pressed_again: MoveIntent = _slide(FORWARD)
+	pressed_again.slide_pressed = true
+	body.step(pressed_again)
+	assert_eq(body.motor.state, SLIDING, "pressed again, it slides")
+
+
 func test_jumping_while_sliding_keeps_the_speed() -> void:
 	var tuning: MovementTuning = MotorBody.fixed_tuning()
 	var faster: float = tuning.top_speed * 1.5
@@ -211,8 +233,6 @@ func test_jumping_while_sliding_keeps_the_speed() -> void:
 	assert_almost_eq(jumper.horizontal_speed(), slide_speed, TOLERANCE, "the speed of the slide")
 
 
-## Not a scenario of the spec: its decision 4 says that the direction of a slide is only
-## corrected slowly, at a tuned pace, and no scenario shows it.
 func test_the_direction_of_a_slide_is_corrected_slowly() -> void:
 	var tuning: MovementTuning = MotorBody.fixed_tuning()
 	var turning: MotorBody = _slider(tuning, tuning.top_speed)

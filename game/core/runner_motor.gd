@@ -22,6 +22,9 @@ var _jump_spent: bool = true
 var _jump_cut: bool = false
 ## Where the slide is heading: what moves a runner that a low ceiling keeps down.
 var _slide_heading: Vector3 = Vector3.ZERO
+## The last slide ended because it was too slow, and the slide has been held ever since:
+## it takes a new press to slide again.
+var _slide_spent: bool = false
 ## The highest altitude since the runner last stood on a floor: where its fall starts.
 var _apex: float = -INF
 ## Steps spent in the roll or the hard landing under way.
@@ -66,6 +69,7 @@ func reset() -> void:
 	_jump_spent = true
 	_jump_cut = false
 	_slide_heading = Vector3.ZERO
+	_slide_spent = false
 	_steps_since_slide_press = LONG_AGO
 	_apex = -INF
 	_landing_steps = 0
@@ -152,8 +156,11 @@ func _is_in_the_air() -> bool:
 
 ## On the floor: a roll and a hard landing last their time, then the runner stands or
 ## slides. A slide starts while the slide is held with enough speed, and ends when it is
-## released or too slow. Under a low ceiling the runner stays low whatever it asks.
+## released or too slow; one that ended too slow does not start again until the slide is
+## released. Under a low ceiling the runner stays low whatever it asks.
 func _choose_floor_state(intent: MoveIntent, facts: RunnerFacts) -> void:
+	if not intent.slide_held:
+		_slide_spent = false
 	if state == State.ROLLING or state == State.HARD_LANDING:
 		_landing_steps += 1
 		if _landing_steps > _landing_duration_steps():
@@ -162,11 +169,12 @@ func _choose_floor_state(intent: MoveIntent, facts: RunnerFacts) -> void:
 			state = State.GROUNDED if stands else State.SLIDING
 	var speed: float = Vector2(velocity.x, velocity.z).length()
 	if state == State.GROUNDED:
-		if intent.slide_held and speed >= tuning.slide_min_speed:
+		if intent.slide_held and not _slide_spent and speed >= tuning.slide_min_speed:
 			state = State.SLIDING
 	elif state == State.SLIDING and facts.can_stand:
 		if not intent.slide_held or speed < tuning.slide_stop_speed:
 			state = State.GROUNDED
+			_slide_spent = intent.slide_held
 
 
 ## A slide takes no acceleration from the runner: it slows down at its own pace, the

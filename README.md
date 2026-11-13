@@ -68,8 +68,9 @@ Slide: hold the slide button on the ground while running fast enough, or hold it
 landing. The runner gets low and passes under low obstacles. A slide takes no
 acceleration from the stick: it slows down on flat ground, speeds up on a slope going
 down, and only turns slowly. It ends when the button is released or when it gets too
-slow. Under a low obstacle the runner stays low until there is room to stand up, and
-cannot jump. With room above, jumping out of a slide keeps its speed.
+slow; after a slide that got too slow, release the button and press it again to slide
+once more. Under a low obstacle the runner stays low until there is room to stand up,
+and cannot jump. With room above, jumping out of a slide keeps its speed.
 
 Roll: a fall from high enough must be rolled. Press the slide button shortly before
 touching the ground: the runner rolls and keeps its speed, and can jump out of the
