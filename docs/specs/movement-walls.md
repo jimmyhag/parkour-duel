@@ -368,7 +368,12 @@ Le code a tranché ces points là où la spec se taisait. Ils sont acceptés tel
   s'y hisser, il faut l'aborder plus de face.
 - **Deux murs à portée** : le plus proche l'emporte, même s'il est refusé ; dans un
   couloir plus étroit que deux portées de wall-run, le mur d'en face est ignoré tant que
-  le mur refusé reste le plus proche. Les murs du zigzag sont à 4 m.
+  le mur refusé reste le plus proche. Les murs du zigzag sont à 3,2 m.
+- **Stick au repos le long d'un mur** : il ne lance pas de wall-run ; il faut pousser,
+  le long du mur, en diagonale vers lui ou droit vers lui.
+- **Palier d'arrivée du zigzag large de 24 m** : le dernier wall-jump peut partir d'un
+  côté ou de l'autre, et une roulade garde sa vitesse de côté ; plus étroit, le palier
+  faisait tomber le pilote quand deux réglages changeaient de 10 %.
 - **Direction des rayons vers les murs** : elle vient du mouvement du corps, et de
   l'intention quand le corps est à l'arrêt.
 - **Affichage de debug** : « WALL JUMP » montre toute la tolérance pendant le
