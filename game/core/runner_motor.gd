@@ -324,7 +324,8 @@ func _mantle(facts: RunnerFacts, delta: float) -> void:
 ## A wall beside the runner that can be run along, not refused, high enough above the
 ## ground, at a speed along it enough to start (what goes towards the wall does not
 ## count: too steep an approach gives no wall run, and leaves the wall free), and the
-## runner pushes along it.
+## runner pushes, anywhere but away from the wall. The speed along the wall is what
+## tells a wall run from a mantle on a face pushed into.
 func _can_run_along(intent: MoveIntent, facts: RunnerFacts) -> bool:
 	if facts.wall_id == RunnerFacts.NO_WALL or facts.wall_id == _refused_wall:
 		return false
@@ -335,7 +336,9 @@ func _can_run_along(intent: MoveIntent, facts: RunnerFacts) -> bool:
 	var away: Vector3 = _horizontal_unit(facts.wall_normal)
 	if _along(velocity, away).length() < tuning.wall_run_start_speed:
 		return false
-	return _pushes_along(intent.direction, away)
+	# Any push but one away from the wall: along it, towards it or straight into it.
+	var wish: Vector3 = Vector3(intent.direction.x, 0.0, intent.direction.z)
+	return not wish.is_zero_approx() and not _pushes_away(intent.direction, away)
 
 
 ## The wall is close enough, near enough to vertical and tall enough.
@@ -569,12 +572,6 @@ func _push_angle(direction: Vector3, normal: Vector3) -> float:
 		return NAN
 	var across: float = wish.dot(normal)
 	return atan2(across, (wish - normal * across).length())
-
-
-## Pushing along a surface: within the split angle of the tuning, the limit included.
-func _pushes_along(direction: Vector3, normal: Vector3) -> bool:
-	var angle: float = absf(_push_angle(direction, normal))
-	return not is_nan(angle) and _within_the_split(angle)
 
 
 ## Pushing into a surface: towards it by the split angle at least, the limit included.

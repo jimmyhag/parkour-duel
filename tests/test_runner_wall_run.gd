@@ -65,30 +65,18 @@ func test_the_wall_run_starts_by_itself_along_a_wall() -> void:
 		var body: MotorBody = cases[context]
 		body.step(_run(FORWARD))
 		assert_eq(body.motor.state, FALLING, context + ": no wall run")
+	# Any push that is not away from the wall starts it: along, towards or straight into
+	# the wall. Pushing away from it, or not pushing, does not.
 	var mostly_into: Vector3 = (FORWARD - LEFT_WALL * 2.0).normalized()
-	for direction: Vector3 in [Vector3.ZERO, -LEFT_WALL, mostly_into]:
+	for direction: Vector3 in [-LEFT_WALL, mostly_into]:
 		var body: MotorBody = _beside_a_wall(tuning, tuning.top_speed)
 		body.step(_run(direction))
-		assert_eq(
-			body.motor.state, FALLING, "pushing %s, not along the wall: no wall run" % direction
-		)
-
-
-func test_the_keyboard_diagonal_starts_a_wall_run() -> void:
-	var tuning: MovementTuning = MotorBody.fixed_tuning()
-	# Forward and the key towards the wall at its left: exactly the default limit.
-	var diagonal: Vector3 = (FORWARD - LEFT_WALL).normalized()
-	var body: MotorBody = _beside_a_wall(tuning, tuning.top_speed)
-
-	body.step(_run(diagonal))
-
-	assert_eq(body.motor.state, WALL_RUNNING, "on the limit, the push counts as along the wall")
-	# The limit is the one of the tuning: narrower, the same push is towards the wall.
-	var narrower: MovementTuning = MotorBody.fixed_tuning()
-	narrower.push_split_angle = tuning.push_split_angle * 2.0 / 3.0
-	var refused: MotorBody = _beside_a_wall(narrower, narrower.top_speed)
-	refused.step(_run(diagonal))
-	assert_eq(refused.motor.state, FALLING, "with a narrower limit, no wall run")
+		assert_eq(body.motor.state, WALL_RUNNING, "pushing %s, towards the wall" % direction)
+	var mostly_away: Vector3 = (FORWARD + LEFT_WALL * 2.0).normalized()
+	for direction: Vector3 in [Vector3.ZERO, LEFT_WALL, mostly_away]:
+		var body: MotorBody = _beside_a_wall(tuning, tuning.top_speed)
+		body.step(_run(direction))
+		assert_eq(body.motor.state, FALLING, "pushing %s: no wall run" % direction)
 
 
 func test_a_too_steep_approach_does_not_spoil_the_wall() -> void:

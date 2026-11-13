@@ -95,9 +95,9 @@ a reduced speed whatever speed it came with. The climb goes to the end: jump and
 do nothing meanwhile.
 
 Wall run: in the air, fast enough along the wall and high enough above the ground,
-push along a wall beside you; forward and the key towards the wall counts as along it.
-Coming at the wall nearly head-on gives no wall run, and leaves the wall free for
-later. The runner runs along it for a moment, falling slowly, and keeps its speed; the
+push anywhere but away from a wall beside you: along it, diagonally towards it, or
+straight into it. Coming at the wall nearly head-on, too slow along it, gives no wall
+run and leaves the wall free for later; a ledge within reach is then climbed instead. The runner runs along it for a moment, falling slowly, and keeps its speed; the
 capsule leans towards the wall. The run ends after a while, where the wall
 ends, if the runner gets too slow, when you push away from the wall, or on the ground.
 A runner that is low (sliding, rolling, or under a low ceiling) neither runs along a

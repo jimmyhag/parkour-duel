@@ -96,15 +96,18 @@ class AtALedge:
 
 func test_a_ledge_approached_at_an_angle_gives_a_mantle() -> void:
 	var tuning: MovementTuning = load(TUNING) as MovementTuning
-	# Towards the face, well within the push that counts as towards it.
-	var aslant: float = deg_to_rad(tuning.push_split_angle) * 0.9
+	# The split is measured from the surface, as the motor does: a push counts as towards
+	# the face up to (90 - split) degrees off its normal. Aim halfway inside that, slow
+	# enough along the face for no wall run.
+	var towards_limit: float = 90.0 - tuning.push_split_angle
+	var aslant: float = deg_to_rad(towards_limit) / 2.0
 	var direction: Vector3 = FORWARD.rotated(Vector3.UP, -aslant)
 	var scene: AtALedge = _at_a_ledge(_ledge_height(tuning), false, 0)
 
 	await _play_at(scene, direction)
 
 	var aside: float = rad_to_deg(scene.widest_look_aside)
-	assert_gt(aside, tuning.push_split_angle, "the visible body turned along the face")
+	assert_gt(aside, towards_limit, "the visible body turned along the face, past the limit")
 	assert_true(scene.did_mantle, "and yet the runner mantled")
 
 
