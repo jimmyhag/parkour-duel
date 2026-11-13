@@ -13,8 +13,21 @@ const LONG_JUMPS: int = 2
 const STEPS: int = 3
 const LOW_PASSAGE: int = 4
 const BIG_DROP: int = 5
+const LEDGE: int = 6
+const WALL_RUN: int = 7
+const ZIGZAG: int = 8
+const FINAL: int = 9
 const CHECKPOINT_NAMES: Array[String] = [
-	"RunUp", "ShortJumps", "LongJumps", "Steps", "LowPassage", "BigDrop"
+	"RunUp",
+	"ShortJumps",
+	"LongJumps",
+	"Steps",
+	"LowPassage",
+	"BigDrop",
+	"Ledge",
+	"WallRun",
+	"Zigzag",
+	"Final",
 ]
 
 ## Steps left to the runner to come to rest after a sequence.

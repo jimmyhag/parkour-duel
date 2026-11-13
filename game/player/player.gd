@@ -2,8 +2,9 @@ class_name Player
 extends CharacterBody3D
 ## The runner's body. At every fixed step it asks its intent source for an intent,
 ## gives it to the motor of game/core with the facts it observes (RunnerFacts), and
-## applies what the motor decides: the velocity it wants, and a capsule as low as its
-## state says. It decides nothing about the movement itself.
+## applies what the motor decides: the velocity it wants, a capsule as low as its state
+## says, and leaning towards the wall it runs along. It decides nothing about the
+## movement itself.
 
 ## Emitted at the end of every fixed step, with the intent the runner just followed.
 signal stepped(intent: MoveIntent)
@@ -11,6 +12,9 @@ signal stepped(intent: MoveIntent)
 const RELOAD_TUNING: StringName = &"reload_tuning"
 ## Where the visor sits on the capsule, as a share of its height.
 const VISOR_HEIGHT_RATIO: float = 0.8
+## A level puts in this group a wall it does not want to be run along. Only fixed walls
+## (static bodies) are walls at all.
+const NO_WALL_RUN_GROUP: StringName = &"no_wall_run"
 
 ## The tuning resource; its capsule and camera values replace the ones of the scene.
 @export var tuning: MovementTuning
@@ -39,6 +43,7 @@ func _physics_process(delta: float) -> void:
 	_fit_capsule()
 	move_and_slide()
 	_turn_towards_movement(delta)
+	_lean_towards_the_wall(delta)
 	stepped.emit(intent)
 
 
@@ -79,7 +84,7 @@ func teleport(spawn: Transform3D) -> void:
 	velocity = Vector3.ZERO
 	motor.reset()
 	_fit_capsule()
-	_visual.rotation.y = yaw
+	_visual.rotation = Vector3(0.0, yaw, 0.0)
 	camera_rig.face(yaw)
 	reset_physics_interpolation()
 
@@ -93,7 +98,133 @@ func _observe() -> RunnerFacts:
 	if facts.on_floor:
 		facts.floor_normal = _normal_of_the_ground_underfoot()
 	facts.can_stand = not motor.is_low() or _has_headroom()
+	facts.ground_clearance = _ground_clearance()
+	_observe_the_wall_beside(facts)
+	_observe_the_ledge_ahead(facts)
 	return facts
+
+
+## How far down the ground is under the feet, probed as deep as a wall run asks the
+## runner to be above it; INF when there is none within that depth.
+func _ground_clearance() -> float:
+	var feet: Vector3 = global_position
+	var ray: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
+		feet + Vector3.UP * tuning.capsule_radius,
+		feet + Vector3.DOWN * tuning.wall_run_min_height,
+		collision_mask,
+		[get_rid()]
+	)
+	var ground: Dictionary = get_world_3d().direct_space_state.intersect_ray(ray)
+	if ground.is_empty():
+		return INF
+	var point: Vector3 = ground["position"]
+	return maxf(feet.y - point.y, 0.0)
+
+
+## The nearest wall at the runner's left or right, probed straight aside from the middle
+## of its body, as far as a wall run reaches. A wall is a fixed body (a static body)
+## that its level did not exclude; its identity is the identity of the body.
+func _observe_the_wall_beside(facts: RunnerFacts) -> void:
+	var right: Vector3 = _facing().cross(Vector3.UP)
+	var middle: Vector3 = global_position + Vector3.UP * _capsule_height() / 2.0
+	var reach: float = tuning.capsule_radius + tuning.wall_run_distance
+	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
+	for side: Vector3 in [right, -right]:
+		var ray: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
+			middle, middle + side * reach, collision_mask, [get_rid()]
+		)
+		var hit: Dictionary = space.intersect_ray(ray)
+		if hit.is_empty():
+			continue
+		var collider: Object = hit["collider"]
+		var wall: StaticBody3D = collider as StaticBody3D
+		if wall == null or wall.is_in_group(NO_WALL_RUN_GROUP):
+			continue
+		var normal: Vector3 = hit["normal"]
+		var point: Vector3 = hit["position"]
+		var distance: float = maxf((middle - point).dot(normal) - tuning.capsule_radius, 0.0)
+		if distance >= facts.wall_distance:
+			continue
+		facts.wall_id = wall.get_instance_id()
+		facts.wall_normal = normal
+		facts.wall_distance = distance
+		var shape_index: int = hit["shape"]
+		facts.wall_height = _height_of(wall, shape_index)
+
+
+## How tall the shape `shape_index` of `body` is, from its lowest point to its highest.
+func _height_of(body: CollisionObject3D, shape_index: int) -> float:
+	var owner_id: int = body.shape_find_owner(shape_index)
+	var collider: CollisionShape3D = body.shape_owner_get_owner(owner_id) as CollisionShape3D
+	if collider == null or collider.shape == null:
+		return 0.0
+	var box: AABB = collider.global_transform * collider.shape.get_debug_mesh().get_aabb()
+	return box.size.y
+
+
+## The ledge the runner ran into in front of it at the last step, if any: the face it
+## touched, more in front of it than beside it, and the top of the block behind that
+## face, probed from above as high as the highest ledge a mantle climbs plus a standing
+## body, down to the feet. Its top is free when a standing body fits on it.
+func _observe_the_ledge_ahead(facts: RunnerFacts) -> void:
+	var facing: Vector3 = _facing()
+	var front: KinematicCollision3D = null
+	var most_in_front: float = 0.0
+	for index: int in get_slide_collision_count():
+		var collision: KinematicCollision3D = get_slide_collision(index)
+		var normal: Vector3 = collision.get_normal()
+		var across: Vector3 = Vector3(normal.x, 0.0, normal.z).normalized()
+		var into: float = -facing.dot(across)
+		# In front rather than beside: more into the face than along it.
+		if into > (facing + across * into).length() and into > most_in_front:
+			most_in_front = into
+			front = collision
+	if front == null:
+		return
+	var normal: Vector3 = front.get_normal()
+	var onto: Vector3 = -Vector3(normal.x, 0.0, normal.z).normalized()
+	var over: Vector3 = front.get_position() + onto * tuning.capsule_radius
+	var feet: Vector3 = global_position
+	var highest: float = feet.y + tuning.mantle_max_height + tuning.capsule_height
+	var ray: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
+		Vector3(over.x, highest, over.z),
+		Vector3(over.x, feet.y, over.z),
+		collision_mask,
+		[get_rid()]
+	)
+	ray.hit_from_inside = true
+	var top: Dictionary = get_world_3d().direct_space_state.intersect_ray(ray)
+	if top.is_empty():
+		return
+	var top_point: Vector3 = top["position"]
+	var top_normal: Vector3 = top["normal"]
+	facts.ledge_normal = normal
+	facts.ledge_height = top_point.y - feet.y
+	# A ray that starts inside the block found no top: the block is taller than that.
+	facts.ledge_clear = not top_normal.is_zero_approx() and _fits_standing_at(top_point)
+
+
+## Whether a standing body would fit with its feet at `feet`.
+func _fits_standing_at(feet: Vector3) -> bool:
+	var capsule: CapsuleShape3D = CapsuleShape3D.new()
+	capsule.radius = tuning.capsule_radius
+	capsule.height = tuning.capsule_height
+	var query: PhysicsShapeQueryParameters3D = PhysicsShapeQueryParameters3D.new()
+	query.shape = capsule
+	var middle: Vector3 = feet + Vector3.UP * (tuning.capsule_height / 2.0 + safe_margin)
+	query.transform = Transform3D(Basis.IDENTITY, middle)
+	query.collision_mask = collision_mask
+	query.exclude = [get_rid()]
+	return get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty()
+
+
+## Where the runner faces, on the ground: the direction its visible body looks at.
+func _facing() -> Vector3:
+	return Vector3.FORWARD.rotated(Vector3.UP, _visual.rotation.y)
+
+
+func _capsule_height() -> float:
+	return (_collider.shape as CapsuleShape3D).height
 
 
 ## The normal of the ground right under the runner's feet, probed straight down as deep
@@ -146,3 +277,16 @@ func _turn_towards_movement(delta: float) -> void:
 		return
 	var facing: float = atan2(-horizontal.x, -horizontal.z)
 	_visual.rotation.y = rotate_toward(_visual.rotation.y, facing, tuning.turn_speed * delta)
+
+
+## In a wall run, the capsule one sees leans towards the wall, at the pace it turns; it
+## straightens up when the wall run is over.
+func _lean_towards_the_wall(delta: float) -> void:
+	var away: Vector3 = motor.wall_run_normal()
+	var lean: float = 0.0
+	if not away.is_zero_approx():
+		# Rolling the body to the left (a positive angle) leans it towards a wall at its
+		# left, whose normal points to its right.
+		var right: Vector3 = _facing().cross(Vector3.UP)
+		lean = deg_to_rad(tuning.wall_run_lean) * signf(away.dot(right))
+	_visual.rotation.z = rotate_toward(_visual.rotation.z, lean, tuning.turn_speed * delta)
