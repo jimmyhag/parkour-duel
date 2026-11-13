@@ -133,14 +133,16 @@ When one appears (the network transport, then Steam), these rules apply:
 
 ```
 game/               the game, one folder per layer (table above)
-  core/             runner motor, intents, race state, and the tuning resource
+  core/             runner motor, intents, the facts the player observes, race state,
+                    and the tuning resource
   player/           the runner's scene: body, camera rig, intents read from the inputs
   world/            checkpoints and race lines
   ui/               timer display and debug display
   levels/           course scenes; test_course.tscn is the main scene for now
 addons/gut/         GUT 9.7.1, the test framework (vendored, MIT, not exported)
 tests/              headless tests, one script per subject: test_<subject>.gd; the other
-                    scripts are their helpers (written sequences of intents, test pilot)
+                    scripts are their helpers (written sequences of intents, test pilot,
+                    a runner without a scene, the bases of the replay and course tests)
 tools/              the gate tools (Python, standard library only)
 .agents/            the roles AI assistants play and the skills they load (README.md)
 .claude/            copies of .agents/ for Claude Code (kept identical by the gate)
