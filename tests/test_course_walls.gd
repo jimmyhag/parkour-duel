@@ -104,6 +104,10 @@ func test_returning_to_the_checkpoint_works_from_the_mantle_and_the_wall_run() -
 		assert_true(_is_in(runner, index), "the pilot led the runner into the " + context)
 
 		runner.intent_source = ScriptedIntentSource.new().request_respawn()
+		await _wait_steps(1)
+		var visual: Node3D = runner.get_node("Visual") as Node3D
+		var lean: float = visual.rotation.z
+		assert_almost_eq(lean, 0.0, ANGLE_TOLERANCE, "back upright at once from the " + context)
 		await _wait_steps(SETTLE_STEPS)
 
 		_assert_at_rest_at(attempt.course, _checkpoint(attempt.course, section))
@@ -112,7 +116,6 @@ func test_returning_to_the_checkpoint_works_from_the_mantle_and_the_wall_run() -
 		var collider: CollisionShape3D = runner.get_node("CollisionShape3D") as CollisionShape3D
 		var height: float = (collider.shape as CapsuleShape3D).height
 		assert_almost_eq(height, standing, NEAR, "after the %s: its capsule stands" % context)
-		var visual: Node3D = runner.get_node("Visual") as Node3D
 		assert_almost_eq(visual.rotation.z, 0.0, ANGLE_TOLERANCE, "and does not lean")
 
 

@@ -30,24 +30,34 @@ class BesideAWall:
 	var did_run_along: bool = false
 
 	## A wall whose face, at the height of the middle of the runner's body, stands
-	## `gap` metres from its side, leaning by `tilt` degrees.
-	func _init(gap: float, tilt: float) -> void:
+	## `gap` metres from its side, leaning by `tilt` degrees, `height` tall; and, if
+	## `ground` is finite, a floor that far under the runner's feet.
+	func _init(gap: float, tilt: float, height: float, ground: float) -> void:
 		runner = PLAYER_SCENE.instantiate() as Player
 		add_child(runner)
 		var tuning: MovementTuning = runner.tuning
 		var middle: Vector3 = START + Vector3.UP * tuning.capsule_height / 2.0
 		var normal: Vector3 = Vector3.RIGHT.rotated(Vector3.FORWARD, deg_to_rad(tilt))
 		var face: Vector3 = middle + Vector3.LEFT * (tuning.capsule_radius + gap)
+		var size: Vector3 = Vector3(WALL_SIZE.x, height, WALL_SIZE.z)
+		wall = _block(size, face - normal * size.x / 2.0 + FORWARD * size.z / 2.0)
+		wall.basis = Basis(Vector3.FORWARD, deg_to_rad(tilt))
+		if is_finite(ground):
+			var floor_size: Vector3 = Vector3(ASIDE, 1.0, WALL_SIZE.z)
+			var under: Vector3 = START + Vector3.DOWN * (ground + floor_size.y / 2.0)
+			_block(floor_size, under + FORWARD * floor_size.z / 2.0)
+		runner.stepped.connect(_on_runner_stepped)
+
+	func _block(size: Vector3, center: Vector3) -> StaticBody3D:
 		var box: BoxShape3D = BoxShape3D.new()
-		box.size = WALL_SIZE
+		box.size = size
 		var collider: CollisionShape3D = CollisionShape3D.new()
 		collider.shape = box
-		wall = StaticBody3D.new()
-		wall.add_child(collider)
-		wall.basis = Basis(Vector3.FORWARD, deg_to_rad(tilt))
-		wall.position = face - normal * WALL_SIZE.x / 2.0 + FORWARD * WALL_SIZE.z / 2.0
-		add_child(wall)
-		runner.stepped.connect(_on_runner_stepped)
+		var block: StaticBody3D = StaticBody3D.new()
+		block.add_child(collider)
+		block.position = center
+		add_child(block)
+		return block
 
 	func launch() -> void:
 		runner.teleport(Transform3D(Basis.IDENTITY, global_position + START))
@@ -83,6 +93,18 @@ func test_a_wall_too_tilted_gives_no_wall_run() -> void:
 	assert_false(too_tilted.did_run_along, "one leaning more gives none")
 	assert_lt(too_tilted.runner.velocity.y, 0.0, "the runner falls")
 
+	# What else the player measures of a wall and of the ground: a vertical wall too
+	# short, or one beside a runner too close to the ground, gives none either.
+	var tuning: MovementTuning = load(TUNING) as MovementTuning
+	var short: float = tuning.wall_run_min_wall_height * 3.0 / 4.0
+	var too_short: BesideAWall = _beside_a_wall(gap, 0.0, 2, short)
+	var too_low: BesideAWall = _beside_a_wall(
+		gap, 0.0, 3, WALL_SIZE.y, tuning.wall_run_min_height / 2.0
+	)
+	await _launch([too_short, too_low])
+	assert_false(too_short.did_run_along, "a wall too short gives none")
+	assert_false(too_low.did_run_along, "nor a wall beside a runner too close to the ground")
+
 
 ## A gap between the side of the runner and the face of the wall well within the reach
 ## of a wall run.
@@ -90,8 +112,10 @@ func _close_to_the_side() -> float:
 	return (load(TUNING) as MovementTuning).wall_run_distance / 2.0
 
 
-func _beside_a_wall(gap: float, tilt: float, place: int) -> BesideAWall:
-	var scene: BesideAWall = BesideAWall.new(gap, tilt)
+func _beside_a_wall(
+	gap: float, tilt: float, place: int, height: float = WALL_SIZE.y, ground: float = INF
+) -> BesideAWall:
+	var scene: BesideAWall = BesideAWall.new(gap, tilt, height, ground)
 	scene.position.x = place * ASIDE
 	add_child_autofree(scene)
 	return scene
