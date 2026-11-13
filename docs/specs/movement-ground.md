@@ -317,6 +317,10 @@ Le code a tranché ces points là où la spec se taisait. Ils sont acceptés tel
 - **Le pilote saute du bord de la grande chute** : les tests prouvent la roulade sur une
   chute de 6,6 m, pas sur les 5 m d'un joueur qui se laisse tomber. Les deux dépassent
   le seuil de 4 m.
+- **Coureur baissé qui atterrit sans la place de se tenir debout** (seconde inspection) :
+  il continue en glissade, sans test de roulade ni réception lourde, même après une
+  chute de plus de 4 m. Le cas n'existe pas sur le parcours ; à rouvrir si un niveau le
+  crée.
 - **Feuille de route du README** : la ligne de l'étape 1 dit que les mouvements au sol
   sont en place ; elle devient vraie à la fusion.
 
