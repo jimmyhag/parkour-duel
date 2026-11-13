@@ -17,3 +17,4 @@ cell means not assessed yet.
 | Input map (named actions, physical keys) | `project.godot` | discovered | 2026-11-12 |
 | Timing tolerances on other moves (roll, wall-jump) | `docs/specs/movement-ground.md` and `docs/specs/movement-walls.md` | discovered | 2026-11-12 |
 | Reactive test pilot versus a recorded sequence, and proving it can fail | `tests/`, first applied by `docs/specs/reactive-replays.md` | discovered | 2026-11-12 |
+| State crossings: what each move becomes in the air, under a ceiling, after another | `game/core/`, first reviewed by `docs/specs/movement-walls.md` | discovered | 2026-11-13 |
