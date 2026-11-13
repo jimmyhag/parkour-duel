@@ -346,6 +346,9 @@ Le code a tranché ces points là où la spec se taisait. Ils sont acceptés tel
   se ferme, le saut est consommé.
 - **Rebord plus haut que la sonde** : un rebord dont le dessus dépasse la plage du
   mantle plus la hauteur d'un coureur debout compte comme encombré.
+- **Rebord sous une couverture mince** : si le dessus de la couverture elle-même est à
+  portée d'un saut suivi d'un mantle, le coureur peut se hisser sur la couverture. C'est
+  une limite de construction de niveau : une couverture au-dessus d'un rebord est épaisse.
 - **Ce qui est un mur** : tout corps fixe (`StaticBody3D`) hors du groupe d'exclusion,
   y compris un `AnimatableBody3D`. À rouvrir quand des plateformes mobiles arriveront.
 - **Hauteur d'un mur** : celle de la forme touchée, partie enterrée comprise ; c'est à
