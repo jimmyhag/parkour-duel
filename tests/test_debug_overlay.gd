@@ -1,5 +1,6 @@
 extends GutTest
-## The debug display (game/ui): hidden by default, toggled by its action.
+## The debug display (game/ui): hidden by default, toggled by its action, and what it
+## says of the runner.
 
 const OVERLAY_SCENE: PackedScene = preload("res://game/ui/debug_overlay.tscn")
 const TOGGLE_DEBUG: StringName = &"toggle_debug"
@@ -27,6 +28,45 @@ func test_the_debug_display_appears_and_disappears() -> void:
 	assert_false(overlay.visible, "hidden again by the same action")
 
 
+func test_the_debug_display_shows_the_new_states() -> void:
+	var motor: RunnerMotor = RunnerMotor.new(MotorBody.fixed_tuning())
+	var overlay: DebugOverlay = OVERLAY_SCENE.instantiate() as DebugOverlay
+	overlay.motor = motor
+	add_child_autofree(overlay)
+	_trigger(TOGGLE_DEBUG)
+	var running: Vector3 = Vector3.FORWARD * motor.tuning.top_speed
+	var high: float = motor.tuning.roll_fall_height * 2.0
+
+	var slide: MoveIntent = MoveIntent.new()
+	slide.slide_pressed = true
+	slide.slide_held = true
+	motor.step(slide, _facts(true, running), STEP)
+	overlay.refresh()
+	assert_string_contains(overlay.text, "STATE SLIDING")
+	assert_string_contains(overlay.text, "ROLL WINDOW 0.20 s")
+	assert_string_contains(overlay.text, "LANDING 0.00 s")
+
+	# A high fall, the slide pressed two steps before the floor: a roll, at its first
+	# step out of thirty, ten steps of the window left.
+	motor.step(slide, _facts(false, running, high), STEP)
+	motor.step(MoveIntent.new(), _facts(false, running, high / 2.0), STEP)
+	motor.step(MoveIntent.new(), _facts(true, running), STEP)
+	overlay.refresh()
+	assert_string_contains(overlay.text, "STATE ROLLING")
+	assert_string_contains(overlay.text, "ROLL WINDOW 0.17 s")
+	assert_string_contains(overlay.text, "LANDING 0.48 s")
+
+	# Another high fall, long after the press: a hard landing, at its first step out of
+	# twenty-one.
+	for i: int in 20:
+		motor.step(MoveIntent.new(), _facts(false, running, high), STEP)
+	motor.step(MoveIntent.new(), _facts(true, running), STEP)
+	overlay.refresh()
+	assert_string_contains(overlay.text, "STATE HARD_LANDING")
+	assert_string_contains(overlay.text, "ROLL WINDOW 0.00 s")
+	assert_string_contains(overlay.text, "LANDING 0.33 s")
+
+
 ## A runner going at 5 m/s that left the floor one step ago, without jumping.
 func _motor_falling_off_a_ledge() -> RunnerMotor:
 	var tuning: MovementTuning = MovementTuning.new()
@@ -34,11 +74,20 @@ func _motor_falling_off_a_ledge() -> RunnerMotor:
 	tuning.max_fall_speed = 40.0
 	tuning.coyote_time = 0.10
 	tuning.jump_buffer_time = 0.12
+	tuning.max_horizontal_speed = 22.0
 	var motor: RunnerMotor = RunnerMotor.new(tuning)
 	var running: Vector3 = Vector3(3.0, 0.0, -4.0)
-	var falling: Vector3 = motor.step(MoveIntent.new(), true, running, STEP)
-	motor.step(MoveIntent.new(), false, running + Vector3.UP * falling.y, STEP)
+	var falling: Vector3 = motor.step(MoveIntent.new(), _facts(true, running), STEP)
+	motor.step(MoveIntent.new(), _facts(false, running + Vector3.UP * falling.y), STEP)
 	return motor
+
+
+func _facts(on_floor: bool, velocity: Vector3, altitude: float = 0.0) -> RunnerFacts:
+	var facts: RunnerFacts = RunnerFacts.new()
+	facts.on_floor = on_floor
+	facts.velocity = velocity
+	facts.altitude = altitude
+	return facts
 
 
 func _trigger(action: StringName) -> void:

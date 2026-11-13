@@ -1,4 +1,4 @@
-[gd_scene load_steps=27 format=3]
+[gd_scene load_steps=35 format=3]
 
 [ext_resource type="Script" path="res://game/levels/course.gd" id="1_course"]
 [ext_resource type="PackedScene" path="res://game/player/player.tscn" id="2_player"]
@@ -62,12 +62,40 @@ size = Vector3(6, 3, 5)
 material = SubResource("StandardMaterial3D_block")
 size = Vector3(6, 3, 5)
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_finish"]
-size = Vector3(6, 4, 12)
+[sub_resource type="BoxShape3D" id="BoxShape3D_low_passage_start"]
+size = Vector3(6, 4, 16)
 
-[sub_resource type="BoxMesh" id="BoxMesh_finish"]
+[sub_resource type="BoxMesh" id="BoxMesh_low_passage_start"]
 material = SubResource("StandardMaterial3D_block")
-size = Vector3(6, 4, 12)
+size = Vector3(6, 4, 16)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_ramp"]
+size = Vector3(6, 1, 8.246211)
+
+[sub_resource type="BoxMesh" id="BoxMesh_ramp"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(6, 1, 8.246211)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_low_passage_floor"]
+size = Vector3(6, 1, 22)
+
+[sub_resource type="BoxMesh" id="BoxMesh_low_passage_floor"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(6, 1, 22)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_low_beam"]
+size = Vector3(6, 3, 3)
+
+[sub_resource type="BoxMesh" id="BoxMesh_low_beam"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(6, 3, 3)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_big_drop_landing"]
+size = Vector3(6, 1, 30)
+
+[sub_resource type="BoxMesh" id="BoxMesh_big_drop_landing"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(6, 1, 30)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_trigger"]
 size = Vector3(6, 3, 1)
@@ -154,14 +182,50 @@ shape = SubResource("BoxShape3D_step_2")
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/Step2"]
 mesh = SubResource("BoxMesh_step_2")
 
-[node name="Finish" type="StaticBody3D" parent="Blocks"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -91.9)
+[node name="LowPassageStart" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -93.9)
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/Finish"]
-shape = SubResource("BoxShape3D_finish")
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/LowPassageStart"]
+shape = SubResource("BoxShape3D_low_passage_start")
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/Finish"]
-mesh = SubResource("BoxMesh_finish")
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/LowPassageStart"]
+mesh = SubResource("BoxMesh_low_passage_start")
+
+[node name="Ramp" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 0.970143, 0.242536, 0, -0.242536, 0.970143, 0, 1.514929, -105.778732)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/Ramp"]
+shape = SubResource("BoxShape3D_ramp")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/Ramp"]
+mesh = SubResource("BoxMesh_ramp")
+
+[node name="LowPassageFloor" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, -120.9)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/LowPassageFloor"]
+shape = SubResource("BoxShape3D_low_passage_floor")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/LowPassageFloor"]
+mesh = SubResource("BoxMesh_low_passage_floor")
+
+[node name="LowBeam" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.7, -119.4)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/LowBeam"]
+shape = SubResource("BoxShape3D_low_beam")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/LowBeam"]
+mesh = SubResource("BoxMesh_low_beam")
+
+[node name="BigDropLanding" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -4.5, -146.9)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/BigDropLanding"]
+shape = SubResource("BoxShape3D_big_drop_landing")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/BigDropLanding"]
+mesh = SubResource("BoxMesh_big_drop_landing")
 
 [node name="Checkpoints" type="Node3D" parent="."]
 
@@ -212,6 +276,30 @@ index = 3
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
 shape = SubResource("BoxShape3D_trigger")
 
+[node name="LowPassage" type="Area3D" parent="Checkpoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, -91.9)
+collision_layer = 0
+collision_mask = 2
+monitorable = false
+script = ExtResource("3_checkpoint")
+index = 4
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Checkpoints/LowPassage"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+shape = SubResource("BoxShape3D_trigger")
+
+[node name="BigDrop" type="Area3D" parent="Checkpoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -124.9)
+collision_layer = 0
+collision_mask = 2
+monitorable = false
+script = ExtResource("3_checkpoint")
+index = 5
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Checkpoints/BigDrop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+shape = SubResource("BoxShape3D_trigger")
+
 [node name="StartLine" type="Area3D" parent="."]
 collision_layer = 0
 collision_mask = 2
@@ -226,7 +314,7 @@ shape = SubResource("BoxShape3D_trigger")
 mesh = SubResource("BoxMesh_line")
 
 [node name="FinishLine" type="Area3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, -91.9)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -4, -151.9)
 collision_layer = 0
 collision_mask = 2
 monitorable = false

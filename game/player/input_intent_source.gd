@@ -26,6 +26,7 @@ func next_intent() -> MoveIntent:
 	intent.direction = Vector3(stick.x, 0.0, stick.y).rotated(Vector3.UP, _camera_rig.view_yaw())
 	intent.jump_pressed = Input.is_action_just_pressed(JUMP)
 	intent.jump_held = Input.is_action_pressed(JUMP)
+	intent.slide_pressed = Input.is_action_just_pressed(SLIDE)
 	intent.slide_held = Input.is_action_pressed(SLIDE)
 	intent.respawn_requested = Input.is_action_just_pressed(RESPAWN)
 	intent.restart_requested = Input.is_action_just_pressed(RESTART)

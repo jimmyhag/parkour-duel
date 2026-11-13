@@ -1,8 +1,13 @@
 # Mouvements au sol : glissade, roulade et conservation de l'élan
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
-Session du 2026-11-12, relue le 2026-11-13, avec Jimmy.
+Session du 2026-11-12, relue le 2026-11-13, avec Jimmy. Amendée le 2026-11-13 après la
+première inspection : Jimmy a délégué la décision (« valide si tu estimes que c'est
+clean »). Les décisions 3, 5, 6, 11 et 14 sont précisées, cinq scénarios sont ajoutés et
+un est renforcé (marqués « amendement »), et la section « Choix acceptés à
+l'inspection » liste ce que le code a tranché là où la spec se taisait. Jimmy peut
+revenir sur chacun de ces choix après avoir joué.
 
 Cette spec et `docs/specs/movement-walls.md` remplacent `docs/specs/movement-advanced.md`,
 scindée en deux à la relecture pour que Jimmy joue les mouvements au sol pendant que
@@ -39,18 +44,18 @@ nombre calé sur le parcours ou les réglages dans le pilote et les tests de sec
 | - | -------- | -------- | -------- |
 | 1 | Où vivent les nouveaux mouvements ? | Trois nouveaux états du coureur dans `core` : glissade, roulade, réception lourde. `player` constate, `core` décide, `player` exécute, y compris la hauteur de la capsule, qui suit l'état. | Même coupe que la base. |
 | 2 | Comment les constats arrivent-ils ? | Par une **structure typée de `core`**, qui remplace les arguments séparés du moteur : au sol ou non, vitesse réelle, altitude, normale du sol, et s'il y a la place de se tenir debout. Les appels existants du moteur dans les tests sont adaptés à cette structure, sans toucher à leurs assertions : ce n'est pas un test affaibli. | Trois constats de plus aujourd'hui, d'autres avec les murs. |
-| 3 | Glissade : démarrage | Bouton maintenu, au sol, à partir d'une vitesse minimale. Tenir le bouton en atterrissant la lance aussi, si la vitesse suffit. Jamais en l'air. | Décision Q3. |
+| 3 | Glissade : démarrage | Bouton maintenu, au sol, à partir d'une vitesse minimale. Tenir le bouton en atterrissant la lance aussi, si la vitesse suffit. Jamais en l'air. **Amendement** : une glissade qui s'est terminée parce que le coureur est passé sous la vitesse plancher ne redémarre pas tant que le bouton reste tenu ; il faut le relâcher puis l'enfoncer de nouveau. | Décision Q3. Amendement : sans cela, bouton tenu sur le plat, le coureur alterne sans fin glissade et course. |
 | 4 | Glissade : vitesse | Elle ralentit sur le plat au rythme réglé. En descente, la pente l'accélère : l'accélération vient de la gravité en chute et de l'inclinaison du sol, pas d'une valeur de plus. La direction ne se corrige que lentement (valeur de réglage). | Décision Q3. |
-| 5 | Glissade : fin | Au relâchement, ou sous la vitesse plancher : le coureur se relève. Quitter le sol en glissant fait tomber normalement, vitesse gardée. | Décision Q3. |
-| 6 | Sous un plafond bas | Tant qu'il n'y a pas la place de se tenir debout, le coureur reste baissé : il ne se relève pas et ne saute pas, même bouton relâché. Si sa vitesse tombe à la vitesse plancher, il continue d'avancer à cette vitesse jusqu'à la sortie. | Jamais coincé sous un obstacle. |
+| 5 | Glissade : fin | Au relâchement, ou sous la vitesse plancher : le coureur se relève. Quitter le sol en glissant fait tomber normalement, vitesse gardée. **Amendement** : le bord d'un bloc n'est pas une pente ; une glissade qui quitte un rebord part à l'horizontale, comme une course à la même vitesse. | Décision Q3. Amendement : l'inspection a mesuré une glissade plaquée vers le bas au bord d'un rebord. |
+| 6 | Sous un plafond bas | Tant qu'il n'y a pas la place de se tenir debout, le coureur reste baissé : il ne se relève pas et ne saute pas, même bouton relâché. Si sa vitesse tombe à la vitesse plancher, il continue d'avancer à cette vitesse jusqu'à la sortie. **Amendement** : la règle vaut aussi en l'air ; un coureur baissé qui perd le sol sans la place de se tenir debout tombe en restant baissé, et se redresse dès que la place revient. | Jamais coincé sous un obstacle. Amendement : l'inspection a montré un coureur qui se relève dans l'obstacle et traverse le sol. |
 | 7 | Saut en glissade | Avec la place de se tenir debout, sauter pendant une glissade donne un saut normal qui garde la vitesse horizontale de la glissade. | Décision Q3 : le saut long. |
 | 8 | Roulade | La hauteur de chute se mesure dans `core`, du point le plus haut atteint en l'air à l'altitude de la réception. Au-dessus du seuil : si la glissade est **pressée** dans la fenêtre qui précède la réception, roulade (vitesse horizontale gardée, capsule basse, durée réglée) ; sinon réception lourde. Un bouton tenu depuis avant la fenêtre ne compte pas : c'est une réception lourde. Sous le seuil : réception normale. Aucun dégât. | Décision Q4 : un geste à réussir, pas un bouton à garder enfoncé. |
 | 9 | Réception lourde | À la réception, la vitesse horizontale est réduite au pourcentage réglé. Pendant sa durée, le coureur ne peut pas dépasser ce même pourcentage de la vitesse de pointe, et un saut demandé est refusé. Pendant une roulade, sauter reste possible et garde la vitesse. | Rater le geste coûte du temps, rien d'autre. |
 | 10 | Intention | `MoveIntent` gagne « glissade pressée à ce pas », rempli par `game/player/` comme le saut pressé. | La fenêtre de roulade a besoin de l'instant de l'appui. |
-| 11 | Conservation de l'élan | Une vitesse horizontale supérieure à la vitesse de pointe n'est plus ramenée d'un coup : au sol, elle redescend au rythme lent réglé ; en l'air, elle ne diminue pas. Un plafond absolu la borne. Sans direction, le freinage au sol de la base ne change pas. | Plan : « conservation de l'élan entre les mouvements ». |
+| 11 | Conservation de l'élan | Une vitesse horizontale supérieure à la vitesse de pointe n'est plus ramenée d'un coup : au sol, elle redescend au rythme lent réglé ; en l'air, elle ne diminue pas. Un plafond absolu la borne. Sans direction, le freinage au sol de la base ne change pas. **Amendement** : « ne diminue pas » s'entend sans changer de direction ; tourner coûte de la vitesse comme dans la base, au sol et en l'air. | Plan : « conservation de l'élan entre les mouvements ». |
 | 12 | Capsule lisible | La capsule visible se tasse en glissade et en roulade, comme sa forme de collision. | Décision Q15. |
 | 13 | Parcours | Deux sections s'ajoutent après les marches, chacune avec son checkpoint, et la ligne d'arrivée recule après la seconde. **Passage bas** : un élan, une rampe descendante, puis un obstacle sous lequel un coureur debout ne passe pas et un coureur baissé passe. **Grande chute** : une chute plus haute que le seuil de roulade, puis une ligne droite jusqu'à l'arrivée. En conséquence, le scénario de la base « La section des marches mène à l'arrivée » est **remplacé** par « La section des marches se franchit » et « La grande chute mène à l'arrivée » : remplacement décidé ici. | Décision Q14. |
-| 14 | Pilote de test | Il apprend deux gestes : tenir la glissade quand un obstacle bas se présente devant lui (un corps debout serait arrêté, un corps baissé passe) jusqu'à ce qu'il y ait la place de se relever ; presser la glissade quand, tombant de plus haut que le seuil, il sera au sol avant la fin de la fenêtre. Mêmes règles que dans les tests réactifs : il sonde, il ne connaît aucun nombre calé. Il ne glisse pas sans raison. | Les nouvelles sections se prouvent comme les anciennes. |
+| 14 | Pilote de test | Il apprend deux gestes : tenir la glissade quand un obstacle bas se présente devant lui (un corps debout serait arrêté, un corps baissé passe) jusqu'à ce qu'il y ait la place de se relever ; presser la glissade quand, tombant de plus haut que le seuil, il sera au sol avant la fin de la fenêtre. Mêmes règles que dans les tests réactifs : il sonde, il ne connaît aucun nombre calé. Il ne glisse pas sans raison. **Amendement** : une glissade demandée se tient d'une traite, du premier appui à la sortie de l'obstacle ; les sondes du pilote ne doivent pas dépendre des jointures entre deux blocs de sol. | Les nouvelles sections se prouvent comme les anciennes. Amendement : l'inspection a montré un pilote qui lâche la glissade à chaque jointure, et un test rouge pour un ralentissement de glissade passé de 4 à 4,5 m/s². |
 | 15 | Plage de réglages garantie | Les deux nouvelles sections rejoignent les quatre premières dans les quatre tests à plus et moins 10 % (vitesse de pointe, gravité en montée, gravité en chute, hauteur de saut). Les nouvelles valeurs de réglage ne sont pas garanties pour l'instant. | Décision de la relecture. |
 | 16 | Arrondi des durées | Les nouvelles durées (fenêtre et durée de roulade, durée de réception lourde) suivent la règle de la base : arrondi au pas le plus proche. | Décision 20 de la base. |
 | 17 | Retour au checkpoint | Il fonctionne depuis chaque nouvel état et rend un coureur debout, capsule à sa hauteur normale. | Critère du plan : aucun blocage. |
@@ -134,6 +139,24 @@ Fonctionnalité: Mouvements au sol
     Soit un coureur en glissade sans la place de se tenir debout
     Quand il demande un saut
     Alors il ne saute pas
+
+  Scénario: Une glissade terminée par la lenteur ne redémarre pas toute seule
+    # amendement
+    Soit un coureur dont la glissade vient de se terminer sous la vitesse plancher, bouton toujours tenu
+    Quand il repasse la vitesse minimale de glissade sans relâcher le bouton
+    Alors il reste debout, et il ne glisse de nouveau qu'après avoir relâché puis renfoncé le bouton
+
+  Scénario: La direction d'une glissade se corrige lentement
+    # amendement
+    Soit un coureur en glissade
+    Quand il pousse dans une autre direction
+    Alors la direction de la glissade tourne à la vitesse de correction réglée, pas d'un coup
+
+  Scénario: Le coureur reste baissé en quittant le sol sous un plafond bas
+    # amendement
+    Soit un coureur en glissade sans la place de se tenir debout
+    Quand il perd le sol
+    Alors il tombe en restant baissé, et se redresse quand la place revient
 
   Scénario: Sauter en glissade garde la vitesse
     Soit un coureur en glissade plus rapide que la vitesse de pointe, avec la place de se tenir debout
@@ -223,6 +246,18 @@ Fonctionnalité: Mouvements au sol
     Quand le pilote parcourt la section
     Alors il atteint le checkpoint de la grande chute, en ayant glissé
 
+  Scénario: Une glissade gagne de la vitesse sur la rampe du passage bas
+    # amendement
+    Soit un coureur au sommet de la rampe du passage bas, glissade tenue
+    Quand il descend la rampe
+    Alors il reste au sol et arrive en bas plus vite qu'il n'est parti
+
+  Scénario: Glisser hors d'un rebord ne plaque pas le coureur vers le bas
+    # amendement
+    Soit deux coureurs lancés à la même vitesse vers un rebord, l'un en glissade, l'autre en course
+    Quand chacun quitte le rebord
+    Alors celui qui glisse retombe au moins aussi loin que celui qui court
+
   Scénario: Le passage bas arrête un coureur debout
     Soit un coureur au checkpoint du passage bas, qui court sans jamais glisser
     Quand il arrive à l'obstacle
@@ -241,7 +276,8 @@ Fonctionnalité: Mouvements au sol
   Scénario: Le pilote glisse sous un obstacle bas qu'il ne connaît pas
     Soit un petit parcours construit par le test, barré par un obstacle bas
     Quand le pilote le parcourt
-    Alors il atteint le bout du parcours, en ayant glissé
+    # amendement : « d'une traite » est ajouté
+    Alors il atteint le bout du parcours, en ayant glissé d'une traite : un seul appui, tenu jusqu'à la sortie de l'obstacle
 
   Scénario: Le pilote ne glisse pas sans raison
     Soit un coureur piloté sur un sol continu et dégagé
@@ -257,6 +293,43 @@ Fonctionnalité: Mouvements au sol
 Les quatre scénarios « Les sections se franchissent avec … changée de 10 % » des tests
 réactifs gardent leur titre et leur test ; « chacune des sections » y désigne
 maintenant les six sections (décision 15).
+
+## Choix acceptés à l'inspection
+
+Le code a tranché ces points là où la spec se taisait. Ils sont acceptés tels quels le
+2026-11-13 ; chacun se juge manette en main et peut être rouvert par Jimmy.
+
+- **Saut demandé à la fin d'une réception lourde** : la tolérance de saut de la base le
+  retient, il part au premier pas après la réception lourde.
+- **Réception lourde plus rapide que la vitesse de pointe** : elle finit à 35 % de la
+  vitesse de pointe, pas à 35 % de sa propre vitesse.
+- **Ralentissement de la glissade en pente** : le ralentissement du plat s'applique
+  aussi en pente ; avec les valeurs de départ, une pente de moins de 5° environ
+  n'accélère pas une glissade.
+- **Pendant une roulade** : la direction poussée ne fait rien, ni tourner ni freiner ;
+  seul le saut répond.
+- **Roulade puis glissade** : une roulade qui se termine bouton tenu, ou sous un plafond
+  bas, continue en glissade.
+- **Saut retenu avant une roulade** : un saut demandé juste avant une réception roulée
+  part au pas de la réception, vitesse gardée.
+- **Au-dessus de la vitesse de pointe** : toute direction poussée, même à moitié, garde
+  l'élan ; seul un stick relâché freine.
+- **Le pilote saute du bord de la grande chute** : les tests prouvent la roulade sur une
+  chute de 6,6 m, pas sur les 5 m d'un joueur qui se laisse tomber. Les deux dépassent
+  le seuil de 4 m.
+- **Coureur baissé qui atterrit sans la place de se tenir debout** (seconde inspection) :
+  il continue en glissade, sans test de roulade ni réception lourde, même après une
+  chute de plus de 4 m. Le cas n'existe pas sur le parcours ; à rouvrir si un niveau le
+  crée.
+- **Glissade lente au-dessus d'une fente sous un plafond bas** (troisième passe) : en
+  l'air, la vitesse plancher de la décision 6 ne s'applique pas ; avec un ralentissement
+  de glissade de 7 m/s² (hors de la plage garantie), le coureur reste pris dans une fente
+  plus étroite que lui, construite par le test du pilote. Le parcours n'a pas de fente ;
+  le retour au checkpoint en sort. Si Jimmy règle cette valeur au-delà de 6 m/s², ou si un
+  niveau crée une fente sous un obstacle bas, la vitesse plancher s'étend à l'air : à
+  traiter avec la relecture de `docs/specs/movement-walls.md`.
+- **Feuille de route du README** : la ligne de l'étape 1 dit que les mouvements au sol
+  sont en place ; elle devient vraie à la fusion.
 
 ## UI & Layout Contract
 

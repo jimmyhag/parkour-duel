@@ -9,7 +9,9 @@ var direction: Vector3 = Vector3.ZERO
 var jump_pressed: bool = false
 ## The jump is held down.
 var jump_held: bool = false
-## The slide is held down (declared, no effect before the advanced moves).
+## The slide was pressed at this step.
+var slide_pressed: bool = false
+## The slide is held down.
 var slide_held: bool = false
 ## The return to the last checkpoint was asked at this step.
 var respawn_requested: bool = false

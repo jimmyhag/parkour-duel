@@ -1,11 +1,20 @@
 class_name DebugOverlay
 extends Label
 ## The debug display, for tuning the feel: the runner's state, its horizontal and
-## vertical speeds, and what is left of its coyote time and of its jump buffer. Hidden
-## until its action shows it.
+## vertical speeds, and what is left of its coyote time, of its jump buffer, of its roll
+## window and of the roll or the hard landing under way. Hidden until its action shows
+## it.
 
 const TOGGLE_DEBUG: StringName = &"toggle_debug"
-const LINES: String = "STATE %s\nSPEED H %.2f m/s\nSPEED V %.2f m/s\nCOYOTE %.2f s\nBUFFER %.2f s"
+const LINES: Array[String] = [
+	"STATE %s",
+	"SPEED H %.2f m/s",
+	"SPEED V %.2f m/s",
+	"COYOTE %.2f s",
+	"BUFFER %.2f s",
+	"ROLL WINDOW %.2f s",
+	"LANDING %.2f s",
+]
 
 ## The runner to display.
 var motor: RunnerMotor
@@ -29,6 +38,14 @@ func refresh() -> void:
 	var state: String = RunnerMotor.State.keys()[motor.state]
 	var horizontal: float = Vector2(motor.velocity.x, motor.velocity.z).length()
 	text = (
-		LINES
-		% [state, horizontal, motor.velocity.y, motor.coyote_time_left(), motor.jump_buffer_left()]
+		"\n".join(LINES)
+		% [
+			state,
+			horizontal,
+			motor.velocity.y,
+			motor.coyote_time_left(),
+			motor.jump_buffer_left(),
+			motor.roll_window_left(),
+			motor.landing_time_left(),
+		]
 	)

@@ -30,7 +30,11 @@ class Body:
 		on_floor = start_height <= 0.0
 
 	func step(intent: MoveIntent) -> void:
-		velocity = motor.step(intent, on_floor, velocity, STEP)
+		var facts: RunnerFacts = RunnerFacts.new()
+		facts.on_floor = on_floor
+		facts.velocity = velocity
+		facts.altitude = height
+		velocity = motor.step(intent, facts, STEP)
 		height += velocity.y * STEP
 		on_floor = has_floor and height <= 0.0 and velocity.y <= 0.0
 		if on_floor:
@@ -231,15 +235,30 @@ func test_the_same_intents_give_the_same_result() -> void:
 		intent.direction = Vector3(random.randf_range(-1, 1), 0, random.randf_range(-1, 1))
 		intent.jump_pressed = random.randf() < 0.05
 		intent.jump_held = random.randf() < 0.5
+		intent.slide_pressed = random.randf() < 0.05
+		intent.slide_held = intent.slide_pressed or random.randf() < 0.5
 		if random.randf() < 0.03:
 			on_floor = not on_floor
-		var wanted: Vector3 = first.step(intent, on_floor, observed, STEP)
-		var twin: Vector3 = second.step(intent, on_floor, observed, STEP)
+		var facts: RunnerFacts = RunnerFacts.new()
+		facts.on_floor = on_floor
+		facts.velocity = observed
+		# Any world: floors at any altitude, tilted any way, with or without headroom.
+		facts.altitude = random.randf_range(0.0, 10.0)
+		var tilt: Vector3 = Vector3(
+			random.randf_range(-0.5, 0.5), 1.0, random.randf_range(-0.5, 0.5)
+		)
+		facts.floor_normal = tilt.normalized()
+		facts.can_stand = random.randf() < 0.9
+		var wanted: Vector3 = first.step(intent, facts, STEP)
+		var twin: Vector3 = second.step(intent, facts, STEP)
 		if wanted != twin or first.state != second.state:
 			differences += 1
 		states_seen[first.state] = true
 		# What a collision would do: the body does not always get the velocity it wanted.
 		observed = wanted * random.randf_range(0.5, 1.0)
+		if random.randf() < 0.05:
+			# What a push would do: a velocity the runner did not ask for.
+			observed += Vector3(random.randf_range(-20, 20), 0, random.randf_range(-20, 20))
 
 	assert_eq(differences, 0, "same state and same velocity at every step")
 	assert_eq(states_seen.size(), RunnerMotor.State.size(), "the sequence visits every state")
@@ -258,6 +277,17 @@ func _tuning() -> MovementTuning:
 	tuning.max_fall_speed = 40.0
 	tuning.coyote_time = 0.10
 	tuning.jump_buffer_time = 0.12
+	tuning.slide_min_speed = 5.0
+	tuning.slide_stop_speed = 2.5
+	tuning.slide_deceleration = 4.0
+	tuning.slide_turn_speed = 1.0
+	tuning.roll_fall_height = 4.0
+	tuning.roll_window = 0.20
+	tuning.roll_duration = 0.5
+	tuning.hard_landing_speed_ratio = 0.35
+	tuning.hard_landing_duration = 0.35
+	tuning.momentum_deceleration = 6.0
+	tuning.max_horizontal_speed = 22.0
 	return tuning
 
 

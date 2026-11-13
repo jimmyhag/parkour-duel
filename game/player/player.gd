@@ -1,8 +1,9 @@
 class_name Player
 extends CharacterBody3D
 ## The runner's body. At every fixed step it asks its intent source for an intent,
-## gives it to the motor of game/core with what it observes (floor, real velocity), and
-## applies the velocity the motor wants. It decides nothing about the movement itself.
+## gives it to the motor of game/core with the facts it observes (RunnerFacts), and
+## applies what the motor decides: the velocity it wants, and a capsule as low as its
+## state says. It decides nothing about the movement itself.
 
 ## Emitted at the end of every fixed step, with the intent the runner just followed.
 signal stepped(intent: MoveIntent)
@@ -34,7 +35,8 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	var intent: MoveIntent = intent_source.next_intent()
-	velocity = motor.step(intent, is_on_floor(), velocity, delta)
+	velocity = motor.step(intent, _observe(), delta)
+	_fit_capsule()
 	move_and_slide()
 	_turn_towards_movement(delta)
 	stepped.emit(intent)
@@ -50,17 +52,10 @@ func apply_tuning(new_tuning: MovementTuning) -> void:
 	tuning = new_tuning
 	motor.tuning = tuning
 	camera_rig.tuning = tuning
-	var half_height: float = tuning.capsule_height / 2.0
-	var shape: CapsuleShape3D = _collider.shape as CapsuleShape3D
-	shape.height = tuning.capsule_height
-	shape.radius = tuning.capsule_radius
-	_collider.position.y = half_height
-	var mesh: CapsuleMesh = _body.mesh as CapsuleMesh
-	mesh.height = tuning.capsule_height
-	mesh.radius = tuning.capsule_radius
-	_body.position.y = half_height
-	var visor_height: float = tuning.capsule_height * VISOR_HEIGHT_RATIO
-	_visor.position = Vector3(0.0, visor_height, -tuning.capsule_radius)
+	_set_capsule_height(_wanted_capsule_height())
+	(_collider.shape as CapsuleShape3D).radius = tuning.capsule_radius
+	(_body.mesh as CapsuleMesh).radius = tuning.capsule_radius
+	_visor.position.z = -tuning.capsule_radius
 
 
 ## Reads the tuning file again, so that a value changed on disk applies without
@@ -76,15 +71,73 @@ func reload_tuning() -> void:
 		apply_tuning(fresh)
 
 
-## Puts the runner at `spawn`, at rest, facing its -Z axis, with the camera in its back.
+## Puts the runner at `spawn`, standing and at rest, facing its -Z axis, with the camera
+## in its back.
 func teleport(spawn: Transform3D) -> void:
 	var yaw: float = spawn.basis.get_euler().y
 	global_position = spawn.origin
 	velocity = Vector3.ZERO
 	motor.reset()
+	_fit_capsule()
 	_visual.rotation.y = yaw
 	camera_rig.face(yaw)
 	reset_physics_interpolation()
+
+
+## What the motor needs to know about the body and the world around it.
+func _observe() -> RunnerFacts:
+	var facts: RunnerFacts = RunnerFacts.new()
+	facts.on_floor = is_on_floor()
+	facts.velocity = velocity
+	facts.altitude = global_position.y
+	if facts.on_floor:
+		facts.floor_normal = _normal_of_the_ground_underfoot()
+	facts.can_stand = not motor.is_low() or _has_headroom()
+	return facts
+
+
+## The normal of the ground right under the runner's feet, probed straight down as deep
+## as the steepest floor can be under a capsule that rests on it; straight up when there
+## is no ground there. The contact the body reports is not used: over the edge of a
+## block it is tilted like a slope, and the edge of a block is not a slope.
+func _normal_of_the_ground_underfoot() -> Vector3:
+	var reach: Vector3 = Vector3.UP * tuning.capsule_radius
+	var ray: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
+		global_position + reach, global_position - reach, collision_mask, [get_rid()]
+	)
+	var ground: Dictionary = get_world_3d().direct_space_state.intersect_ray(ray)
+	if ground.is_empty():
+		return Vector3.UP
+	var normal: Vector3 = ground["normal"]
+	return normal
+
+
+## Whether the capsule, low as it is, could rise to its standing height where it is.
+func _has_headroom() -> bool:
+	var rise: float = tuning.capsule_height - tuning.slide_capsule_height
+	return not test_move(global_transform, Vector3.UP * rise)
+
+
+## The height the state of the runner asks for: low in a slide and in a roll.
+func _wanted_capsule_height() -> float:
+	return tuning.slide_capsule_height if motor.is_low() else tuning.capsule_height
+
+
+## Gives the capsule the height its state asks for, if it does not have it yet.
+func _fit_capsule() -> void:
+	var height: float = _wanted_capsule_height()
+	if not is_equal_approx((_collider.shape as CapsuleShape3D).height, height):
+		_set_capsule_height(height)
+
+
+## Changes the height of the capsule, the one that collides and the one that is seen,
+## without moving its feet.
+func _set_capsule_height(height: float) -> void:
+	(_collider.shape as CapsuleShape3D).height = height
+	_collider.position.y = height / 2.0
+	(_body.mesh as CapsuleMesh).height = height
+	_body.position.y = height / 2.0
+	_visor.position.y = height * VISOR_HEIGHT_RATIO
 
 
 func _turn_towards_movement(delta: float) -> void:
