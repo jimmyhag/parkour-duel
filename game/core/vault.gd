@@ -51,14 +51,18 @@ func _init(facts: RunnerFacts, tuning: MovementTuning, duration_steps: int) -> v
 
 
 ## Whether a runner that observed `facts`, at the horizontal speed `speed`, may vault the
-## obstacle ahead: fast enough, the obstacle within reach, its top within the heights a
-## vault passes over, not too deep, with room over it and behind it.
+## obstacle ahead now: it is within reach, and a vault passes over it (passes_over).
 static func fits(facts: RunnerFacts, speed: float, tuning: MovementTuning) -> bool:
+	return facts.obstacle_distance <= tuning.vault_reach and passes_over(facts, speed, tuning)
+
+
+## Whether a runner at the horizontal speed `speed` vaults the obstacle `facts` tell of, once
+## within reach: fast enough, its top within the heights a vault passes over, not too deep,
+## with room over it and behind it.
+static func passes_over(facts: RunnerFacts, speed: float, tuning: MovementTuning) -> bool:
 	if facts.obstacle_normal.is_zero_approx() or not facts.obstacle_clear:
 		return false
-	if speed < tuning.vault_min_speed or facts.obstacle_distance > tuning.vault_reach:
-		return false
-	if facts.obstacle_depth > tuning.vault_max_depth:
+	if speed < tuning.vault_min_speed or facts.obstacle_depth > tuning.vault_max_depth:
 		return false
 	var height: float = facts.obstacle_height
 	return height >= tuning.vault_min_height and height <= tuning.vault_max_height

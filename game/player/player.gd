@@ -331,25 +331,33 @@ func _observe_the_ledge_ahead(facts: RunnerFacts, intent: MoveIntent) -> void:
 
 
 ## The obstacle across the way of a runner on the floor, ahead the way its body moves (the
-## way it pushes when the body hardly moves), as far as a vault reaches: its face, probed
-## straight ahead at half the lowest height a vault passes over; its top, probed from above
-## as high as the highest one a vault passes over, down to the feet; how deep it is, probed
-## back towards its face from as deep as a vault passes over, just under its top; and the
-## room for a standing body over its top, at its face, and on the ground right behind it.
-## An obstacle taller than a vault, or deeper, is reported so, without its room.
+## way it pushes when the body hardly moves), as far as a vault reaches (see
+## observe_the_obstacle_towards).
 func _observe_the_obstacle_ahead(facts: RunnerFacts, intent: MoveIntent) -> void:
 	if not facts.on_floor:
 		return
 	var heading: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
 	if heading.length() <= ALMOST_STILL:
 		heading = Vector3(intent.direction.x, 0.0, intent.direction.z)
+	observe_the_obstacle_towards(facts, heading, tuning.vault_reach)
+
+
+## The obstacle across the way `heading` (horizontal) whose face is at most `reach` from the
+## front of the runner, told in `facts` (RunnerFacts): its face, probed straight ahead at
+## half the lowest height a vault passes over; its top, probed from above as high as the
+## highest one a vault passes over, down to the feet; how deep it is, probed back towards
+## its face from as deep as a vault passes over, just under its top; and the room for a
+## standing body over its top, at its face, and on the ground right behind it. An obstacle
+## taller than a vault, or deeper, is reported so, without its room. Probed from the body,
+## never from where the visible body looks; the pilot asks it too, farther ahead.
+func observe_the_obstacle_towards(facts: RunnerFacts, heading: Vector3, reach: float) -> void:
+	heading = Vector3(heading.x, 0.0, heading.z).normalized()
 	if heading.is_zero_approx():
 		return
-	heading = heading.normalized()
 	var feet: Vector3 = global_position
 	var low: Vector3 = feet + Vector3.UP * tuning.vault_min_height / 2.0
-	var reach: float = tuning.capsule_radius + tuning.vault_reach
-	var face: Dictionary = _first_hit(low, low + heading * reach, false)
+	var ahead: float = tuning.capsule_radius + reach
+	var face: Dictionary = _first_hit(low, low + heading * ahead, false)
 	if face.is_empty():
 		return
 	var face_point: Vector3 = face["position"]

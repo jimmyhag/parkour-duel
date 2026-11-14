@@ -12,8 +12,9 @@ extends IntentSource
 ## across, and lets the jump carry it to that wall. It never jumps in the air or on a
 ## floor that goes on but off a wall, and never asks for the slide without one of its
 ## two reasons. It knows no course: only what it probes, the state of the runner and the
-## tuning, from which its look-ahead distances are worked out. Asked, it tells whether a
-## jump is to be made within a distance ahead.
+## tuning, from which its look-ahead distances are worked out. It never jumps at an
+## obstacle the runner vaults on its own (docs/specs/vault.md): it runs on into it. Asked,
+## it tells whether a jump is to be made within a distance ahead.
 
 ## The spacing of the probes of the floor when the pilot looks far ahead, in m.
 const PROBE_SPACING: float = 0.25
@@ -97,7 +98,8 @@ func _floor_stops_ahead() -> bool:
 ## floor stops there, or a step or a ledge that a jump clears stands there.
 func sees_a_jump_within(distance: float) -> bool:
 	var tuning: MovementTuning = _runner.tuning
-	if _clears_what_stops_it(distance, tuning.jump_height + tuning.mantle_max_height):
+	var lift: float = tuning.jump_height + tuning.mantle_max_height
+	if _clears_what_stops_it(distance, lift) and not _vaults_within(distance):
 		return true
 	var probes: int = maxi(ceili(distance / PROBE_SPACING), 1)
 	for index: int in range(1, probes + 1):
@@ -125,7 +127,8 @@ func _no_floor_at(feet: Vector3) -> bool:
 ## it covers while a jump rises, and the same body, lifted by a jump height, would pass
 ## over it with room to stand on it. Jumping now tops the jump as the runner gets there.
 func _step_stands_ahead() -> bool:
-	return _clears_what_stops_it(_reach(), _runner.tuning.jump_height)
+	var reach: float = _reach()
+	return _clears_what_stops_it(reach, _runner.tuning.jump_height) and not _vaults_within(reach)
 
 
 ## A ledge stands right in front when something would stop the runner's body before the
@@ -136,7 +139,17 @@ func _step_stands_ahead() -> bool:
 func _ledge_stands_ahead() -> bool:
 	var tuning: MovementTuning = _runner.tuning
 	var stride: float = _speed_ahead() * _runner.get_physics_process_delta_time()
-	return _clears_what_stops_it(stride, tuning.jump_height + tuning.mantle_max_height)
+	var lift: float = tuning.jump_height + tuning.mantle_max_height
+	return _clears_what_stops_it(stride, lift) and not _vaults_within(stride)
+
+
+## The first obstacle across the way within `reach` of the front of the runner is one it
+## vaults on its own once there (Vault.passes_over), at the speed it goes: as the player
+## observes it, from the body.
+func _vaults_within(reach: float) -> bool:
+	var facts: RunnerFacts = RunnerFacts.new()
+	_runner.observe_the_obstacle_towards(facts, _direction, reach)
+	return Vault.passes_over(facts, _speed_ahead(), _runner.tuning)
 
 
 ## Something would stop the runner's body within `reach`, and the same body, lifted by

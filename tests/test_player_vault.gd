@@ -1,7 +1,8 @@
 extends ReplayTest
 ## The vault in the real physics (docs/specs/vault.md): the player layer reports the low
 ## wall ahead to game/core from probes the way the body moves, never from where the
-## visible body looks, and the runner passes over the wall on its own, without stopping;
+## visible body looks, and the runner passes over the wall on its own, without stopping,
+## led by the pilot (which does not jump at what a vault passes over) or only pushing;
 ## the hands of the character go on the real top of the wall (HandPlant). Faster than real
 ## time with the same fixed step of 1/60 s (see ReplayTest).
 
@@ -116,20 +117,17 @@ func test_the_pilot_vaults_a_low_wall_in_the_real_physics() -> void:
 	await _play([run])
 
 	assert_eq(run.outcome, PilotedRun.Outcome.REACHED, "the pilot led the runner to the goal")
+	assert_eq(run.jumps, 0, "led by the pilot: no jump was asked for")
+	assert_gt(run.steps_vaulting, 0, "led by the pilot: the runner vaulted over the wall")
+	gut.p("led by the pilot: %d steps vaulting, %d jumps" % [run.steps_vaulting, run.jumps])
+	var grounded: int = RunnerMotor.State.GROUNDED
 	for scene: AtALowWall in [piloted, pushing]:
 		var context: String = "led by the pilot: " if scene == piloted else "only pushing: "
+		assert_false(scene.jumped, context + "no jump")
+		assert_true(scene.vaulted, context + "the runner vaulted over the wall on its own")
 		assert_gt(scene.slowest_near_the_wall, STOPPED, context + "it never stopped at the wall")
+		assert_eq(scene.state_after_the_vault, grounded, context + "it came out standing")
 		assert_gt(scene.steps_past_the_wall, 0, context + "it went on, on the other side")
-	assert_false(pushing.jumped, "only pushing: no jump was asked for")
-	assert_true(pushing.vaulted, "only pushing: the runner vaulted over the wall on its own")
-	var grounded: int = RunnerMotor.State.GROUNDED
-	assert_eq(pushing.state_after_the_vault, grounded, "only pushing: it came out standing")
-	gut.p(
-		(
-			"led by the pilot, the runner %s over the wall"
-			% ("vaulted" if piloted.vaulted else "jumped" if piloted.jumped else "went")
-		)
-	)
 
 
 func test_the_hand_lands_on_top_of_the_obstacle() -> void:
