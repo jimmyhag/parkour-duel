@@ -21,6 +21,8 @@ const IDS: Dictionary[SabotageTarget.Kind, int] = {PLATFORM: 1, BRIDGE: 2, OBSTA
 ## The values of the fixed tuning, in fixed steps at 60 per second, and the costs:
 ## written out on purpose, not computed.
 const WARNING_STEPS: int = 36
+## The least aim before a shot (0.25 s), in fixed steps.
+const AIM_MIN_STEPS: int = 15
 const COOLDOWN_STEPS: int = 180
 const EFFECT_STEPS: Dictionary[SabotageTarget.Kind, int] = {
 	PLATFORM: 300, BRIDGE: 360, OBSTACLE: 360, BARRIER: 240
@@ -54,12 +56,12 @@ func test_a_shot_at_a_ready_target_in_range_hits_it() -> void:
 		var context: String = SabotageTarget.Kind.keys()[kind] + ": "
 		var board: TargetBoard = _board()
 		var flow: FlowState = _flow(3)
-		var shooter: Shooter = Shooter.new(SHOOTER, _tuning)
+		var shooter: Shooter = _shooter()
 		var target: SabotageTarget = board.target(IDS[kind])
+		var facts: AimFacts = AimFacts.new(IDS[kind], IN_RANGE)
+		_aim(shooter, facts, board, flow, AIM_MIN_STEPS - 1)
 
-		var message: SabotageMessage = shooter.follow(
-			_shot(), AimFacts.new(IDS[kind], IN_RANGE), AT_STEP, board, flow
-		)
+		var message: SabotageMessage = shooter.follow(_shot(), facts, AT_STEP, board, flow)
 
 		assert_not_null(message, context + "a message")
 		if message != null:
@@ -78,7 +80,9 @@ func test_a_shot_at_a_ready_target_in_range_hits_it() -> void:
 	var edge_board: TargetBoard = _board()
 	var edge_flow: FlowState = _flow(3)
 	var at_the_edge: AimFacts = AimFacts.new(IDS[PLATFORM], RANGE)
-	var shot: SabotageMessage = Shooter.new(SHOOTER, _tuning).follow(
+	var edge_shooter: Shooter = _shooter()
+	_aim(edge_shooter, at_the_edge, edge_board, edge_flow, AIM_MIN_STEPS - 1)
+	var shot: SabotageMessage = edge_shooter.follow(
 		_shot(), at_the_edge, AT_STEP, edge_board, edge_flow
 	)
 	assert_not_null(shot, "a target exactly at the range is hit")
@@ -87,11 +91,11 @@ func test_a_shot_at_a_ready_target_in_range_hits_it() -> void:
 func test_no_shot_without_enough_ammunition() -> void:
 	var board: TargetBoard = _board()
 	var flow: FlowState = _flow(1)
-	var shooter: Shooter = Shooter.new(SHOOTER, _tuning)
+	var shooter: Shooter = _shooter()
+	var facts: AimFacts = AimFacts.new(IDS[BRIDGE], IN_RANGE)
+	_aim(shooter, facts, board, flow, AIM_MIN_STEPS)
 
-	var message: SabotageMessage = shooter.follow(
-		_shot(), AimFacts.new(IDS[BRIDGE], IN_RANGE), AT_STEP, board, flow
-	)
+	var message: SabotageMessage = shooter.follow(_shot(), facts, AT_STEP, board, flow)
 
 	assert_null(message, "no message")
 	assert_eq(flow.ammo, 1, "the ammunition stays")
@@ -102,12 +106,13 @@ func test_no_shot_without_enough_ammunition() -> void:
 func test_no_shot_into_the_void() -> void:
 	var board: TargetBoard = _board()
 	var flow: FlowState = _flow(3)
-	var shooter: Shooter = Shooter.new(SHOOTER, _tuning)
+	var shooter: Shooter = _shooter()
 	var unknown: int = 99
 
 	for facts: AimFacts in [
 		AimFacts.new(SabotageTarget.NO_TARGET, IN_RANGE), AimFacts.new(unknown, IN_RANGE)
 	]:
+		_aim(shooter, facts, board, flow, AIM_MIN_STEPS)
 		var message: SabotageMessage = shooter.follow(_shot(), facts, AT_STEP, board, flow)
 		assert_null(message, "no message, aiming at %d" % facts.target)
 
@@ -119,8 +124,9 @@ func test_no_shot_into_the_void() -> void:
 func test_no_shot_out_of_range() -> void:
 	var board: TargetBoard = _board()
 	var flow: FlowState = _flow(3)
-	var shooter: Shooter = Shooter.new(SHOOTER, _tuning)
+	var shooter: Shooter = _shooter()
 	var too_far: AimFacts = AimFacts.new(IDS[PLATFORM], RANGE + 0.01)
+	_aim(shooter, too_far, board, flow, AIM_MIN_STEPS)
 
 	var message: SabotageMessage = shooter.follow(_shot(), too_far, AT_STEP, board, flow)
 
@@ -129,13 +135,46 @@ func test_no_shot_out_of_range() -> void:
 	_assert_all_ready(board)
 
 
+func test_no_shot_before_the_minimal_aim() -> void:
+	var board: TargetBoard = _board()
+	var flow: FlowState = _flow(3)
+	var shooter: Shooter = _shooter()
+	var platform: AimFacts = AimFacts.new(IDS[PLATFORM], IN_RANGE)
+
+	# Aiming from this step on, the shot pressed at every step: nothing before the least
+	# aim, the shot at its last step.
+	for step: int in AIM_MIN_STEPS - 1:
+		var early: SabotageMessage = shooter.follow(_shot(), platform, AT_STEP, board, flow)
+		assert_null(early, "aimed %d steps: no shot" % (step + 1))
+		assert_eq(shooter.verdict, Shooter.Verdict.SHOOTABLE, "the reticle on a shootable target")
+	assert_eq(flow.ammo, 3, "nothing spent")
+	assert_eq(board.target(IDS[PLATFORM]).state, READY, "the platform stays ready")
+	assert_eq(shooter.shots, 0, "no shot")
+	var message: SabotageMessage = shooter.follow(_shot(), platform, AT_STEP, board, flow)
+	assert_not_null(message, "aimed for the least aim: the shot goes")
+	assert_eq(flow.ammo, 2, "its cost spent")
+
+	# The aim let go for one step, then taken again: the least aim starts over.
+	var obstacle: AimFacts = AimFacts.new(IDS[OBSTACLE], IN_RANGE)
+	shooter.follow(MoveIntent.new(), obstacle, AT_STEP, board, flow)
+	for step: int in AIM_MIN_STEPS - 1:
+		var again: SabotageMessage = shooter.follow(_shot(), obstacle, AT_STEP, board, flow)
+		assert_null(again, "aimed again %d steps: no shot" % (step + 1))
+	assert_eq(board.target(IDS[OBSTACLE]).state, READY, "the obstacle stays ready")
+	assert_eq(flow.ammo, 2, "nothing more spent")
+	assert_not_null(shooter.follow(_shot(), obstacle, AT_STEP, board, flow), "then it goes")
+	assert_eq(flow.ammo, 1, "its cost spent")
+
+
 func test_no_shot_without_aiming() -> void:
 	var board: TargetBoard = _board()
 	var flow: FlowState = _flow(3)
-	var shooter: Shooter = Shooter.new(SHOOTER, _tuning)
+	var shooter: Shooter = _shooter()
 	var not_aiming: MoveIntent = MoveIntent.new()
 	not_aiming.shoot_pressed = true
 	var facts: AimFacts = AimFacts.new(IDS[PLATFORM], IN_RANGE)
+	# Aimed for all but the last step of the least aim, then the aim let go.
+	_aim(shooter, facts, board, flow, AIM_MIN_STEPS - 1)
 
 	var message: SabotageMessage = shooter.follow(not_aiming, facts, AT_STEP, board, flow)
 
@@ -212,7 +251,8 @@ func test_a_target_that_is_not_ready_cannot_be_hit() -> void:
 	assert_eq(resting.state, RESTING, "one resting")
 	assert_eq(recovering.state, RECOVERING, "one waiting to come back")
 	var flow: FlowState = _flow(3)
-	var shooter: Shooter = Shooter.new(SHOOTER, _tuning)
+	var shooter: Shooter = _shooter()
+	_aim(shooter, AimFacts.new(waiting.id, IN_RANGE), board, flow, AIM_MIN_STEPS)
 
 	for target: SabotageTarget in [waiting, sabotaged, resting, recovering]:
 		var state: String = SabotageTarget.State.keys()[target.state]
@@ -384,6 +424,20 @@ func _steps(board: TargetBoard, playing: Array, steps: int, inside: Array[int]) 
 		for target: SabotageTarget in playing:
 			assert_true(board.targets.values().has(target))
 			target.step(inside)
+
+
+func _shooter() -> Shooter:
+	return Shooter.new(SHOOTER, _tuning, STEPS_PER_SECOND)
+
+
+## `steps` steps of `shooter` aiming at what `facts` say, the shot pressed at every one
+## of them: none goes, the aim is not long enough yet, or the shot not allowed.
+func _aim(
+	shooter: Shooter, facts: AimFacts, board: TargetBoard, flow: FlowState, steps: int
+) -> void:
+	for step: int in steps:
+		var message: SabotageMessage = shooter.follow(_shot(), facts, AT_STEP, board, flow)
+		assert_null(message, "aimed %d steps: no shot" % (step + 1))
 
 
 func _message(target: SabotageTarget) -> SabotageMessage:

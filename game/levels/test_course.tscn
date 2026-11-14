@@ -398,7 +398,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, -57.7)
 target_id = 2
 
 [node name="Barrier" parent="Targets" instance=ExtResource("11_rising_barrier")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, -96.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.5, -96.5)
 target_id = 3
 
 [node name="Obstacle" parent="Targets" instance=ExtResource("12_falling_obstacle")]

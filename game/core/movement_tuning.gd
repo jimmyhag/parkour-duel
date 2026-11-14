@@ -175,6 +175,8 @@ extends Resource
 @export_range(0.0, 1.0) var aim_speed_ratio: float = 0.0
 ## Farthest a target can be shot from, measured from the runner's eyes, in m.
 @export var shot_range: float = 0.0
+## How long the aim must be held without a break before a shot can go, in s.
+@export var aim_min_time: float = 0.0
 ## Field of view of the camera while aiming, in degrees, and how far it moves to the
 ## right of the runner, over its shoulder, in m.
 @export var aim_camera_fov: float = 0.0

@@ -43,7 +43,7 @@ func _ready() -> void:
 	race = RaceState.new(steps_per_second)
 	flow = FlowState.new(player.tuning, steps_per_second)
 	targets = TargetBoard.new()
-	shooter = Shooter.new(RUNNER, player.tuning)
+	shooter = Shooter.new(RUNNER, player.tuning, steps_per_second)
 	for child: Node in $Checkpoints.get_children():
 		var checkpoint: Checkpoint = child as Checkpoint
 		_checkpoints[checkpoint.index] = checkpoint

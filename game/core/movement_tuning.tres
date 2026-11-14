@@ -78,6 +78,7 @@ trick_perfect_bonus = 0.5
 trick_perfect_speed_gain = 1.0
 aim_speed_ratio = 0.6
 shot_range = 45.0
+aim_min_time = 0.25
 aim_camera_fov = 50.0
 aim_camera_offset = 0.6
 aim_camera_blend_time = 0.12

@@ -154,7 +154,7 @@ func test_the_debug_display_shows_the_aim_and_the_targets() -> void:
 	var bridge: SabotageTarget = SabotageTarget.new(2, SabotageTarget.Kind.BRIDGE, tuning, 60)
 	targets.add(platform)
 	targets.add(bridge)
-	var shooter: Shooter = Shooter.new(1, tuning)
+	var shooter: Shooter = Shooter.new(1, tuning, 60)
 	var overlay: DebugOverlay = OVERLAY_SCENE.instantiate() as DebugOverlay
 	overlay.motor = RunnerMotor.new(tuning)
 	overlay.shooter = shooter

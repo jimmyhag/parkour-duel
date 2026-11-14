@@ -192,6 +192,35 @@ func test_the_pilot_does_not_jump_at_a_wall_it_cannot_clear() -> void:
 	assert_almost_eq(runner.global_position.y, start.y, NEAR, "it stands at the foot of the wall")
 
 
+func test_the_pilot_climbs_a_wall_that_a_jump_then_a_mantle_clear() -> void:
+	var track: Track = _add_track()
+	var runner: Player = _add_runner(track)
+	var tuning: MovementTuning = runner.tuning
+	var start: Vector3 = track.add_block(9.4)
+	# Too high for a mantle from the ground; from the top of a jump, in the middle of the
+	# heights a mantle climbs.
+	var reach: float = (tuning.mantle_min_height + tuning.mantle_max_height) / 2.0
+	var wall: float = tuning.jump_height + reach
+	assert_gt(wall, tuning.mantle_max_height, "a wall no mantle climbs from the ground")
+	var top: Vector3 = track.add_block(5.1, wall)
+	var goal: Area3D = track.add_goal(top)
+	runner.teleport(Transform3D(Basis.IDENTITY, start))
+	# The jumps the runner made, not the presses: a press during a mantle does nothing.
+	var jumps: Array[int] = [0]
+	runner.stepped.connect(
+		func(_intent: MoveIntent) -> void:
+			for event: RunnerEvent in runner.motor.events:
+				jumps[0] += int(event.kind == RunnerEvent.Kind.JUMP)
+	)
+
+	var run: PilotedRun = await _pilot_to(runner, goal, track)
+
+	assert_eq(run.outcome, PilotedRun.Outcome.REACHED, "the top of the wall is reached")
+	assert_eq(jumps[0], 1, "with one jump at the wall")
+	assert_gt(run.steps_mantling, 0, "then a mantle")
+	assert_almost_eq(runner.global_position.y, top.y, NEAR, "the runner stands on top")
+
+
 func test_the_pilot_slides_under_a_low_obstacle_it_does_not_know() -> void:
 	var over_a_seam: UnderTheBeam = _course_under_a_beam(0.0, 0.0)
 	var over_a_crack: UnderTheBeam = _course_under_a_beam(3.0 * Track.WIDTH, 0.85)

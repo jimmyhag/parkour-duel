@@ -120,6 +120,7 @@ static func fixed_tuning() -> MovementTuning:
 	tuning.trick_perfect_speed_gain = 1.0
 	tuning.aim_speed_ratio = 0.6
 	tuning.shot_range = 45.0
+	tuning.aim_min_time = 0.25
 	tuning.aim_camera_fov = 50.0
 	tuning.aim_camera_offset = 0.6
 	tuning.aim_camera_blend_time = 0.12

@@ -140,24 +140,39 @@ func test_a_fallen_obstacle_can_be_cleared() -> void:
 	)
 
 
-func test_a_raised_barrier_bars_the_way() -> void:
-	var course: Course = _add_course()
-	_start_at(course, LOW_PASSAGE)
-	await _wait_steps(SETTLE_STEPS)
-	var barrier: TargetBlock = _block_of(course, SabotageTarget.Kind.BARRIER)
-	await _sabotage(course, barrier)
+func test_a_raised_barrier_is_cleared_by_jumping_and_climbing() -> void:
+	var raised: SectionRun = _section_run(LOW_PASSAGE)
+	var spacing: float = 2.0 * PilotedRun.bounds_of_the_blocks(raised.course).size.x
+	var free: SectionRun = _section_run(LOW_PASSAGE, null, spacing)
+	var barrier: TargetBlock = _block_of(raised.course, SabotageTarget.Kind.BARRIER)
+	await _sabotage(raised.course, barrier)
+	var runner: Player = raised.course.player
+	var tuning: MovementTuning = runner.tuning
 	var wall: AABB = _bounds_of(barrier.get_node("Body"))
-	assert_true(barrier.target.displaced, "a raised barrier")
-	assert_almost_eq(wall.position.y, course.player.global_position.y, NEAR, "out of the ground")
+	var path: float = runner.global_position.y
+	assert_true(barrier.target.displaced, "a barrier raised on the way")
+	assert_almost_eq(wall.position.y, path, NEAR, "out of the ground of the way")
+	var height: float = wall.end.y - path
+	assert_gt(height, tuning.mantle_max_height, "too high to climb without a jump")
+	var from_the_top_of_a_jump: float = height - tuning.jump_height
+	assert_gte(from_the_top_of_a_jump, tuning.mantle_min_height, "a mantle from a jump's top")
+	assert_lte(from_the_top_of_a_jump, tuning.mantle_max_height, "within its reach")
+	var up_as_it_climbed: Array[bool] = []
+	runner.stepped.connect(
+		func(_intent: MoveIntent) -> void:
+			if runner.motor.state == RunnerMotor.State.MANTLING:
+				up_as_it_climbed.append(barrier.target.displaced)
+	)
 
-	await _replay(course, ScriptedIntentSource.new().hold(FORWARD, false, RUN_STEPS), 0)
+	await _play([raised.run, free.run])
 
-	var runner: Player = course.player
-	var gap: float = runner.global_position.z - wall.end.z
-	assert_almost_eq(gap, runner.tuning.capsule_radius, NEAR, "the runner stopped against it")
-	assert_lt(Vector2(runner.velocity.x, runner.velocity.z).length(), 0.5, "it does not go on")
-	assert_true(runner.is_on_floor(), "on the floor before it")
-	assert_eq(barrier.target.state, SABOTAGED, "the barrier still up")
+	_assert_cleared(raised)
+	_assert_cleared(free)
+	assert_gt(raised.run.steps_mantling, 0, "the runner climbed onto the barrier")
+	assert_false(up_as_it_climbed.has(false), "while it was up")
+	assert_gt(raised.run.jumps, free.run.jumps, "after a jump at it")
+	var slower: int = raised.run.steps_to_the_goal
+	assert_gt(slower, free.run.steps_to_the_goal, "slower than without the barrier")
 
 
 func test_the_course_can_be_cleared_with_every_target_ready() -> void:

@@ -6,6 +6,7 @@ extends GutTest
 const SOUNDS_SCENE: PackedScene = preload("res://game/ui/sabotage_sounds.tscn")
 const STEPS_PER_SECOND: int = 60
 const WARNING_STEPS: int = 36
+const AIM_MIN_STEPS: int = 15
 const PLATFORM_STEPS: int = 300
 const SHOOTER: int = 1
 const TARGET: int = 4
@@ -28,7 +29,7 @@ func test_every_sabotage_event_plays_its_sound() -> void:
 	board.add(platform)
 	var flow: FlowState = FlowState.new(tuning, STEPS_PER_SECOND)
 	flow.ammo = 3
-	var shooter: Shooter = Shooter.new(SHOOTER, tuning)
+	var shooter: Shooter = Shooter.new(SHOOTER, tuning, STEPS_PER_SECOND)
 	var sounds: SabotageSounds = SOUNDS_SCENE.instantiate() as SabotageSounds
 	sounds.shooter = shooter
 	sounds.targets = board
@@ -45,7 +46,12 @@ func test_every_sabotage_event_plays_its_sound() -> void:
 	var shot: MoveIntent = MoveIntent.new()
 	shot.aim_held = true
 	shot.shoot_pressed = true
-	shooter.follow(shot, AimFacts.new(TARGET, 10.0), 0, board, flow)
+	var facts: AimFacts = AimFacts.new(TARGET, 10.0)
+	for step: int in AIM_MIN_STEPS - 1:
+		shooter.follow(shot, facts, 0, board, flow)
+	sounds.refresh()
+	assert_eq(_playing(sounds), [] as Array[String], "aiming, shooting too soon: silence")
+	shooter.follow(shot, facts, 0, board, flow)
 	_assert_plays(sounds, ["Shot", "Warning"], "a shot that hits")
 
 	# The effect starts, then the target comes back.
