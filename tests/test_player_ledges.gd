@@ -40,6 +40,9 @@ class AtALedge:
 	## The widest angle, on the floor, between where the visible body looked and the way
 	## into the face.
 	var widest_look_aside: float = 0.0
+	## Where the test turns the visible body at the end of every step before the mantle,
+	## if anywhere: what the runner observes must not depend on it (decision 22).
+	var forced_look: Vector3 = Vector3.ZERO
 
 	var _was_mantling: bool = false
 	var _visual: Node3D
@@ -79,6 +82,8 @@ class AtALedge:
 
 	func _on_runner_stepped(_intent: MoveIntent) -> void:
 		var state: int = runner.motor.state
+		if not forced_look.is_zero_approx() and not did_mantle:
+			_visual.rotation.y = atan2(-forced_look.x, -forced_look.z)
 		if runner.is_on_floor() and not did_mantle:
 			var look: Vector3 = -_visual.global_basis.z
 			look.y = 0.0
@@ -103,6 +108,9 @@ func test_a_ledge_approached_at_an_angle_gives_a_mantle() -> void:
 	var aslant: float = deg_to_rad(towards_limit) / 2.0
 	var direction: Vector3 = FORWARD.rotated(Vector3.UP, -aslant)
 	var scene: AtALedge = _at_a_ledge(_ledge_height(tuning), false, 0)
+	# The visible body faces the push (docs/specs/runner-facing.md): the test turns it
+	# along the face, the way the push slides, as the physics turned it before.
+	scene.forced_look = Vector3.RIGHT
 
 	await _play_at(scene, direction)
 

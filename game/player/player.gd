@@ -3,8 +3,8 @@ extends CharacterBody3D
 ## The runner's body. At every fixed step it asks its intent source for an intent,
 ## gives it to the motor of game/core with the facts it observes (RunnerFacts), and
 ## applies what the motor decides: the velocity it wants, a capsule as low as its state
-## says, and leaning towards the wall it runs along. It decides nothing about the
-## movement itself.
+## says, a visible body that faces the push and leans towards the wall it runs along. It
+## decides nothing about the movement itself.
 
 ## Emitted at the end of every fixed step, with the intent the runner just followed.
 signal stepped(intent: MoveIntent)
@@ -15,6 +15,9 @@ const VISOR_HEIGHT_RATIO: float = 0.8
 ## A level puts in this group a wall it does not want to be run along. Only fixed walls
 ## (static bodies) are walls at all.
 const NO_WALL_RUN_GROUP: StringName = &"no_wall_run"
+## Below this horizontal speed (m/s), a body that looks where it moves keeps its
+## orientation: what is left of a speed that small says nothing of a direction.
+const ALMOST_STILL: float = 0.1
 
 ## The tuning resource; its capsule and camera values replace the ones of the scene.
 @export var tuning: MovementTuning
@@ -42,7 +45,7 @@ func _physics_process(delta: float) -> void:
 	velocity = motor.step(intent, _observe(intent), delta)
 	_fit_capsule()
 	move_and_slide()
-	_turn_towards_movement(delta)
+	_turn(intent, delta)
 	_lean_towards_the_wall(delta)
 	stepped.emit(intent)
 
@@ -278,12 +281,32 @@ func _set_capsule_height(height: float) -> void:
 	_visor.position.y = height * VISOR_HEIGHT_RATIO
 
 
-func _turn_towards_movement(delta: float) -> void:
-	var horizontal: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
-	if horizontal.is_zero_approx():
+## The visible body turns, at its pace, towards where it should look this step; with
+## nowhere to look, it keeps its orientation.
+func _turn(intent: MoveIntent, delta: float) -> void:
+	var heading: Vector3 = _heading(intent)
+	if heading.is_zero_approx():
 		return
-	var facing: float = atan2(-horizontal.x, -horizontal.z)
+	var facing: float = atan2(-heading.x, -heading.z)
 	_visual.rotation.y = rotate_toward(_visual.rotation.y, facing, tuning.turn_speed * delta)
+
+
+## Where the visible body should look, horizontal; ZERO to keep its orientation. Towards
+## where the runner pushes, not where the scenery lets it go; in a slide or a roll,
+## towards where it moves; in a wall run, along the wall the way it runs, whatever the
+## push; during a mantle, nowhere new.
+func _heading(intent: MoveIntent) -> Vector3:
+	var motion: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
+	match motor.state:
+		RunnerMotor.State.MANTLING:
+			return Vector3.ZERO
+		RunnerMotor.State.SLIDING, RunnerMotor.State.ROLLING:
+			return motion if motion.length() > ALMOST_STILL else Vector3.ZERO
+		RunnerMotor.State.WALL_RUNNING:
+			var away: Vector3 = motor.wall_run_normal()
+			var along: Vector3 = motion - away * motion.dot(away)
+			return along if along.length() > ALMOST_STILL else Vector3.ZERO
+	return Vector3(intent.direction.x, 0.0, intent.direction.z)
 
 
 ## In a wall run, the capsule one sees leans towards the wall, at the pace it turns; it
