@@ -129,7 +129,11 @@ func test_the_gap_of_a_sabotaged_bridge_cannot_be_crossed() -> void:
 	var bonus: float = bonuses[tuning.flow_tier_count - 1]
 	var fastest: float = tuning.top_speed * (1.0 + bonus)
 	var bridge: TargetBlock = _block_of(attempt.course, SabotageTarget.Kind.BRIDGE)
-	var gap: float = _bounds_of(bridge.get_node("Body")).size.z
+	# The gap between the faces of the floors before and after the bridge.
+	var before: AABB = _bounds_of(attempt.course.get_node("Blocks/RunUpStart"))
+	var after: AABB = _bounds_of(attempt.course.get_node("Blocks/RunUpEnd"))
+	var gap: float = before.position.z - after.end.z
+	assert_almost_eq(_bounds_of(bridge.get_node("Body")).size.z, gap, NEAR, "the bridge spans it")
 	var reach: float = _farthest_crossing(tuning, fastest)
 	gut.p(
 		"bridge gap %.2f m, farthest jump then mantle at %.2f m/s: %.2f m" % [gap, fastest, reach]
@@ -168,7 +172,8 @@ func test_a_runner_waiting_at_the_edge_does_not_block_the_return_of_the_bridge()
 	assert_true(runner.is_on_floor(), "a runner standing at the edge")
 	assert_gt(above, 0.0, "not touching the volume of the bridge")
 	await _sabotage(course, bridge)
-	assert_true(bridge.holds(runner), "in the zone of the bridge")
+	assert_false(bridge.holds(runner), "on solid ground: out of the zone of the bridge")
+	assert_eq(course.flow.sabotages, 0, "and not hit as the effect starts")
 	var effect: int = _steps_of(runner.tuning.sabotage_duration_bridge)
 
 	await _wait_steps(effect + FEW_STEPS)
@@ -216,20 +221,90 @@ func test_the_warning_leaves_time_to_get_off_a_platform() -> void:
 
 func test_a_fallen_obstacle_can_be_cleared() -> void:
 	var attempt: SectionRun = _section_run(BIG_DROP)
+	var spacing: float = 2.0 * PilotedRun.bounds_of_the_blocks(attempt.course).size.x
+	var free: SectionRun = _section_run(BIG_DROP, null, spacing)
+	var tuning: MovementTuning = attempt.course.player.tuning
 	var obstacle: TargetBlock = _block_of(attempt.course, SabotageTarget.Kind.OBSTACLE)
 	await _sabotage(attempt.course, obstacle)
 	assert_true(obstacle.target.displaced, "an obstacle fallen on the way")
 	var fallen: AABB = _bounds_of(obstacle.get_node("Body"))
 	var floor_top: float = _bounds_of(attempt.course.get_node("Blocks/BigDropLanding")).end.y
 	assert_almost_eq(fallen.position.y, floor_top, NEAR, "on the floor of the way")
+	assert_gt(fallen.size.y, tuning.jump_height, "taller than a jump: no jumping over it")
+	assert_lte(fallen.size.y, tuning.mantle_max_height, "within the reach of a mantle")
+	# Its place reaches past its body, along the way, by a step of the fastest run: it
+	# never lands on a runner that enters it at that step.
+	var place: AABB = _bounds_of(obstacle.get_node("Zone"))
+	var bonuses: Array[float] = tuning.flow_tier_speed_bonus
+	var fastest: float = tuning.top_speed * (1.0 + bonuses[tuning.flow_tier_count - 1])
+	var one_step: float = fastest / STEPS_PER_SECOND
+	assert_gte(fallen.position.z - place.position.z, one_step, "its place reaches past it")
+	assert_gte(place.end.z - fallen.end.z, one_step, "on both sides")
 
-	await _play([attempt.run])
+	await _play([attempt.run, free.run])
 
 	_assert_cleared(attempt)
+	_assert_cleared(free)
+	assert_gt(attempt.run.steps_mantling, 0, "the runner climbed onto the obstacle")
+	var lost: int = attempt.run.steps_to_the_goal - free.run.steps_to_the_goal
+	gut.p("the fallen obstacle cost the pilot %d steps (%.2f s)" % [lost, lost / 60.0])
+	assert_gt(lost, 0, "slower than without it")
 	assert_eq(obstacle.target.state, SABOTAGED, "the obstacle was still there")
 	assert_true(
 		attempt.course.player.global_position.z < fallen.position.z, "the runner is past it"
 	)
+
+
+func test_an_obstacle_does_not_land_on_a_runner_under_it() -> void:
+	var course: Course = _add_course()
+	var runner: Player = course.player
+	var obstacle: TargetBlock = _block_of(course, SabotageTarget.Kind.OBSTACLE)
+	var place: AABB = _bounds_of(obstacle.get_node("Zone"))
+	var under_it: Vector3 = Vector3(0.0, place.position.y, place.get_center().z)
+	runner.teleport(Transform3D(Basis.IDENTITY, under_it))
+	await _wait_steps(SETTLE_STEPS)
+	assert_true(runner.is_on_floor(), "a runner standing where the obstacle would fall")
+	assert_true(obstacle.place_holds(runner), "in its place")
+	var home: float = _bounds_of(obstacle.get_node("Body")).position.y
+
+	await _sabotage(course, obstacle)
+
+	assert_eq(course.flow.sabotages, 1, "the runner is hit as the effect starts")
+	for step: int in SETTLE_STEPS:
+		await get_tree().physics_frame
+		assert_false(obstacle.target.displaced, "step %d: the obstacle waits" % step)
+	var body: AABB = _bounds_of(obstacle.get_node("Body"))
+	assert_almost_eq(body.position.y, home, NEAR, "still up, above the runner")
+
+	runner.teleport(Transform3D(Basis.IDENTITY, under_it + FORWARD * 3.0))
+	await _wait_steps(FEW_STEPS)
+	assert_false(obstacle.place_holds(runner), "the runner gone from its place")
+	assert_true(obstacle.target.displaced, "the obstacle falls")
+	body = _bounds_of(obstacle.get_node("Body"))
+	assert_almost_eq(body.position.y, place.position.y, NEAR, "onto the way")
+
+
+func test_the_course_counts_the_minimal_aim_on_the_ground_only() -> void:
+	var course: Course = _add_course()
+	await _wait_steps(SETTLE_STEPS)
+	var runner: Player = course.player
+	var in_the_air: Array[float] = []
+	runner.stepped.connect(
+		func(_intent: MoveIntent) -> void:
+			if not runner.motor.is_on_the_ground():
+				in_the_air.append(course.shooter.aim_time())
+	)
+	# A jump on the spot, aiming from its take-off, the shot pressed all along.
+	var jump: ScriptedIntentSource = ScriptedIntentSource.new()
+	runner.intent_source = jump.aim(Vector3.ZERO, RUN_STEPS, ScriptedIntentSource.ALL_STEPS, true)
+
+	await _wait_steps(RUN_STEPS)
+
+	assert_gt(in_the_air.size(), 20, "a jump, aiming in the air")
+	var most: float = in_the_air.max()
+	assert_eq(most, 0.0, "no aim counted in the air")
+	assert_true(runner.is_on_floor(), "landed")
+	assert_gt(course.shooter.aim_time(), 0.0, "on the ground again, the aim counts")
 
 
 func test_a_raised_barrier_is_cleared_by_jumping_and_climbing() -> void:

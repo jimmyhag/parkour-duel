@@ -402,7 +402,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.5, -96.5)
 target_id = 3
 
 [node name="Obstacle" parent="Targets" instance=ExtResource("12_falling_obstacle")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -3.4, -148)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -3.1, -144.5)
 target_id = 4
 
 [node name="Checkpoints" type="Node3D" parent="."]

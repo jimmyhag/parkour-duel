@@ -176,7 +176,7 @@ func test_the_debug_display_shows_the_aim_and_the_targets() -> void:
 	shooter.follow(aim, AimFacts.new(2, 30.5), 0, targets, flow, true)
 	overlay.refresh()
 
-	assert_string_contains(overlay.text, "AIM ON")
+	assert_string_contains(overlay.text, "AIM ON 0.02 s")
 	assert_string_contains(overlay.text, "AIMED 2 BRIDGE READY 30.5 m")
 	assert_string_contains(overlay.text, "TARGET 1 PLATFORM WARNING 0.43 s")
 	assert_false(overlay.text.contains("TARGET 2"), "a ready target has no time left to show")

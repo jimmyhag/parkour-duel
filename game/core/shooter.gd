@@ -3,7 +3,8 @@ extends RefCounted
 ## The weapon of one runner: whether it aims, what it aims at (the facts the player layer
 ## observed under the reticle, AimFacts), what its reticle shows, and its shots. A shot
 ## goes only once the aim has been held without a break for the least aim of the tuning,
-## counted on the ground only (it waits in the air, without starting over),
+## counted on the ground only (it waits in the air, without starting over) and from
+## zero again after each shot,
 ## at a ready target within range that the runner can pay for: it is then a dated message
 ## (SabotageMessage) given to the board of the targets, and its cost is spent from the
 ## flow. Otherwise nothing happens and nothing is spent.
@@ -37,8 +38,7 @@ func _init(runner_id: int, movement_tuning: MovementTuning, steps_per_second: in
 
 ## One fixed step of the runner, at its step `step`: its intent, the facts under its
 ## reticle, the targets it may shoot, its flow, and whether it is on the ground (on its
-## feet, sliding or rolling). Returns the message of the shot it
-## fired, or null.
+## feet, sliding or rolling). Returns the message of the shot it fired, or null.
 func follow(
 	intent: MoveIntent,
 	facts: AimFacts,
@@ -61,10 +61,18 @@ func follow(
 		if board.receive(message) and flow.spend(target.cost()):
 			shots += 1
 			last_message = message
+			# Every shot pays its own least aim.
+			_steps_aiming = 0
 		else:
 			message = null
 	verdict = _judge(board, flow.ammo)
 	return message
+
+
+## The aim counted towards the next shot, in s: on the ground, since the aim was taken
+## or since the last shot.
+func aim_time() -> float:
+	return float(_steps_aiming) / _steps_per_second
 
 
 ## The target the reticle is on, if a shot now would hit it; NO_TARGET otherwise.

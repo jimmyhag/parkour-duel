@@ -9,7 +9,7 @@ size = Vector3(4, 0.5, 10)
 size = Vector3(4, 0.5, 10)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_zone"]
-size = Vector3(4, 2.75, 10)
+size = Vector3(4, 2.75, 9.3)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_place"]
 size = Vector3(4, 0.4, 10)

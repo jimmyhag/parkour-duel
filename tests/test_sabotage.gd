@@ -168,20 +168,35 @@ func test_no_shot_before_the_minimal_aim() -> void:
 	assert_not_null(message, "aimed for the least aim: the shot goes")
 	assert_eq(flow.ammo, 2, "its cost spent")
 
-	# The aim let go for one step, then taken again: the least aim starts over.
+	# The aim still held after the shot: the next shot pays its own least aim.
 	var obstacle: AimFacts = AimFacts.new(IDS[OBSTACLE], IN_RANGE)
-	shooter.follow(MoveIntent.new(), obstacle, AT_STEP, board, flow, ON_THE_GROUND)
 	for step: int in AIM_MIN_STEPS - 1:
-		var again: SabotageMessage = shooter.follow(
+		var next: SabotageMessage = shooter.follow(
 			_shot(), obstacle, AT_STEP, board, flow, ON_THE_GROUND
 		)
-		assert_null(again, "aimed again %d steps: no shot" % (step + 1))
+		assert_null(next, "still aiming after a shot, %d steps: no shot" % (step + 1))
 	assert_eq(board.target(IDS[OBSTACLE]).state, READY, "the obstacle stays ready")
 	assert_eq(flow.ammo, 2, "nothing more spent")
 	assert_not_null(
-		shooter.follow(_shot(), obstacle, AT_STEP, board, flow, ON_THE_GROUND), "then it goes"
+		shooter.follow(_shot(), obstacle, AT_STEP, board, flow, ON_THE_GROUND),
+		"a least aim after the shot: the next one goes"
 	)
 	assert_eq(flow.ammo, 1, "its cost spent")
+
+	# The aim let go for one step, then taken again: the least aim starts over.
+	var barrier: AimFacts = AimFacts.new(IDS[BARRIER], IN_RANGE)
+	shooter.follow(MoveIntent.new(), barrier, AT_STEP, board, flow, ON_THE_GROUND)
+	for step: int in AIM_MIN_STEPS - 1:
+		var again: SabotageMessage = shooter.follow(
+			_shot(), barrier, AT_STEP, board, flow, ON_THE_GROUND
+		)
+		assert_null(again, "aimed again %d steps: no shot" % (step + 1))
+	assert_eq(board.target(IDS[BARRIER]).state, READY, "the barrier stays ready")
+	assert_eq(flow.ammo, 1, "nothing more spent")
+	assert_not_null(
+		shooter.follow(_shot(), barrier, AT_STEP, board, flow, ON_THE_GROUND), "then it goes"
+	)
+	assert_eq(flow.ammo, 0, "its cost spent")
 
 
 func test_the_minimal_aim_does_not_count_in_the_air() -> void:
@@ -227,6 +242,10 @@ func test_the_minimal_aim_does_not_count_in_the_air() -> void:
 
 	# Paid on the ground, the aim may then shoot in the air.
 	var obstacle: AimFacts = AimFacts.new(IDS[OBSTACLE], IN_RANGE)
+	var aim: MoveIntent = MoveIntent.new()
+	aim.aim_held = true
+	for step: int in AIM_MIN_STEPS:
+		shooter.follow(aim, obstacle, AT_STEP, board, flow, ON_THE_GROUND)
 	var airborne: SabotageMessage = shooter.follow(
 		_shot(), obstacle, AT_STEP, board, flow, in_the_air
 	)

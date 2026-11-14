@@ -5,9 +5,10 @@ extends Label
 ## window, of the roll or the hard landing under way, of the mantle under way, of the
 ## wall run under way and of the time a jump is still a jump off a wall; then its flow:
 ## the gauge, the tier, the time left to chain a move, the repeated move and its count,
-## the multiplier and the speed bonus; then its aim: whether it aims, the target under
-## the reticle with its type, its state and how far it is, and the time left to the state
-## of each target that is not ready. Hidden until its action shows it.
+## the multiplier and the speed bonus; then its aim: whether it aims and the aim counted
+## towards the next shot, the target under the reticle with its type, its state and how
+## far it is, and the time left to the state of each target that is not ready. Hidden
+## until its action shows it.
 
 const TOGGLE_DEBUG: StringName = &"toggle_debug"
 const LINES: Array[String] = [
@@ -32,7 +33,7 @@ const FLOW_LINES: Array[String] = [
 ]
 const REPEATED: String = "%s x%d"
 const NO_REPEAT: String = "-"
-const AIM_ON: String = "AIM ON"
+const AIM_ON: String = "AIM ON %.2f s"
 const AIM_OFF: String = "AIM OFF"
 const AIMED: String = "AIMED %d %s %s %.1f m"
 const NOTHING_AIMED: String = "AIMED -"
@@ -102,7 +103,7 @@ func _flow_lines() -> String:
 
 
 func _aim_lines() -> String:
-	var lines: Array[String] = [AIM_ON if shooter.aiming else AIM_OFF]
+	var lines: Array[String] = [AIM_ON % shooter.aim_time() if shooter.aiming else AIM_OFF]
 	var aimed: SabotageTarget = targets.target(shooter.aim.target)
 	if aimed == null:
 		lines.append(NOTHING_AIMED)
