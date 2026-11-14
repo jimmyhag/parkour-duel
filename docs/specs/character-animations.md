@@ -1,12 +1,17 @@
 # Le personnage animé : Mixamo, gardé hors du dépôt
 
-**Statut : 🟢 Implémenté**
+**Statut : 🟡 Prêt pour le dev**
 
 Session du 2026-11-14, avec Jimmy. Première partie de l'étape 6 de la feuille de route
 (« Art, audio, menus »), avancée avant l'étape 5 par décision de Jimmy : « je pense
 qu'on va pouvoir passer aux animations ». Le jeu en ligne attend ; les figures, le flow,
 le tir et le duel sont jugés par Jimmy en jouant (il a trouvé les figures « beaucoup
 plus fluides […] ça peut s'enchaîner »).
+
+Amendée le 2026-11-14 après une partie de Jimmy : « le wallrun, tu l'as fait du mauvais
+côté […] il rentre sa tête dans le mur. Il faut qu'il soit bien attaché au mur et que ses
+pieds ne rentrent pas aussi dans le mur ». Décision 12 ajoutée, scénario marqué « pose de
+wall-run ».
 
 ## Contexte
 
@@ -51,6 +56,12 @@ aucun asset sans licence vérifiée.
 | 9 | Le bot et le fantôme | Ils prennent le même personnage, teinté (orange pour le bot ; orange transparent pour le fantôme), si les fichiers sont là ; sinon leur capsule. Le fantôme rejoue aussi l'état enregistré pour son animation. | Lisibles comme aujourd'hui, avec le vrai corps. |
 | 10 | Crédits et README | `assets/CREDITS.md` décrit les fichiers Mixamo (source, auteur Adobe Mixamo, conditions de la FAQ, et qu'ils ne sont pas dans le dépôt) ; le README liste exactement les fichiers à télécharger sur mixamo.com, leurs réglages, et la commande `just mixamo`. La règle d'`AGENTS.md` sur `assets/` reste vraie : chaque fichier présent a sa ligne. | Qui reprend le dépôt sait quoi télécharger. |
 | 11 | La visière et l'inclinaison | La visière disparaît avec le personnage ; l'inclinaison de wall-run reste sur `Visual` (réglable à 0 si l'animation `Wall Run` suffit). | La visière ne servait qu'à lire la capsule. |
+
+### Décision ajoutée
+
+| # | Question | Décision | Pourquoi |
+| - | -------- | -------- | -------- |
+| 12 | La pose du wall-run | **Pose de wall-run.** En wall-run, le personnage a **les pieds du côté du mur et la tête qui s'en écarte** : le miroir du clip `Wall Run` est choisi d'après le côté où son pied d'appui est dans le fichier, mesuré, pas supposé. Aucun os (pieds compris) ne passe derrière la surface du mur ; les pieds la touchent presque (à quelques centimètres) : le personnage est décalé latéralement si besoin. L'inclinaison de la capsule (`wall_run_lean`) ne s'applique pas quand le personnage est affiché : l'animation penche déjà. | Jimmy a vu la tête rentrer dans le mur. |
 
 ## Scénarios
 
@@ -101,6 +112,12 @@ Fonctionnalité: Le personnage animé
     Soit une course enregistrée avec l'animation de chaque pas
     Quand le fantôme la rejoue
     Alors à chaque pas il montre l'animation enregistrée à ce pas
+
+  Scénario: En wall-run, les pieds sont au mur et la tête s'en écarte
+    # pose de wall-run
+    Soit un coureur en wall-run le long d'un mur à sa gauche, puis à sa droite, le personnage affiché
+    Quand on mesure ses os par rapport au mur
+    Alors la tête est plus loin du mur que les pieds, aucun os n'est derrière la surface du mur, et les pieds sont à quelques centimètres de la surface
 
   # --- Sans les fichiers ---
 
