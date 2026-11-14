@@ -187,11 +187,28 @@ extends Resource
 ## (the trick of the context), in units of the pad.
 @export var trick_gesture_stroke_length: float = 0.0
 @export var trick_gesture_still_length: float = 0.0
-## Least angle a curve must turn to be a half circle, and a whole circle, in degrees.
+## Least arc a curve must turn after a flip to be a twist, least arc of a whole circle
+## (a spin, or a turn more of it), and least arc of a curve after a flip to be two
+## twists, in degrees.
 @export var trick_gesture_half_circle_angle: float = 0.0
 @export var trick_gesture_circle_angle: float = 0.0
-## How long the pad must stay still to end one element of the drawing, in s.
+@export var trick_gesture_two_twists_angle: float = 0.0
+## How long the pad must stay still to end one element of the drawing, in s. The stick
+## back in its dead zone ends it at once.
 @export var trick_gesture_pause: float = 0.0
+## Under this motion in one fixed step, in units of the pad, the pad stands still.
+@export var trick_gesture_noise: float = 0.0
+## A change of direction sharper than this from one moving step to the next ends an
+## element, in degrees: the hand going back between two strokes.
+@export var trick_gesture_corner_angle: float = 0.0
+## How far the straight start or end of an element may turn from its first or last
+## direction, in degrees: what is straight before a curve, or after it.
+@export var trick_gesture_bend_angle: float = 0.0
+## How far a stroke may turn from its start to its end, in degrees.
+@export var trick_gesture_stroke_turn: float = 0.0
+## The least share of the length of an element its straight start must have to be the
+## stroke of a flip before the curve it curls into (a J).
+@export_range(0.0, 1.0) var trick_gesture_stroke_share: float = 0.0
 
 @export_group("Sabotage")
 ## Share of its top speed a runner keeps on the ground while it aims (0 to 1); in the

@@ -31,6 +31,12 @@ func test_pressing_within_the_window_poses_the_trick() -> void:
 	assert_eq(flow.style_score, 150 + 200)
 	assert_null(body.motor.current_trick(), "the jump has no trick left")
 
+	# Pressed a step before the perfect window opens: posed, not perfect.
+	var just_before: MotorBody = _fly(_launched, null, _backflip(), 0, landing - PERFECT_STEPS - 1)
+	_assert_kinds(just_before, [TRICK])
+	if not just_before.motor.events.is_empty() and just_before.motor.events[0].trick != null:
+		assert_false(just_before.motor.events[0].trick.perfect, "a step early: no perfect")
+
 
 func test_pressing_at_the_last_moment_gives_a_perfect() -> void:
 	var landing: int = _landing_step(_launched)
@@ -153,6 +159,23 @@ func test_a_trick_posed_in_a_big_fall_rolls() -> void:
 	if body.motor.events.size() == 2:
 		assert_true(body.motor.events[0].trick.perfect, "posed perfect")
 	assert_eq(flow.style_score, 300 + 100, "the trick pays, then the roll")
+
+
+func test_a_trick_posed_in_a_big_fall_does_not_end_in_a_hard_landing() -> void:
+	var flow: FlowState = _flow()
+	_count(flow, RunnerEvent.Kind.WALL_RUN)
+	var landing: int = _landing_step(_high)
+	var roll_steps: int = roundi(_tuning.roll_window * STEPS_PER_SECOND)
+	assert_lt(roll_steps, LANDING_STEPS, "a landing window wider than the roll's")
+	# Pressed after the window of a roll opens no more, within the landing window.
+	var press: int = landing - LANDING_STEPS
+
+	var body: MotorBody = _fly(_high, flow, _backflip(), 0, press)
+
+	_assert_kinds(body, [TRICK, RunnerEvent.Kind.ROLL])
+	assert_eq(body.motor.state, RunnerMotor.State.ROLLING, "it rolls")
+	assert_true(flow.in_combo(), "its combo goes on")
+	assert_eq(flow.style_score, 150 + 200 + 100, "the trick and the roll pay")
 
 
 func test_a_trick_posed_on_the_flat_starts_a_slide() -> void:

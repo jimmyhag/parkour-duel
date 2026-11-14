@@ -159,6 +159,27 @@ func test_the_trick_park_offers_every_height() -> void:
 		assert_false(wall.is_in_group(Player.NO_WALL_RUN_GROUP), path + ": may be run along")
 
 
+func test_no_wall_of_the_trick_park_is_made_of_several_blocks() -> void:
+	var park: TrickPark = _add_park()
+	var paths: Array[String] = _blocks_and_walls(park)
+	var touching: int = 0
+	for first: int in paths.size():
+		for second: int in range(first + 1, paths.size()):
+			var one: AABB = _bounds_of(park.get_node(paths[first]))
+			var other: AABB = _bounds_of(park.get_node(paths[second]))
+			if not one.grow(NEAR).intersects(other.grow(NEAR)):
+				continue
+			touching += 1
+			var pair: String = "%s and %s" % [paths[first], paths[second]]
+			# Their upright faces turned the same way: X and Z, at either end.
+			for axis: int in [Vector3.AXIS_X, Vector3.AXIS_Z]:
+				var starts: float = absf(one.position[axis] - other.position[axis])
+				var ends: float = absf(one.end[axis] - other.end[axis])
+				assert_gt(starts, NEAR, "%s: no face in one plane (axis %d)" % [pair, axis])
+				assert_gt(ends, NEAR, "%s: no face in one plane (axis %d)" % [pair, axis])
+	assert_gt(touching, 3, "blocks that touch were compared")
+
+
 func test_a_twisted_backflip_on_keyboard_and_mouse() -> void:
 	var fingers: Fingers = Fingers.new()
 	fingers.run = [_key(KEY_W, true)]
@@ -220,6 +241,8 @@ func _assert_a_twisted_backflip_with(fingers: Fingers) -> void:
 	assert_true(runner.is_on_floor(), "a runner on the block")
 	var hud: FlowHud = park.get_node("Hud/FlowHud") as FlowHud
 	var label: Label = hud.get_node("%TrickLabel") as Label
+	var pad: TrickPad = park.get_node("Hud/TrickPad") as TrickPad
+	var pad_shown: String = ""
 	var watch: TrickWatch = TrickWatch.new(runner)
 	var take_off: int = -1
 	var shown: String = ""
@@ -236,6 +259,9 @@ func _assert_a_twisted_backflip_with(fingers: Fingers) -> void:
 		if step == DRAWN_BY:
 			hud.refresh()
 			shown = label.text if label.visible else ""
+			pad.refresh()
+			if pad.visible and pad.is_validated():
+				pad_shown = pad.recipe_shown()
 		if take_off < 0 and runner.global_position.z <= block.position.z + BEFORE_THE_EDGE:
 			take_off = step
 			_send(fingers.jump_press)
@@ -258,6 +284,9 @@ func _assert_a_twisted_backflip_with(fingers: Fingers) -> void:
 			break
 
 	assert_eq(shown, BACKFLIP_FULL, "the drawing read on the HUD as the runner runs")
+	assert_eq(pad_shown, BACKFLIP_FULL, "and validated on the pad")
+	pad.refresh()
+	assert_false(pad.visible, "the button released: no pad")
 	assert_gt(take_off, DRAWN_BY, "drawn before the edge, then the jump")
 	assert_true(landed, "the runner landed on the ground below")
 	assert_eq(watch.crashes, 0, "no crash")

@@ -121,16 +121,22 @@ releasing the button early makes the jump lower, as on the ground. The same wall
 cannot be run along twice in a row: touch the ground or run along another wall first.
 Jumping from one wall to the one facing it, again and again, climbs between them.
 
-Tricks are drawn, then posed. Hold the trick button: the camera stops turning, and the
-mouse or the right stick draws instead. A quick stroke chooses the flip: up a front
-flip, down a backflip, left or right a side flip that way. The same stroke again adds a
-turn (double, then triple, no more); going back between two strokes is not read. A half
-circle after a front flip or a backflip adds a twist (two per turn at most); a whole
-circle on its own is a flat spin (360), and each circle after it a turn more (720,
-1080). On the right stick, a stroke is a flick (push it
-and let it spring back) and a half circle is the stick turned half round its rim. While
-the button is held, the name of what the drawing reads shows above the flow gauge, or ?
-while nothing reads yet. The trick starts as the button is released, if the runner is
+Tricks are drawn, then posed. Hold the trick button: the camera stops turning, the
+mouse or the right stick draws instead, and a round pad in the middle of the screen
+shows the trace as it goes. A quick stroke chooses the flip: up a front flip, down a
+backflip, left or right a side flip that way. The same stroke again adds a turn (double,
+then triple, no more); going back between two strokes is not read, even round a short
+turn. An arc of 100 degrees or more after a front flip or a backflip adds a twist (two
+per turn at most; a bigger arc, from 300 degrees, two at once), whether it starts with a
+straight part or not, and a stroke that curls into such an arc is the flip and the
+twist; a whole circle on its own is a flat spin (360), and each circle after it a turn
+more (720, 1080). On the right stick, a stroke is a flick (push it, even at 60 %, and
+let it spring back: the stroke ends as the stick is back in its dead zone) and an arc is
+the stick rolled round its rim. On the pad, each stroke read gets an arrow, each twist
+and each spin a coloured arc; the name of the recipe shows under the pad (and above the
+flow gauge), or ? while nothing reads yet; when the trick is complete, the hand at rest,
+the border of the pad turns green and thickens: that is the trick that will start. Every
+threshold of the drawing is in the tuning file (group Tricks). The trick starts as the button is released, if the runner is
 in the air (after a jump, a wall jump or a fall from a ledge; not along a wall, in a
 mantle or while aiming) and has done no trick in this jump yet: draw while running,
 then release just after the jump. Released on the ground, nothing starts and the
@@ -145,12 +151,16 @@ touching the ground, PERFECT within the last 0.1 s (more points, and a little sp
 to the top speed plus that gain). No press within that window, or the trick not over at
 the ground, is a CRASH (a hard landing that breaks the combo, and the trick earns
 nothing); a press too early is lost, and can be made again. The press that poses is a
-slide press like any other: a high fall rolls, and on the flat, held, it starts a slide
+slide press like any other: a high fall rolls (the press that poses a trick rolls within
+the whole landing window), and on the flat, held, it starts a slide
 (a perfect one within its own window). A trick finished before a wall run or a mantle
 pays at its start, without a press. Points: front flip and backflip 200, side flip and
 spin 250, the trick of the context 100; a double times 2.5, a triple times 4, each
 twist 150 more; PERFECT 50 % more; then, as any move of the flow, the same recipe (flip,
-turns, twists) again is worth less, and the combo multiplies. A trick changes nothing
+turns, twists) again is worth less, and the combo multiplies. The flow judges a move
+against its last ten moves, and a combo that ends by its delay keeps them: a break on
+the ground does not make the same tricks new again (an error, a fall or a restart
+does). A trick changes nothing
 to the flight, but no wall run and no mantle starts before it is over; during a trick,
 jump never makes the runner jump.
 
@@ -202,7 +212,7 @@ the start screen. The opponent's flow and ammunition show only on the debug disp
 
 Trick Park: a flat esplanade of 120 m by 120 m, to try the tricks at every height.
 Grey blocks of 1, 2, 3, 5 and 8 m stand in a row ahead of the start point; the 5 m and
-8 m ones are climbed by lighter steps of 2.5 m, the others by a jump or a mantle. To the
+8 m ones are climbed by lighter, narrower steps of 2.5 m, the others by a jump or a mantle. To the
 left, two blue-grey walls 4 m apart face each other, for wall jumps; to the right, a
 long blue-grey wall to run along. No timer, no target, no opponent: the flow, its
 display and its sounds are there. R or Y brings the runner back to the start point,

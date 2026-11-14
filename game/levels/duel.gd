@@ -11,7 +11,7 @@ extends Node3D
 ## ammunition of the tuning. Then the result shows, with the rematch and the way back to
 ## the menu. It gives the rule of game/core (BotSaboteur) what the bot sees, and feeds
 ## the displays and the sounds of the player (game/ui).
-## Expected children: Hud/RaceHud, Hud/FlowHud, Hud/Crosshair, Hud/DebugOverlay,
+## Expected children: Hud/RaceHud, Hud/FlowHud, Hud/TrickPad, Hud/Crosshair, Hud/DebugOverlay,
 ## Hud/CountdownDisplay, Hud/ResultScreen, FlowSounds and SabotageSounds.
 
 ## The player chose MENU on the result screen: back to the start screen.
@@ -61,6 +61,7 @@ var _runners_may_move: bool = false
 
 @onready var _race_hud: RaceHud = $Hud/RaceHud as RaceHud
 @onready var _flow_hud: FlowHud = $Hud/FlowHud as FlowHud
+@onready var _trick_pad: TrickPad = $Hud/TrickPad as TrickPad
 @onready var _crosshair: Crosshair = $Hud/Crosshair as Crosshair
 @onready var _debug_overlay: DebugOverlay = $Hud/DebugOverlay as DebugOverlay
 @onready var _countdown: CountdownDisplay = $Hud/CountdownDisplay as CountdownDisplay
@@ -98,6 +99,8 @@ func _ready() -> void:
 	_race_hud.runner = PLAYER
 	_flow_hud.flow = player_lane.flow
 	_flow_hud.motor = player.motor
+	_trick_pad.motor = player.motor
+	_trick_pad.gesture = player.drawing()
 	_crosshair.shooter = player_lane.shooter
 	_flow_sounds.flow = player_lane.flow
 	_sabotage_sounds.shooter = player_lane.shooter

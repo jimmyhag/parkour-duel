@@ -333,20 +333,22 @@ func _touch_the_ground(facts: RunnerFacts) -> void:
 ## A runner that was only put somewhere (its fall has no height) has not landed. The
 ## trick of the jump must be over and posed: the slide pressed within the landing window
 ## before this step, perfect within the perfect window; otherwise the landing is a crash.
-## A trick posed is paid first, whatever the landing.
+## A trick posed is paid first, and the press that posed it is a roll too, within the
+## whole landing window: a trick posed never ends in a hard landing.
 func _land(fall_height: float, low: bool) -> void:
 	_landing_steps = 0
 	if is_finite(fall_height):
 		_steps_since_landing = 0
+	var posed: bool = false
 	if _trick != null:
-		var posed: bool = _steps_since_slide_press <= _window_steps(tuning.trick_landing_window)
+		posed = _steps_since_slide_press <= _window_steps(tuning.trick_landing_window)
 		if is_in_a_trick() or not posed:
 			_crash()
 			return
 		_pay_the_trick(_steps_since_slide_press <= _window_steps(tuning.trick_perfect_window))
 	if fall_height <= tuning.roll_fall_height:
 		state = State.SLIDING if low else State.GROUNDED
-	elif _steps_since_slide_press <= _window_steps(tuning.roll_window):
+	elif posed or _steps_since_slide_press <= _window_steps(tuning.roll_window):
 		state = State.ROLLING
 		_announce(RunnerEvent.Kind.ROLL)
 	else:

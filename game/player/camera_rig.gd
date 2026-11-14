@@ -66,10 +66,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	elif event is InputEventMouseButton and event.is_pressed() and not captured:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	elif event is InputEventMouseMotion and is_drawing():
-		_pad_motion += (event as InputEventMouseMotion).screen_relative
-	elif event is InputEventMouseMotion and captured:
-		var motion: InputEventMouseMotion = event as InputEventMouseMotion
+	elif event is InputEventMouseMotion:
+		move_with_the_mouse(event as InputEventMouseMotion, captured)
+
+
+## What a motion of the mouse does: while the trick button is held, it draws (kept for the
+## drawing, captured or not); otherwise, if the mouse is `captured`, it turns the camera.
+func move_with_the_mouse(motion: InputEventMouseMotion, captured: bool) -> void:
+	if is_drawing():
+		_pad_motion += motion.screen_relative
+	elif captured:
 		var mouse_turn: Vector2 = -motion.screen_relative * tuning.camera_mouse_sensitivity
 		turn(mouse_turn.x, mouse_turn.y)
 

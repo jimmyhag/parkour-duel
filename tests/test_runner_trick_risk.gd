@@ -23,6 +23,7 @@ class Minute:
 	var ammo: int = 0
 	var top_speed: float = 0.0
 	var mean_speed: float = 0.0
+	var combos_ended: int = 0
 
 
 # --- Durations ---
@@ -118,6 +119,26 @@ func test_a_riskless_loop_on_the_flat_earns_little() -> void:
 	assert_lt(tricking.style, RISKLESS_STYLE_PER_MINUTE, "earns less style than the threshold")
 
 
+func test_the_repetition_of_tricks_survives_the_end_of_a_combo() -> void:
+	var tuning: MovementTuning = _project_tuning()
+	var delay: int = roundi(tuning.flow_chain_delay * STEPS_PER_SECOND)
+	# Four different singles posed perfect, then a run on the ground a little longer than
+	# the delay of the combo, again and again.
+	var singles: Array[TrickRecipe] = [
+		_front_flip(),
+		_backflip(),
+		TrickRecipe.drawn(SIDE_FLIP),
+		TrickRecipe.drawn(SPIN),
+	]
+	var pausing: Minute = _hop_for_a_minute(tuning, singles, delay + 6)
+	gut.p(_report("four singles, then the combo left to end", pausing))
+
+	assert_gt(pausing.tricks_paid, 40, "a runner that poses a trick at every jump")
+	assert_eq(pausing.crashes, 0, "and never crashes")
+	assert_gt(pausing.combos_ended, 0, "its combo ends by its delay")
+	assert_lt(pausing.style, RISKLESS_STYLE_PER_MINUTE, "under the threshold of the flat loop")
+
+
 func test_perfect_landings_in_a_row_do_not_raise_the_speed_without_end() -> void:
 	var flow: FlowState = _flow()
 	var body: MotorBody = MotorBody.running(_tuning, FORWARD, _tuning.top_speed)
@@ -183,21 +204,34 @@ func _steps_to_land(tuning: MovementTuning) -> int:
 ## A minute of a runner on the flat that jumps whenever it stands, holding the jump to
 ## its top; with `recipes`, it releases the next of them at the first step of every jump,
 ## and poses it perfect.
-func _hop_for_a_minute(tuning: MovementTuning, recipes: Array[TrickRecipe]) -> Minute:
+func _hop_for_a_minute(
+	tuning: MovementTuning, recipes: Array[TrickRecipe], rest: int = 0
+) -> Minute:
 	var body: MotorBody = MotorBody.running(tuning, FORWARD, tuning.top_speed)
 	var flow: FlowState = FlowState.new(tuning, STEPS_PER_SECOND)
 	var minute: Minute = Minute.new()
 	var since_take_off: int = -1
 	var speeds: float = 0.0
 	var ammo_before: int = 0
+	var resting: int = 0
+	var in_a_row: int = 0
+	var was_in_combo: bool = false
 	for step: int in MINUTE:
 		var intent: MoveIntent = _push(FORWARD)
 		var state: RunnerMotor.State = body.motor.state
-		if state == RunnerMotor.State.GROUNDED:
+		if resting > 0:
+			resting -= 1
+			since_take_off = -1
+		elif state == RunnerMotor.State.GROUNDED and rest > 0 and in_a_row >= recipes.size():
+			resting = rest
+			in_a_row = 0
+			since_take_off = -1
+		elif state == RunnerMotor.State.GROUNDED:
 			intent.jump_pressed = true
 			intent.jump_held = true
 			since_take_off = 0
-		else:
+			in_a_row += 1
+		elif since_take_off >= 0:
 			intent.jump_held = state == RunnerMotor.State.RISING
 			since_take_off += 1
 		if not recipes.is_empty() and since_take_off == 1:
@@ -206,6 +240,8 @@ func _hop_for_a_minute(tuning: MovementTuning, recipes: Array[TrickRecipe]) -> M
 		var ground_soon: bool = body.position.y + 2.0 * body.velocity.y * MotorBody.STEP <= 0.0
 		intent.slide_pressed = body.velocity.y < 0.0 and ground_soon
 		_follow(body, flow, intent)
+		minute.combos_ended += int(was_in_combo and not flow.in_combo())
+		was_in_combo = flow.in_combo()
 		speeds += body.horizontal_speed()
 		minute.top_speed = maxf(minute.top_speed, body.horizontal_speed())
 		minute.ammo += maxi(flow.ammo - ammo_before, 0)

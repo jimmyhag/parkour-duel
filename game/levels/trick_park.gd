@@ -6,8 +6,8 @@ extends Node3D
 ## the runner back to its start point when it falls off or asks for it (the rule of
 ## RaceState). It reads no input of the game itself: the menu action is the game's
 ## (Main).
-## Expected children: Spawn, Blocks, Walls, Player, Hud/FlowHud, Hud/DebugOverlay and
-## FlowSounds.
+## Expected children: Spawn, Blocks, Walls, Player, Hud/FlowHud, Hud/TrickPad,
+## Hud/DebugOverlay and FlowSounds.
 
 ## The altitude under which a runner has fallen off the park.
 @export var fall_limit: float = 0.0
@@ -20,6 +20,7 @@ var _rule: RaceState
 
 @onready var _spawn: Node3D = $Spawn as Node3D
 @onready var _flow_hud: FlowHud = $Hud/FlowHud as FlowHud
+@onready var _trick_pad: TrickPad = $Hud/TrickPad as TrickPad
 @onready var _debug_overlay: DebugOverlay = $Hud/DebugOverlay as DebugOverlay
 @onready var _flow_sounds: FlowSounds = $FlowSounds as FlowSounds
 
@@ -32,6 +33,8 @@ func _ready() -> void:
 	_rule.restartable = false
 	_flow_hud.flow = flow
 	_flow_hud.motor = player.motor
+	_trick_pad.motor = player.motor
+	_trick_pad.gesture = player.drawing()
 	_flow_sounds.flow = flow
 	_debug_overlay.motor = player.motor
 	_debug_overlay.flow = flow

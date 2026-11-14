@@ -4,7 +4,9 @@ extends IntentSource
 ## or the keys into a direction in the world, relative to where the camera looks. While
 ## the trick button is held, the mouse and the right stick draw on the pad of the trick
 ## (TrickGesture), brought to its one scale: a pixel of the mouse, and the right stick as
-## a speed, as the tuning says. The drawing starts afresh at each press of the button.
+## a speed, as the tuning says; the stick back in its dead zone lets go of the pad. The
+## drawing starts afresh at each press of the button; the pad on the screen reads it
+## (drawing).
 
 const MOVE_LEFT: StringName = &"move_left"
 const MOVE_RIGHT: StringName = &"move_right"
@@ -22,13 +24,17 @@ const SHOOT: StringName = &"shoot"
 const RESPAWN: StringName = &"respawn"
 const RESTART: StringName = &"restart"
 
+## The drawing of the trick: what the pad on the screen shows.
+var drawing: TrickGesture
+
 var _camera_rig: CameraRig
-var _gesture: TrickGesture
+## The right stick was out of its dead zone at the last step it drew.
+var _stick_pushed: bool = false
 
 
 func _init(camera_rig: CameraRig) -> void:
 	_camera_rig = camera_rig
-	_gesture = TrickGesture.new(camera_rig.tuning)
+	drawing = TrickGesture.new(camera_rig.tuning)
 
 
 func next_intent() -> MoveIntent:
@@ -56,7 +62,8 @@ func _draw(intent: MoveIntent) -> void:
 	intent.trick_held = Input.is_action_pressed(TRICK)
 	intent.trick_released = Input.is_action_just_released(TRICK)
 	if Input.is_action_just_pressed(TRICK):
-		_gesture.reset()
+		drawing.reset()
+		_stick_pushed = false
 	if not intent.trick_held and not intent.trick_released:
 		return
 	var delta: float = _camera_rig.get_physics_process_delta_time()
@@ -65,6 +72,8 @@ func _draw(intent: MoveIntent) -> void:
 	)
 	var pad: Vector2 = mouse * tuning.trick_pad_mouse_scale
 	pad += stick * tuning.trick_pad_stick_speed * delta
-	_gesture.tuning = tuning
-	_gesture.step(pad, delta)
-	intent.trick_recipe = _gesture.recipe()
+	var let_go: bool = _stick_pushed and stick.is_zero_approx()
+	_stick_pushed = not stick.is_zero_approx()
+	drawing.tuning = tuning
+	drawing.step(pad, delta, let_go)
+	intent.trick_recipe = drawing.recipe()

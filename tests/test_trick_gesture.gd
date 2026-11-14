@@ -6,6 +6,7 @@ extends GutTest
 ## MotorBody.
 
 const STEP: float = 1.0 / 60.0
+const PROJECT_TUNING: String = "res://game/core/movement_tuning.tres"
 const UP: Vector2 = Vector2.UP
 const DOWN: Vector2 = Vector2.DOWN
 const LEFT: Vector2 = Vector2.LEFT
@@ -74,10 +75,11 @@ func test_the_same_stroke_repeated_adds_a_turn() -> void:
 	assert_eq(gesture.recipe().name(), "TRIPLE BACKFLIP")
 
 	# The hand that goes back up between two strokes down: going back is not read.
+	# Without a pause: the sharp turn back ends each stroke.
 	var back_and_forth: TrickGesture = TrickGesture.new(_tuning)
-	_stroke(back_and_forth, DOWN)
-	_stroke(back_and_forth, UP)
-	_stroke(back_and_forth, DOWN)
+	_stroke(back_and_forth, DOWN, false)
+	_stroke(back_and_forth, UP, false)
+	_stroke(back_and_forth, DOWN, false)
 	_assert_recipe(back_and_forth, BACKFLIP, 2, 0, "down, back up, down: a double")
 
 
@@ -150,6 +152,71 @@ func test_a_circle_alone_is_a_spin() -> void:
 	names.append("" if spin.recipe() == null else spin.recipe().name())
 	assert_eq(names, ["720", "1080", "1080", "1080"] as Array[String], "more circles")
 	_assert_recipe(spin, SPIN, 3, 0, "three circles at most")
+
+
+func test_a_stick_flick_that_comes_back_fast_is_read() -> void:
+	# With the tuning of the project, the one the hand plays with.
+	var tuning: MovementTuning = load(PROJECT_TUNING) as MovementTuning
+	var flicks: Dictionary[String, Array] = {
+		"pushed down and let go in 0.1 s":
+		[Vector2.DOWN * 0.5] + GestureHand.hold(Vector2.DOWN, 4) + [Vector2.DOWN * 0.5],
+		"pushed at 60 % for 0.1 s": GestureHand.hold(Vector2.DOWN * 0.6, 6),
+	}
+	for what: String in flicks:
+		var gesture: TrickGesture = TrickGesture.new(tuning)
+
+		GestureHand.stick(gesture, flicks[what] + GestureHand.still(6))
+
+		assert_eq(GestureHand.read(gesture), "BACKFLIP", what)
+
+	# Back in its dead zone, the flick is over at once: two flicks one step apart.
+	var double: TrickGesture = TrickGesture.new(tuning)
+	var flick: Array = GestureHand.hold(Vector2.DOWN, 6)
+	GestureHand.stick(double, flick + GestureHand.still(1) + flick + GestureHand.still(6))
+	assert_eq(GestureHand.read(double), "DOUBLE BACKFLIP", "two flicks a step apart")
+
+
+func test_an_arc_after_the_flip_is_a_twist() -> void:
+	var tuning: MovementTuning = load(PROJECT_TUNING) as MovementTuning
+	var arc: float = tuning.trick_gesture_half_circle_angle
+	assert_eq(arc, 100.0, "the least arc of a twist")
+	# On the mouse: a stroke down, a pause, an arc of 100 degrees without a straight part.
+	var mouse: TrickGesture = TrickGesture.new(tuning)
+	var down: Array = GestureHand.bell(Vector2.DOWN, 150, 5)
+	var pause: Array = GestureHand.still(6)
+	GestureHand.mouse(mouse, down + pause + GestureHand.arc(Vector2.RIGHT, arc, 80.0, 8) + pause)
+	assert_eq(GestureHand.read(mouse), "BACKFLIP FULL", "on the mouse")
+	# On the stick: a flick down, then the stick rolled by 100 degrees.
+	var stick: TrickGesture = TrickGesture.new(tuning)
+	var flick: Array = GestureHand.hold(Vector2.DOWN, 6) + GestureHand.still(6)
+	GestureHand.stick(stick, flick + GestureHand.roll(Vector2.RIGHT, arc, 10) + pause)
+	assert_eq(GestureHand.read(stick), "BACKFLIP FULL", "on the stick")
+	# And with a straight start: a J.
+	var j: TrickGesture = TrickGesture.new(tuning)
+	GestureHand.mouse(j, down + GestureHand.arc(Vector2.DOWN, arc + 10.0, 80.0, 8) + pause)
+	assert_eq(GestureHand.read(j), "BACKFLIP FULL", "curling out of the stroke")
+
+
+func test_a_rounded_return_of_the_hand_is_not_a_twist() -> void:
+	var tuning: MovementTuning = load(PROJECT_TUNING) as MovementTuning
+	var down: Array = GestureHand.bell(Vector2.DOWN, 150, 5)
+	var returns: Dictionary[String, Array] = {
+		"a tight U-turn":
+		GestureHand.arc(Vector2.DOWN, -180.0, 20.0, 4) + GestureHand.bell(Vector2.UP, 130, 5),
+		"drifting aside":
+		[Vector2(8, 10), Vector2(10, 2), Vector2(6, -8)] + GestureHand.bell(Vector2.UP, 140, 5),
+		"rounder":
+		(
+			[Vector2(5, 15), Vector2(12, 4), Vector2(8, -10), Vector2(2, -25)]
+			+ GestureHand.bell(Vector2.UP, 120, 4)
+		),
+	}
+	for what: String in returns:
+		var gesture: TrickGesture = TrickGesture.new(tuning)
+
+		GestureHand.mouse(gesture, down + returns[what] + GestureHand.still(6))
+
+		assert_eq(GestureHand.read(gesture), "BACKFLIP", what)
 
 
 func test_an_unreadable_gesture_starts_nothing() -> void:
