@@ -62,11 +62,12 @@ func test_without_a_gesture_the_trick_of_the_context_starts() -> void:
 	wall_jumping.step(_release(nothing_drawn, FORWARD))
 	_assert_context_trick(wall_jumping, BACKFLIP, "just after a wall jump")
 
-	# Leaving a wall run at its left: a side flip to the right, away from the wall.
+	# Leaving a wall run at its left: a side flip to the right, away from the wall; the
+	# release jumps off the wall too (decision 28 of docs/specs/trick-gestures.md).
 	var leaving: MotorBody = _beside_a_wall()
 	leaving.step(_push(FORWARD))
 	leaving.step(_release(nothing_drawn, LEFT_WALL))
-	assert_eq(leaving.motor.state, RunnerMotor.State.FALLING, "a runner off its wall run")
+	assert_eq(leaving.motor.state, RunnerMotor.State.RISING, "a runner off its wall run")
 	_assert_context_trick(leaving, SIDE_FLIP, "leaving a wall run")
 	if leaving.motor.current_trick() != null:
 		assert_eq(leaving.motor.current_trick().recipe.side, 1, "to the right, away from it")
@@ -228,6 +229,64 @@ func test_releasing_the_button_where_no_jump_is_allowed_starts_nothing() -> void
 			assert_null(body.motor.current_trick(), "%s: no trick in the jump" % state)
 
 
+func test_releasing_the_button_in_a_wall_run_makes_the_wall_jump_and_the_trick() -> void:
+	# Decision 28 of docs/specs/trick-gestures.md: the wall jump of the jump button.
+	var tricking: MotorBody = _beside_a_wall()
+	var jumping: MotorBody = _beside_a_wall()
+	for body: MotorBody in [tricking, jumping]:
+		body.step(_push(FORWARD))
+		body.step(_drawing(_backflip(), FORWARD))
+		assert_eq(body.motor.state, RunnerMotor.State.WALL_RUNNING, "a runner in a wall run")
+
+	tricking.step(_release(_backflip(), FORWARD))
+	jumping.step(_jump(FORWARD))
+
+	_assert_a_trick_wall_jump(tricking, jumping, "BACKFLIP", "in a wall run")
+
+
+func test_just_after_the_wall_the_trick_button_still_makes_the_wall_jump() -> void:
+	var tricking: MotorBody = _beside_a_wall()
+	var jumping: MotorBody = _beside_a_wall()
+	for body: MotorBody in [tricking, jumping]:
+		body.step(_push(FORWARD))
+		# The wall ends: the runner leaves it, and may still jump off it for a while.
+		body.remove_wall()
+		body.step(_drawing(_backflip(), FORWARD))
+		assert_eq(body.motor.state, RunnerMotor.State.FALLING, "a runner off its wall run")
+		assert_gt(body.motor.wall_jump_time_left(), 0.0, "within the grace of a wall jump")
+
+	tricking.step(_release(_backflip(), FORWARD))
+	jumping.step(_jump(FORWARD))
+
+	_assert_a_trick_wall_jump(tricking, jumping, "BACKFLIP", "just after the wall")
+	# Past the grace, the release starts the trick without a jump.
+	var late: MotorBody = _beside_a_wall()
+	late.step(_push(FORWARD))
+	late.remove_wall()
+	while late.motor.wall_jump_time_left() > 0.0:
+		late.step(_push(FORWARD))
+	late.step(_release(_backflip(), FORWARD))
+	assert_eq(late.motor.state, RunnerMotor.State.FALLING, "past the grace: no wall jump")
+	assert_true(late.motor.is_in_a_trick(), "the trick starts all the same")
+
+
+func test_without_a_gesture_in_a_wall_run_the_exit_makes_a_side_flip() -> void:
+	var tricking: MotorBody = _beside_a_wall()
+	var jumping: MotorBody = _beside_a_wall()
+	for body: MotorBody in [tricking, jumping]:
+		body.step(_push(FORWARD))
+		assert_eq(body.motor.state, RunnerMotor.State.WALL_RUNNING, "a runner in a wall run")
+
+	tricking.step(_release(TrickRecipe.of_the_context(), FORWARD))
+	jumping.step(_jump(FORWARD))
+
+	_assert_a_trick_wall_jump(tricking, jumping, "SIDE FLIP", "nothing drawn")
+	var trick: AirTrick = tricking.motor.current_trick()
+	if trick != null:
+		assert_true(trick.recipe.context, "the trick of the context")
+		assert_eq(trick.recipe.side, 1, "to the right, away from the wall at the left")
+
+
 func test_a_trick_does_not_start_in_a_wall_run_or_a_mantle() -> void:
 	var along: MotorBody = _beside_a_wall()
 	along.step(_push(FORWARD))
@@ -237,11 +296,14 @@ func test_a_trick_does_not_start_in_a_wall_run_or_a_mantle() -> void:
 	climbing.step(_push(FORWARD))
 	assert_eq(climbing.motor.state, RunnerMotor.State.MANTLING, "a runner in a mantle")
 
-	for body: MotorBody in [along, climbing]:
-		var state: String = RunnerMotor.State.keys()[body.motor.state]
-		for recipe: TrickRecipe in [_backflip(), TrickRecipe.of_the_context()]:
-			body.step(_release(recipe, FORWARD))
-			assert_null(body.motor.current_trick(), "%s: nothing starts" % state)
+	for recipe: TrickRecipe in [_backflip(), TrickRecipe.of_the_context()]:
+		climbing.step(_release(recipe, FORWARD))
+		assert_null(climbing.motor.current_trick(), "in a mantle: nothing starts")
+	# Along a wall, the release jumps off it first (decision 28 of
+	# docs/specs/trick-gestures.md): the trick never turns along the wall.
+	along.step(_release(_backflip(), FORWARD))
+	assert_not_null(along.motor.current_trick(), "released along a wall: a trick")
+	assert_eq(along.motor.state, RunnerMotor.State.RISING, "off the wall, not along it")
 
 
 func test_a_trick_does_not_change_the_trajectory() -> void:
@@ -304,29 +366,29 @@ func test_a_twist_near_the_ground_does_not_start_a_jump() -> void:
 
 
 func test_during_a_trick_the_jump_does_not_start_a_wall_jump() -> void:
+	# Off a wall by the wall jump of a trick (decision 28 of docs/specs/trick-gestures.md),
+	# then beside the wall in front, the jump pressed: nothing, as if it was not.
 	var tricking: MotorBody = _beside_a_wall()
 	var plain: MotorBody = _beside_a_wall()
-	var away: Vector3 = LEFT_WALL
 	for body: MotorBody in [tricking, plain]:
 		body.step(_push(FORWARD))
 		assert_eq(body.motor.state, RunnerMotor.State.WALL_RUNNING, "a runner in a wall run")
-	# It leaves the wall, and one of them starts a trick as it does.
-	tricking.step(_release(_backflip(), away))
-	plain.step(_push(away))
-	assert_true(tricking.motor.is_in_a_trick(), "in a trick, just off the wall run")
-	assert_gt(tricking.motor.wall_jump_time_left(), 0.0, "while a jump is still a wall jump")
+		body.step(_release(_backflip(), FORWARD))
+		assert_true(body.motor.is_in_a_trick(), "in a trick, off the wall")
+		body.set_wall(A_WALL + 1, -LEFT_WALL, CLOSE, TALL)
 
 	var jump: MoveIntent = _push(FORWARD)
 	jump.jump_pressed = true
 	jump.jump_held = true
 	tricking.step(jump)
-	plain.step(jump)
+	plain.step(_push(FORWARD))
 
-	assert_eq(plain.motor.state, RunnerMotor.State.RISING, "without a trick: a wall jump")
-	assert_eq(tricking.motor.state, RunnerMotor.State.FALLING, "with one: no wall jump")
 	assert_eq(tricking.motor.events.size(), 0, "nothing announced")
+	var same: Vector3 = Vector3.ONE * TOLERANCE
+	assert_almost_eq(tricking.velocity, plain.velocity, same, "no wall jump")
 	tricking.step(_push(FORWARD))
-	assert_eq(tricking.motor.state, RunnerMotor.State.FALLING, "not even a step later")
+	plain.step(_push(FORWARD))
+	assert_almost_eq(tricking.velocity, plain.velocity, same, "not even a step later")
 
 
 func test_no_wall_run_or_mantle_during_a_trick() -> void:
@@ -413,6 +475,29 @@ func _assert_context_trick(body: MotorBody, flip: TrickRecipe.Flip, context: Str
 	assert_eq(trick.recipe.flip, flip, context + ": its flip")
 	assert_eq(trick.recipe.turns, 1, context + ": one turn")
 	assert_eq(trick.points(_tuning), _tuning.trick_points_context, context + ": its points")
+
+
+## `tricking` released the trick button at the step it just played, `jumping` pressed the
+## jump: both jumped off the wall the same, and the trick `named` started with it; the
+## wall jump of the trick is not a move of its own.
+func _assert_a_trick_wall_jump(
+	tricking: MotorBody, jumping: MotorBody, named: String, context: String
+) -> void:
+	assert_eq(tricking.motor.state, RunnerMotor.State.RISING, context + ": it jumps")
+	var same: Vector3 = Vector3.ONE * TOLERANCE
+	assert_almost_eq(tricking.velocity, jumping.velocity, same, context + ": the wall jump")
+	_assert_kinds(tricking, [])
+	var trick: AirTrick = tricking.motor.current_trick()
+	assert_not_null(trick, context + ": a trick starts at the same step")
+	if trick != null:
+		assert_eq(trick.name(), named, context + ": the trick released")
+	# A full wall jump: it flies as the one of the jump button held up to its top does.
+	for step: int in TURN_STEPS:
+		tricking.step(_push(FORWARD))
+		var flight: MoveIntent = _push(FORWARD)
+		flight.jump_held = true
+		jumping.step(flight)
+	assert_almost_eq(tricking.position, jumping.position, same, context + ": a full one")
 
 
 ## The jump pressed at this step, and held.

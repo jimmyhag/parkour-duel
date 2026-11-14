@@ -12,6 +12,8 @@ var finished: bool = false
 var finished_at: int = 0
 ## It was posed in a perfect landing.
 var perfect: bool = false
+## A wall run or a mantle paid it, without the press that poses it.
+var unposed: bool = false
 ## The axis the body flips around, in the world, of length 1, and the way it turns
 ## around it: 1 or -1 (right-hand rule).
 var axis: Vector3 = Vector3.UP
@@ -63,9 +65,12 @@ func identity() -> String:
 	return recipe.identity()
 
 
-## The points of the trick: the ones of its recipe, raised for a perfect landing.
+## The points of the trick: the ones of its recipe, raised for a perfect landing, cut
+## when it was paid without a landing.
 func points(tuning: MovementTuning) -> int:
 	var share: float = 1.0 + tuning.trick_perfect_bonus if perfect else 1.0
+	if unposed:
+		share *= tuning.trick_unposed_share
 	return roundi(recipe.points(tuning) * share)
 
 

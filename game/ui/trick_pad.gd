@@ -6,7 +6,8 @@ extends Control
 ## scale for the whole trace, small enough for it to fit); the elements that counted are
 ## marked (an arrow for a stroke, a thick arc for a twist, another colour for a spin) and
 ## the recipe read is named under the disc (? while nothing reads). When the trick is
-## complete, the one that will start, the border of the disc changes colour and thickens.
+## validated, the one that starts if the button is released, and the runner can start a
+## trick now, the border of the disc changes colour and thickens.
 ## Hidden once the button is released. It reads core only; nothing takes the focus.
 
 const UNREAD: String = "?"
@@ -54,9 +55,12 @@ func refresh() -> void:
 	queue_redraw()
 
 
-## The trick is complete: the one that will start.
+## The trick read is validated, and the runner can start it now: the one that starts if
+## the button is released.
 func is_validated() -> bool:
-	return gesture != null and gesture.is_complete()
+	if gesture == null or motor == null:
+		return false
+	return gesture.is_validated() and motor.trick_ready
 
 
 func border_color() -> Color:

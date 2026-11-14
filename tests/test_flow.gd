@@ -54,26 +54,54 @@ func test_the_same_move_repeated_in_a_row_is_worth_less_and_less() -> void:
 	assert_eq(flow.repeat_count, 3, "the third time among the last moves")
 
 
-func test_the_end_of_a_combo_by_its_delay_keeps_the_repetition() -> void:
-	# docs/specs/trick-gestures.md, decision 19: the end of a combo by its delay no longer
-	# resets the repetition; an error still does.
+func test_the_repetition_of_tricks_survives_the_end_of_a_combo() -> void:
+	# docs/specs/trick-gestures.md, decisions 19 and 22: a trick is judged against the last
+	# tricks, whatever the moves between them, and the end of a combo by its delay forgets
+	# none of them; an error, a fall and a restart do.
 	var flow: FlowState = _flow()
-	_move(flow, JUMP)
-	_move(flow, JUMP)
-	assert_eq(flow.last_points, 25, "two jumps in a row")
+	_trick(flow, TrickRecipe.Flip.BACKFLIP)
+	for kind: RunnerEvent.Kind in VARIED + VARIED:
+		_move(flow, kind)
+	_trick(flow, TrickRecipe.Flip.BACKFLIP)
+	assert_eq(flow.last_points, 100 * flow.multiplier(), "twelve moves later: half of it")
+	assert_eq(flow.repeat_count, 2, "the backflip counted with the one before")
+	var others: Array[TrickRecipe.Flip] = [TrickRecipe.Flip.FRONT_FLIP, TrickRecipe.Flip.SPIN]
+	for index: int in _tuning.trick_repetition_window:
+		_trick(flow, others[index % others.size()], 1 + floori(index / 2.0))
+	_trick(flow, TrickRecipe.Flip.BACKFLIP)
+	assert_eq(flow.repeat_count, 1, "eight other tricks later: new again")
 
 	_wait(flow, CHAIN_STEPS)
 	assert_false(flow.in_combo(), "the combo ended by its delay")
 	assert_eq(flow.combos_broken, 0, "not broken")
-	_move(flow, JUMP)
+	_trick(flow, TrickRecipe.Flip.BACKFLIP)
+	assert_eq(flow.last_points, 100, "the trick again after the end of the combo: half of it")
 
-	assert_eq(flow.last_points, 0, "a third jump among the last moves: worth nothing")
-	assert_eq(flow.repeat_count, 3, "the jump counted with the two before")
+	var forgetting: Array[String] = ["an error", "a fall", "a restart"]
+	for what: String in forgetting:
+		_trick(flow, TrickRecipe.Flip.BACKFLIP)
+		match what:
+			"an error":
+				_move(flow, HARD_LANDING)
+			"a fall":
+				flow.respawn()
+			_:
+				flow.restart()
+		_trick(flow, TrickRecipe.Flip.BACKFLIP)
+		assert_eq(flow.last_points, 200, "after %s, the trick is worth all its points" % what)
 
-	_move(flow, HARD_LANDING)
-	_move(flow, JUMP)
-	assert_eq(flow.last_points, 50, "after an error, the jump is worth all its points")
-	assert_eq(flow.repeat_count, 1, "and counts from one again")
+	# The other moves keep the rule of the flow: two jumps, the end of the combo, a third.
+	var jumping: FlowState = _flow()
+	_move(jumping, JUMP)
+	_move(jumping, JUMP)
+	assert_eq(jumping.last_points, 25, "two jumps in a row")
+	_wait(jumping, CHAIN_STEPS)
+	assert_false(jumping.in_combo(), "the combo ended by its delay")
+	_move(jumping, JUMP)
+	assert_eq(jumping.last_points, 0, "a third jump among the last moves: worth nothing")
+	_move(jumping, HARD_LANDING)
+	_move(jumping, JUMP)
+	assert_eq(jumping.last_points, 50, "after an error, the jump is worth all its points")
 
 
 func test_a_move_absent_from_the_last_four_is_worth_all_its_points() -> void:
@@ -415,6 +443,16 @@ func _wait(flow: FlowState, steps: int, on_foot: bool = true, speed: float = RUN
 	for i: int in steps:
 		_step += 1
 		flow.step(none, speed, on_foot)
+
+
+## One fixed step at which the motor announced a trick of `flip` and `turns`, posed
+## without a perfect, the runner in the air.
+func _trick(flow: FlowState, flip: TrickRecipe.Flip, turns: int = 1) -> void:
+	_step += 1
+	var recipe: TrickRecipe = TrickRecipe.drawn(flip, turns)
+	var trick: AirTrick = AirTrick.new(recipe, Vector3.FORWARD, 1, 1)
+	var events: Array[RunnerEvent] = [RunnerEvent.new(RunnerEvent.Kind.TRICK, _step, trick)]
+	flow.step(events, RUNNING, false)
 
 
 func _points(kind: RunnerEvent.Kind) -> int:

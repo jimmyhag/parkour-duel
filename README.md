@@ -126,25 +126,37 @@ mouse or the right stick draws instead, and a round pad in the middle of the scr
 shows the trace as it goes. A quick stroke chooses the flip: up a front flip, down a
 backflip, left or right a side flip that way. The same stroke again adds a turn (double,
 then triple, no more); going back between two strokes is not read, even round a short
-turn. An arc of 100 degrees or more after a front flip or a backflip adds a twist (two
-per turn at most; a bigger arc, from 300 degrees, two at once), whether it starts with a
-straight part or not, and a stroke that curls into such an arc is the flip and the
-twist; a whole circle on its own is a flat spin (360), and each circle after it a turn
-more (720, 1080). On the right stick, a stroke is a flick (push it, even at 60 %, and
-let it spring back: the stroke ends as the stick is back in its dead zone) and an arc is
-the stick rolled round its rim. On the pad, each stroke read gets an arrow, each twist
-and each spin a coloured arc; the name of the recipe shows under the pad (and above the
-flow gauge), or ? while nothing reads yet; when the trick is complete, the hand at rest,
-the border of the pad turns green and thickens: that is the trick that will start. Every
-threshold of the drawing is in the tuning file (group Tricks). The trick starts as the
-button is released. On the ground, where a jump is allowed (or just after leaving a
+turn, sharp or rounded ("down, up, down" is a double). On the mouse, a second stroke the
+same way needs the hand to go back, or a pause of more than 0.12 s: a shorter hesitation
+in a slow stroke is one stroke. An arc of 100 degrees or more after a front flip or a
+backflip adds a twist (two per turn at most; a bigger arc, from 300 degrees, two at
+once), whether it starts with a straight part or not, and a stroke that curls into such
+an arc is the flip and the twist: after a flip, an arc is always twists, never a spin,
+even a whole circle. A whole circle on its own is a flat spin (360), and each circle
+after it a turn more (720, 1080). On the right stick, a stroke is a flick, read by how
+far the stick is pushed, not how long (two steps fully pushed, or four at 60 %, are a
+stroke; it ends as the stick is back in its dead zone, or dips far under its strongest
+push) and an arc is the stick rolled round its rim. On the pad, each stroke read gets an
+arrow, each twist and each spin a coloured arc; the name of the recipe shows under the
+pad (and above the flow gauge), or ? while nothing reads yet. A reading that has not
+changed for 0.1 s, the hand at rest (a hand that trembles by a pixel or two is at rest),
+is validated: the border of the pad turns green and thickens, when the runner can start
+a trick now (not while aiming, nor after the trick of its jump). The release starts the
+last trick validated: a reading seen only for a moment (a double on the way to a twist)
+does not start. The mouse draws at the scale of the mouse sensitivity of the camera
+(`camera_mouse_sensitivity`): a player who sets the camera for a mouse sets the pad too.
+Every threshold of the drawing is in the tuning file (group Tricks). The trick starts as
+the button is released. On the ground, where a jump is allowed (or just after leaving a
 ledge, within the coyote time), the release jumps too: a full jump, as if jump were held
 to the top, and the trick starts with it, at the same step; draw while running, then
 release to jump into the trick. The jump button stays the plain jump. Released where no
 jump is allowed (rolling, in a hard landing, low under a ceiling, or aiming), nothing
-starts and the drawing is forgotten. In the air (after a jump, a wall jump or a fall
-from a ledge; not along a wall, in a mantle or while aiming), the release starts the
-trick without a jump, if the runner has done no trick in this jump yet. A drawing that
+starts and the drawing is forgotten. Along a wall, or just off it while a jump is still
+a wall jump, the release jumps off the wall too: the full wall jump of the jump button,
+and the trick starts with it (nothing drawn: a side flip away from the wall); that wall
+jump is not a move of the flow of its own either. In the air (after a jump, a wall jump
+or a fall from a ledge; not in a mantle or while aiming), the release starts the trick
+without a jump, if the runner has done no trick in this jump yet. A drawing that
 does not read starts nothing, not even the jump. The jump of a trick is not a move of
 the flow of its own: the trick is the move. A press without drawing starts the trick of
 the context, worth half a front flip: a front flip when
@@ -160,13 +172,14 @@ nothing); a press too early is lost, and can be made again. The press that poses
 slide press like any other: a high fall rolls (the press that poses a trick rolls within
 the whole landing window), and on the flat, held, it starts a slide
 (a perfect one within its own window). A trick finished before a wall run or a mantle
-pays at its start, without a press. Points: front flip and backflip 200, side flip and
+pays at its start, without a press, and for half of its points. Points: front flip and backflip 200, side flip and
 spin 250, the trick of the context 100; a double times 2.5, a triple times 4, each
 twist 150 more; PERFECT 50 % more; then, as any move of the flow, the same recipe (flip,
-turns, twists) again is worth less, and the combo multiplies. The flow judges a move
-against its last ten moves, and a combo that ends by its delay keeps them: a break on
-the ground does not make the same tricks new again (an error, a fall or a restart
-does). A trick changes nothing
+turns, twists) again is worth less, and the combo multiplies. A trick is judged against
+the last eight tricks, whatever the moves between them (half once among them, nothing
+twice); any other move against the last ten moves. A combo that ends by its delay keeps
+both: a break on the ground does not make the same tricks new again (an error, a fall or
+a restart does). A trick changes nothing
 to the flight, but no wall run and no mantle starts before it is over; during a trick,
 jump never makes the runner jump.
 

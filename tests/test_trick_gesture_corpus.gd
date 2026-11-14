@@ -1,8 +1,10 @@
 extends GutTest
 ## The human gestures (game/core): the corpus of the drawings a hand makes, on the mouse
-## and on the right stick, measured by the inspection of 2026-11-14 (63 gestures), each
-## with the recipe the hand means, read with the tuning of the project. Motions are in
-## pixels for the mouse and in deflections for the stick (see GestureHand).
+## and on the right stick, measured by the two inspections of 2026-11-14 (63 gestures,
+## then the ones the second one found misread), each with the recipe the hand means, read
+## with the tuning of the project. Motions are in pixels for the mouse and in deflections
+## for the stick (see GestureHand). After a flip, an arc is twists, never a spin, even a
+## whole circle drawn on from the stroke (decision 24 of docs/specs/trick-gestures.md).
 
 const PROJECT_TUNING: String = "res://game/core/movement_tuning.tres"
 const D: Vector2 = Vector2.DOWN
@@ -13,17 +15,25 @@ const BACKFLIP: String = "BACKFLIP"
 const DOUBLE: String = "DOUBLE BACKFLIP"
 const FULL: String = "BACKFLIP FULL"
 const DOUBLE_FULL: String = "DOUBLE BACKFLIP FULL"
+const FULL_FULL: String = "BACKFLIP DOUBLE FULL"
+const FRONT_FLIP: String = "FRONT FLIP"
+const SIDE_FLIP: String = "SIDE FLIP"
+## The gestures of the first inspection, and of the second.
+const FIRST_INSPECTION: int = 63
+const SECOND_INSPECTION: int = 20
 const SPIN: String = "360"
 const CONTEXT: String = "CONTEXT"
 
 
-## One gesture of the corpus: what it is, on which device, its motions, and what the hand
-## means.
+## One gesture of the corpus: what it is, on which device, its motions, what the hand
+## means, and for the mouse the share of the sensitivity of the project its player set
+## the camera to.
 class Gesture:
 	var label: String
 	var on_the_stick: bool
 	var motions: Array
 	var meant: String
+	var sensitivity: float = 1.0
 
 	func _init(what: String, stick: bool, steps: Array, recipe: String) -> void:
 		label = what
@@ -42,14 +52,18 @@ func before_all() -> void:
 func test_human_gestures_are_read_as_the_hand_means_them() -> void:
 	var corpus: Array[Gesture] = _mouse_gestures()
 	corpus.append_array(_stick_gestures())
-	assert_eq(corpus.size(), 63, "the 63 gestures of the inspection")
+	assert_eq(corpus.size(), FIRST_INSPECTION, "the gestures of the first inspection")
+	var second: Array[Gesture] = _second_mouse_gestures()
+	second.append_array(_second_stick_gestures())
+	assert_eq(second.size(), SECOND_INSPECTION, "the gestures of the second inspection")
+	corpus.append_array(second)
 	for gesture: Gesture in corpus:
 		var drawing: TrickGesture = TrickGesture.new(_tuning)
 
 		if gesture.on_the_stick:
 			GestureHand.stick(drawing, gesture.motions)
 		else:
-			GestureHand.mouse(drawing, gesture.motions)
+			GestureHand.mouse(drawing, gesture.motions, gesture.sensitivity)
 
 		assert_eq(GestureHand.read(drawing), gesture.meant, gesture.label)
 
@@ -129,14 +143,14 @@ func _mouse_gestures() -> Array[Gesture]:
 			"M7b circle after 50 px down", _bell(D, 50, 3) + _arc(D, 360.0, 80.0, 20) + still, SPIN
 		),
 		_mouse(
-			"M7c circle after 120 px down",
+			"M7c circle after 120 px down: the flip, and twists",
 			_bell(D, 120, 4) + _arc(D, 360.0, 80.0, 20) + still,
-			SPIN
+			FULL_FULL
 		),
 		_mouse(
-			"M7d circle after 120 px right",
+			"M7d circle after 120 px right: a side flip takes no twist",
 			_bell(R, 120, 4) + _arc(R, 360.0, 80.0, 20) + still,
-			SPIN
+			SIDE_FLIP
 		),
 		_mouse("M7e fast circle", _arc(R, 360.0, 80.0, 8) + still, SPIN),
 		_mouse("M7f very fast circle", _arc(R, 360.0, 80.0, 5) + still, SPIN),
@@ -216,14 +230,97 @@ func _stick_gestures() -> Array[Gesture]:
 		_stick(
 			"S6c J: down 0.1 s, slow half roll", _hold(D, 6) + _roll(D, 180.0, 30) + still, FULL
 		),
-		_stick("S7 right 0.1 s, a roll", _hold(R, 6) + _roll(R, 360.0, 18) + still, SPIN),
-		_stick("S7b down 0.1 s, a roll", _hold(D, 6) + _roll(D, 360.0, 18) + still, SPIN),
+		_stick("S7 right 0.1 s, a roll", _hold(R, 6) + _roll(R, 360.0, 18) + still, SIDE_FLIP),
+		_stick("S7b down 0.1 s, a roll", _hold(D, 6) + _roll(D, 360.0, 18) + still, FULL_FULL),
 		_stick("S7c a roll", _roll(R, 360.0, 24) + still, SPIN),
 		_stick("S7d up 0.05 s, a slow roll", _hold(U, 3) + _roll(U, 360.0, 30) + still, SPIN),
-		_stick("S7e right 0.15 s, a roll", _hold(R, 9) + _roll(R, 360.0, 18) + still, SPIN),
-		_stick("S7f down 0.15 s, a roll", _hold(D, 9) + _roll(D, 360.0, 24) + still, SPIN),
+		_stick("S7e right 0.15 s, a roll", _hold(R, 9) + _roll(R, 360.0, 18) + still, SIDE_FLIP),
+		_stick("S7f down 0.15 s, a roll", _hold(D, 9) + _roll(D, 360.0, 24) + still, FULL_FULL),
 		_stick("S8 a roll of 300 degrees", _roll(R, 300.0, 18) + still, SPIN),
 		_stick("S9 pushed at 60 % for 8 steps", _hold(D * 0.6, 8) + still, BACKFLIP),
+	]
+
+
+## The gestures the second inspection found misread on the mouse, and their neighbours.
+func _second_mouse_gestures() -> Array[Gesture]:
+	var still: Array = GestureHand.still(6)
+	var down: Array = _bell(D, 150, 5)
+	var u_turn: Array = _arc(D, -180.0, 20.0, 4)
+	var tremor: Array = []
+	var random: RandomNumberGenerator = RandomNumberGenerator.new()
+	random.seed = 3
+	for step: int in 30:
+		tremor.append(Vector2(random.randf_range(-4.0, 4.0), random.randf_range(-4.0, 4.0)))
+	var trembling: Gesture = _mouse(
+		"N6 a hand that trembles 4 px a step, the camera at a quarter of the sensitivity",
+		tremor,
+		CONTEXT
+	)
+	trembling.sensitivity = 0.25
+	var gestures: Array[Gesture] = [
+		_mouse(
+			"N1 a slow stroke that hesitates 3 steps midway",
+			_bell(D, 80, 4) + GestureHand.still(3) + _bell(D, 80, 4) + still,
+			BACKFLIP
+		),
+		_mouse(
+			"N1b a slow stroke that hesitates 0.1 s midway",
+			_bell(D, 80, 4) + GestureHand.still(6) + _bell(D, 80, 4) + still,
+			BACKFLIP
+		),
+		_mouse(
+			"N1c two strokes down 0.15 s apart", down + GestureHand.still(9) + down + still, DOUBLE
+		),
+		_mouse(
+			"N2 down, sharp up, a small loop at the top, down",
+			down + _bell(U, 130, 5) + _arc(U, 180.0, 20.0, 4) + down + still,
+			DOUBLE
+		),
+		_mouse(
+			"N2b zigzag: down, rounded turn, up, rounded turn the other way, down",
+			down + u_turn + _bell(U, 150, 5) + _arc(U, 180.0, 20.0, 4) + down + still,
+			DOUBLE
+		),
+		_mouse(
+			"N2c ellipse: down, rounded turn, up, rounded turn the same way, down",
+			down + u_turn + _bell(U, 150, 5) + _arc(U, -180.0, 20.0, 4) + down + still,
+			DOUBLE
+		),
+		_mouse(
+			"N2d down, rounded turn, up, sharp down",
+			down + u_turn + _bell(U, 130, 5) + down + still,
+			DOUBLE
+		),
+		_mouse("N3 J with a hook of 290 degrees", down + _arc(D, 290.0, 60.0, 14) + still, FULL),
+		_mouse("N3b J with a hook of 260 degrees", down + _arc(D, 260.0, 60.0, 14) + still, FULL),
+		_mouse("N4 a spin and a half", _arc(R, 540.0, 80.0, 30) + still, SPIN),
+		trembling,
+	]
+	for degrees: float in [70.0, 80.0, 90.0]:
+		var wrist: Array = []
+		for step: int in 6:
+			wrist.append(U.rotated(deg_to_rad(-degrees / 2.0 + degrees / 5.0 * step)) * 25.0)
+		gestures.append(
+			_mouse("N5 wrist arc up of %d degrees" % degrees, wrist + still, FRONT_FLIP)
+		)
+	return gestures
+
+
+## The gestures the second inspection found misread on the right stick.
+func _second_stick_gestures() -> Array[Gesture]:
+	var still: Array = GestureHand.still(6)
+	var ramp: Array = [D * 0.4, D * 0.9, D, D, D * 0.5, U * 0.35, U * 0.1]
+	return [
+		_stick("T1 short flick, a bounce back", [D * 0.7, D, D * 0.6, U * 0.4] + still, BACKFLIP),
+		_stick("T1b two steps fully pushed", _hold(D, 2) + still, BACKFLIP),
+		_stick("T1c four steps at 60 %", _hold(D * 0.6, 4) + still, BACKFLIP),
+		_stick("T1d up: 0.6, 1, 0.5", [U * 0.6, U, U * 0.5] + still, FRONT_FLIP),
+		_stick(
+			"T2 two flicks, a dip to 0.3 between",
+			_hold(D, 3) + [D * 0.3] + _hold(D, 3) + still,
+			DOUBLE
+		),
+		_stick("T2b two flicks with ramps and bounces", ramp + ramp + still, DOUBLE),
 	]
 
 

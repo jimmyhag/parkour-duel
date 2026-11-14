@@ -4,11 +4,12 @@ extends RefCounted
 ## and the facts it observed (RunnerFacts); it answers with the state of the runner and
 ## the velocity it wants, and announces the moves it starts and the tricks its landings
 ## pay (RunnerEvent). It plays the aerial trick (AirTrick) of each jump: the recipe drawn
-## starts as the trick button is released, in the air, or on the ground with a full jump
-## that carries it, and a landing poses it only with the slide pressed just before the
-## ground. A runner that aims is slower on the ground, sliding and rolling included, and
-## starts no trick. It uses nothing but its arguments, the tuning and the speed bonus the
-## flow gives it: no input, no clock, no scene.
+## starts as the trick button is released, in the air, on the ground with a full jump
+## that carries it, or along a wall (or just off it) with a full wall jump, and a landing
+## poses it only with the slide pressed just before the ground. A runner that aims is
+## slower on the ground, sliding and rolling included, and starts no trick. It uses
+## nothing but its arguments, the tuning and the speed bonus the flow gives it: no input,
+## no clock, no scene.
 
 enum State {
 	GROUNDED,
@@ -45,12 +46,18 @@ var steps: int = 0
 var events: Array[RunnerEvent] = []
 ## The share of the top speed added by the flow (0 for none); the absolute cap holds.
 var top_speed_bonus: float = 0.0
+## A release of the trick button would start a trick now, after the step just played: in
+## the air or along a wall, or where the jump of a trick is allowed; not while aiming, nor
+## after the trick of this jump.
+var trick_ready: bool = false
 
 var _step_seconds: float = 0.0
 ## The runner aims at this step.
 var _aiming: bool = false
 ## The velocity the runner really had as the step started: the one of its facts.
 var _real_velocity: Vector3 = Vector3.ZERO
+## There was room to stand up as the step started.
+var _can_stand: bool = true
 var _steps_in_the_air: int = LONG_AGO
 var _steps_since_jump_request: int = LONG_AGO
 var _steps_since_slide_press: int = LONG_AGO
@@ -112,6 +119,7 @@ func step(intent: MoveIntent, facts: RunnerFacts, delta: float) -> Vector3:
 	steps += 1
 	events.clear()
 	_real_velocity = facts.velocity
+	_can_stand = facts.can_stand
 	velocity = facts.velocity
 	_step_seconds = delta
 	_aiming = intent.aim_held
@@ -126,6 +134,7 @@ func step(intent: MoveIntent, facts: RunnerFacts, delta: float) -> Vector3:
 	else:
 		_move(intent, facts, delta)
 	_start_a_trick(intent)
+	trick_ready = _can_start_a_trick()
 	return velocity
 
 
@@ -135,6 +144,7 @@ func reset() -> void:
 	state = State.FALLING
 	velocity = Vector3.ZERO
 	_real_velocity = Vector3.ZERO
+	_can_stand = true
 	_aiming = false
 	events.clear()
 	_steps_since_landing = LONG_AGO
@@ -161,6 +171,7 @@ func reset() -> void:
 	_take_off = TakeOff.FALL
 	_drawing = false
 	_drawn = null
+	trick_ready = false
 
 
 ## The top speed of the runner: the one of the tuning, plus the bonus of the flow.
@@ -260,6 +271,18 @@ func is_drawing() -> bool:
 	return _drawing
 
 
+## A release of the trick button would start a trick after the step just played (see
+## trick_ready).
+func _can_start_a_trick() -> bool:
+	if _aiming or _trick != null:
+		return false
+	if _is_in_the_air():
+		return true
+	if state == State.ROLLING or state == State.MANTLING:
+		return false
+	return _may_jump(_can_stand)
+
+
 ## What the drawing read at the step just played, while the button was held: the recipe
 ## drawn, the trick of the context if nothing was drawn, or null if it cannot be read.
 func drawn_recipe() -> TrickRecipe:
@@ -348,7 +371,7 @@ func _land(fall_height: float, low: bool) -> void:
 		if is_in_a_trick() or not posed:
 			_crash()
 			return
-		_pay_the_trick(_steps_since_slide_press <= _window_steps(tuning.trick_perfect_window))
+		_pay_the_trick(_steps_since_slide_press <= _window_steps(tuning.trick_perfect_window), true)
 	if fall_height <= tuning.roll_fall_height:
 		state = State.SLIDING if low else State.GROUNDED
 	elif posed or _steps_since_slide_press <= _window_steps(tuning.roll_window):
@@ -456,7 +479,7 @@ func _start_mantle(facts: RunnerFacts) -> void:
 	_ledge_top = facts.altitude + facts.ledge_height
 	_onto_the_ledge = -_horizontal_unit(facts.ledge_normal)
 	_jump_spent = true
-	_pay_the_trick(false)
+	_pay_the_trick(false, false)
 	_announce(RunnerEvent.Kind.MANTLE)
 
 
@@ -524,7 +547,7 @@ func _start_wall_run(facts: RunnerFacts) -> void:
 	_refused_wall = facts.wall_id
 	_away_from_the_wall = _horizontal_unit(facts.wall_normal)
 	_steps_off_the_wall = 0
-	_pay_the_trick(false)
+	_pay_the_trick(false, false)
 	_announce(RunnerEvent.Kind.WALL_RUN)
 
 
@@ -558,7 +581,9 @@ func _move(intent: MoveIntent, facts: RunnerFacts, delta: float) -> void:
 	_keep_a_low_runner_moving()
 	_cap_horizontal_speed()
 	if _can_wall_jump():
-		_wall_jump()
+		_wall_jump(false)
+	elif _can_trick_wall_jump(intent):
+		_wall_jump(true)
 	elif _can_trick_jump(intent, facts):
 		_start_jump(delta, true)
 	elif _can_jump(facts):
@@ -697,18 +722,38 @@ func _can_wall_jump() -> bool:
 	)
 
 
+## The trick button released with a drawing that reads, where a wall jump is allowed (along
+## the wall, or shortly after leaving it), the runner not aiming, before any trick of
+## this jump: the wall jump of a trick.
+func _can_trick_wall_jump(intent: MoveIntent) -> bool:
+	if not intent.trick_released or intent.trick_recipe == null:
+		return false
+	if intent.aim_held or _trick != null:
+		return false
+	if state == State.WALL_RUNNING:
+		return true
+	return (
+		state == State.FALLING and _steps_off_the_wall <= _window_steps(tuning.wall_jump_grace_time)
+	)
+
+
 ## Away from the wall and upwards, keeping the speed along the wall; the cap holds from
-## this very step.
-func _wall_jump() -> void:
+## this very step. The wall jump of a trick (`trick`) goes up to its top as if the jump
+## were held, and is not announced: the trick it carries is the move, and its trick of the
+## context is the one of a runner that leaves its wall.
+func _wall_jump(trick: bool) -> void:
 	var along: Vector3 = _along(velocity, _away_from_the_wall)
 	var away: Vector3 = _away_from_the_wall * tuning.wall_jump_away_speed
 	velocity = Vector3(along.x + away.x, tuning.wall_jump_up_speed, along.z + away.z)
 	_cap_horizontal_speed()
 	state = State.RISING
 	_jump_spent = true
-	_jump_cut = false
+	_jump_cut = trick
 	_steps_since_jump_request = LONG_AGO
 	_steps_off_the_wall = LONG_AGO
+	if trick:
+		_take_off = TakeOff.WALL_RUN
+		return
 	_take_off = TakeOff.WALL_JUMP
 	_announce(RunnerEvent.Kind.WALL_JUMP)
 
@@ -717,17 +762,18 @@ func _wall_jump() -> void:
 func _can_jump(facts: RunnerFacts) -> bool:
 	if _steps_since_jump_request > _window_steps(tuning.jump_buffer_time):
 		return false
-	return _may_jump(facts)
+	return _may_jump(facts.can_stand)
 
 
 ## A jump is allowed: on the ground or within the coyote time, the jump of this contact
-## not spent yet, not in a hard landing, and with room to stand up for a low runner.
-func _may_jump(facts: RunnerFacts) -> bool:
+## not spent yet, not in a hard landing, and with room to stand up (`can_stand`) for a low
+## runner.
+func _may_jump(can_stand: bool) -> bool:
 	if _jump_spent:
 		return false
 	if state == State.HARD_LANDING:
 		return false
-	if is_low() and not facts.can_stand:
+	if is_low() and not can_stand:
 		return false
 	return _steps_in_the_air <= _window_steps(tuning.coyote_time)
 
@@ -739,7 +785,7 @@ func _can_trick_jump(intent: MoveIntent, facts: RunnerFacts) -> bool:
 		return false
 	if intent.aim_held or _trick != null or state == State.ROLLING:
 		return false
-	return _may_jump(facts)
+	return _may_jump(facts.can_stand)
 
 
 ## The runner jumps. The jump of a trick (`trick`) goes up to its top as if the jump were
@@ -837,9 +883,12 @@ func _turn_the_trick() -> void:
 ## it worth more, and the horizontal speed gains the tuned speed the way it goes, but
 ## never beyond the top speed of the moment plus that gain, so that perfect landings in a
 ## row do not add up; a runner already faster keeps its speed. The absolute cap holds too.
-func _pay_the_trick(perfect: bool) -> void:
+## Paid without the landing that poses it (`posed` false: a wall run or a mantle), it is
+## worth less.
+func _pay_the_trick(perfect: bool, posed: bool) -> void:
 	if _trick == null:
 		return
+	_trick.unposed = not posed
 	if perfect:
 		_trick.perfect = true
 		var horizontal: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
@@ -867,8 +916,8 @@ func _crash() -> void:
 ## The trick button released in the air, rising or falling (not along a wall), starts
 ## the trick its drawing reads, unless the runner aims or already did a trick in this
 ## jump; a drawing that cannot be read starts nothing, and an empty one starts the trick
-## of the context. Released where a jump is allowed, the jump of the trick (see _move)
-## has just made the runner rise: the trick starts at the same step. Released anywhere
+## of the context. Released where a jump or a wall jump is allowed, the jump of the trick
+## (see _move) has just made the runner rise: the trick starts at the same step. Released anywhere
 ## else on the ground, nothing starts. Its front is where the runner went as the step
 ## started: the push of this step does not bend it.
 func _start_a_trick(intent: MoveIntent) -> void:
@@ -890,8 +939,9 @@ func _start_a_trick(intent: MoveIntent) -> void:
 
 
 ## The trick of the context, for a runner at the horizontal speed `speed`: a side flip
-## away from the wall it just left along, a backflip just after a wall jump or almost at
-## a stop (slower than the speed of a stop of the flow), a front flip otherwise.
+## away from the wall it just left along (by the wall jump of a trick too), a backflip
+## just after a wall jump or almost at a stop (slower than the speed of a stop of the
+## flow), a front flip otherwise.
 func _trick_of_the_context(speed: float) -> TrickRecipe:
 	if _take_off == TakeOff.WALL_RUN:
 		var right: Vector3 = _heading.cross(Vector3.UP)
