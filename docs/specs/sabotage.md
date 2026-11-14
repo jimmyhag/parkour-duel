@@ -1,6 +1,6 @@
 # Tir et sabotage : viser, tirer, faire tomber le décor
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-14. Étape 3 de la feuille de route. Jimmy a délégué toute la
 conception (« enchaîne sur tout le reste […] fais tout jusqu'à ce que tu puisses plus
