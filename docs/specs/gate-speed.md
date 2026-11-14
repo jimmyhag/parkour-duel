@@ -1,6 +1,6 @@
 # Des portes plus rapides, sans rien retirer
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-14, décidée par la session principale sur délégation de Jimmy
 (« continue, peaufine, avance »). Changement d'outillage et de tests : aucun test n'est
