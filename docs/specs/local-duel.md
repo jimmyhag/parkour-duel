@@ -1,6 +1,6 @@
 # Duel local : deux couloirs, un fantôme, un bot, une manche
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-14. Étape 4 de la feuille de route, la dernière avant le point
 d'arrêt n° 3. Jimmy a délégué toute la conception (« enchaîne sur tout le reste […]
