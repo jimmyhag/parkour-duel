@@ -18,3 +18,5 @@ cell means not assessed yet.
 | Timing tolerances on other moves (roll, wall-jump) | `docs/specs/movement-ground.md` and `docs/specs/movement-walls.md` | discovered | 2026-11-12 |
 | Reactive test pilot versus a recorded sequence, and proving it can fail | `tests/`, first applied by `docs/specs/reactive-replays.md` | discovered | 2026-11-12 |
 | State crossings: what each move becomes in the air, under a ceiling, after another | `game/core/`, first reviewed by `docs/specs/movement-walls.md` | discovered | 2026-11-13 |
+| Combo economy: guards against repetition, risk against reward | `game/core/`, first applied by `docs/specs/flow-combo.md` | discovered | 2026-11-14 |
+| Dated events produced by the simulation and counted by another state | `game/core/`, first applied by `docs/specs/flow-combo.md` | discovered | 2026-11-14 |
