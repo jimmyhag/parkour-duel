@@ -49,13 +49,14 @@ const BACKFLIP_FULL: String = "BACKFLIP FULL"
 ## earn (the threshold of the riskless loop on the flat, tests/test_runner_trick_risk.gd).
 const MINUTE: int = 3600
 const RISKLESS_STYLE_PER_MINUTE: int = 4800
-## How many times faster than real time that minute plays, and the most fixed steps a
-## frame may play for it.
 ## What the minute crashing on purpose earned when an error forgot the last tricks, as the
 ## second report on docs/specs/trick-gestures.md measured it: the error keeps them now.
 const CRASHING_WHEN_ERRORS_FORGOT: int = 26950
+## How many times faster than real time that minute plays, and the most fixed steps a
+## frame may play for it: Godot's default. At 16, Jolt's job system ran out of jobs about
+## once in 15 runs ("exceeded the maximum number of jobs"), a warning that fails the test.
 const MINUTE_SPEED_UP: int = 100
-const MINUTE_STEPS_PER_FRAME: int = 16
+const MINUTE_STEPS_PER_FRAME: int = 8
 ## The wall exit: the wall to run along, where the runner starts on the ground beside it
 ## (x, z), how far into its stretch it jumps, the steps of the wall run before it draws,
 ## and the steps it leaves the hand at rest before the release.
