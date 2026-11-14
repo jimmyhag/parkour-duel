@@ -13,6 +13,9 @@ const GAME_ACTIONS: Array[StringName] = [
 	&"trick",
 	&"respawn",
 	&"restart",
+	&"menu",
+	&"menu_up",
+	&"menu_down",
 ]
 const KEYBOARD_ONLY_ACTIONS: Array[StringName] = [
 	&"release_mouse",

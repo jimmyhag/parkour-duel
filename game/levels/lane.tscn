@@ -1,0 +1,549 @@
+[gd_scene load_steps=55 format=3]
+
+[ext_resource type="Script" path="res://game/levels/lane.gd" id="1_lane"]
+[ext_resource type="Resource" path="res://game/core/movement_tuning.tres" id="2_tuning"]
+[ext_resource type="Script" path="res://game/world/checkpoint.gd" id="3_checkpoint"]
+[ext_resource type="Script" path="res://game/world/race_line.gd" id="4_race_line"]
+[ext_resource type="PackedScene" path="res://game/world/falling_bridge.tscn" id="9_falling_bridge"]
+[ext_resource type="PackedScene" path="res://game/world/falling_platform.tscn" id="10_falling_platform"]
+[ext_resource type="PackedScene" path="res://game/world/rising_barrier.tscn" id="11_rising_barrier"]
+[ext_resource type="PackedScene" path="res://game/world/falling_obstacle.tscn" id="12_falling_obstacle"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_block"]
+albedo_color = Color(0.55, 0.55, 0.58, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_line"]
+albedo_color = Color(0.95, 0.95, 0.95, 1)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_run_up_start"]
+size = Vector3(6, 1, 8)
+
+[sub_resource type="BoxMesh" id="BoxMesh_run_up_start"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(6, 1, 8)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_run_up_end"]
+size = Vector3(6, 1, 10)
+
+[sub_resource type="BoxMesh" id="BoxMesh_run_up_end"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(6, 1, 10)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_short_jump"]
+size = Vector3(6, 1, 4)
+
+[sub_resource type="BoxMesh" id="BoxMesh_short_jump"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(6, 1, 4)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_long_jump_start"]
+size = Vector3(6, 1, 12)
+
+[sub_resource type="BoxMesh" id="BoxMesh_long_jump_start"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(6, 1, 12)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_steps_start"]
+size = Vector3(6, 1, 10)
+
+[sub_resource type="BoxMesh" id="BoxMesh_steps_start"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(6, 1, 10)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_step_1"]
+size = Vector3(6, 2, 5)
+
+[sub_resource type="BoxMesh" id="BoxMesh_step_1"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(6, 2, 5)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_step_2"]
+size = Vector3(6, 3, 5)
+
+[sub_resource type="BoxMesh" id="BoxMesh_step_2"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(6, 3, 5)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_low_passage_start"]
+size = Vector3(6, 4, 16)
+
+[sub_resource type="BoxMesh" id="BoxMesh_low_passage_start"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(6, 4, 16)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_ramp"]
+size = Vector3(6, 1, 8.246211)
+
+[sub_resource type="BoxMesh" id="BoxMesh_ramp"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(6, 1, 8.246211)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_low_passage_floor"]
+size = Vector3(6, 1, 22)
+
+[sub_resource type="BoxMesh" id="BoxMesh_low_passage_floor"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(6, 1, 22)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_low_beam"]
+size = Vector3(6, 3, 3)
+
+[sub_resource type="BoxMesh" id="BoxMesh_low_beam"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(6, 3, 3)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_big_drop_landing"]
+size = Vector3(6, 1, 30)
+
+[sub_resource type="BoxMesh" id="BoxMesh_big_drop_landing"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(6, 1, 30)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wall"]
+albedo_color = Color(0.45, 0.5, 0.62, 1)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_ledge"]
+size = Vector3(6, 3, 12)
+
+[sub_resource type="BoxMesh" id="BoxMesh_ledge"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(6, 3, 12)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_wall_run_wall"]
+size = Vector3(1, 9, 7)
+
+[sub_resource type="BoxMesh" id="BoxMesh_wall_run_wall"]
+material = SubResource("StandardMaterial3D_wall")
+size = Vector3(1, 9, 7)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_zigzag_wall"]
+size = Vector3(1, 15, 9)
+
+[sub_resource type="BoxMesh" id="BoxMesh_zigzag_wall"]
+material = SubResource("StandardMaterial3D_wall")
+size = Vector3(1, 15, 9)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_zigzag_landing"]
+size = Vector3(24, 3, 21)
+
+[sub_resource type="BoxMesh" id="BoxMesh_zigzag_landing"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(24, 3, 21)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_final_beam"]
+size = Vector3(24, 3, 3)
+
+[sub_resource type="BoxMesh" id="BoxMesh_final_beam"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(24, 3, 3)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_final_wall"]
+size = Vector3(1, 12, 7)
+
+[sub_resource type="BoxMesh" id="BoxMesh_final_wall"]
+material = SubResource("StandardMaterial3D_wall")
+size = Vector3(1, 12, 7)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_final_landing"]
+size = Vector3(6, 3, 8)
+
+[sub_resource type="BoxMesh" id="BoxMesh_final_landing"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(6, 3, 8)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_final_ledge"]
+size = Vector3(6, 3, 10)
+
+[sub_resource type="BoxMesh" id="BoxMesh_final_ledge"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(6, 3, 10)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_trigger"]
+size = Vector3(6, 3, 1)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_trigger_wide"]
+size = Vector3(24, 3, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_line"]
+material = SubResource("StandardMaterial3D_line")
+size = Vector3(6, 0.02, 0.3)
+
+[node name="Lane" type="Node3D"]
+script = ExtResource("1_lane")
+fall_limit = -8.0
+tuning = ExtResource("2_tuning")
+
+[node name="Blocks" type="Node3D" parent="."]
+
+[node name="RunUpStart" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 2)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/RunUpStart"]
+shape = SubResource("BoxShape3D_run_up_start")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/RunUpStart"]
+mesh = SubResource("BoxMesh_run_up_start")
+
+[node name="RunUpEnd" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, -17)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/RunUpEnd"]
+shape = SubResource("BoxShape3D_run_up_end")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/RunUpEnd"]
+mesh = SubResource("BoxMesh_run_up_end")
+
+[node name="ShortJump1" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, -26.5)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/ShortJump1"]
+shape = SubResource("BoxShape3D_short_jump")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/ShortJump1"]
+mesh = SubResource("BoxMesh_short_jump")
+
+[node name="ShortJump2" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, -33)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/ShortJump2"]
+shape = SubResource("BoxShape3D_short_jump")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/ShortJump2"]
+mesh = SubResource("BoxMesh_short_jump")
+
+[node name="LongJumpStart" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, -43.5)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/LongJumpStart"]
+shape = SubResource("BoxShape3D_long_jump_start")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/LongJumpStart"]
+mesh = SubResource("BoxMesh_long_jump_start")
+
+[node name="StepsStart" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, -70.9)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/StepsStart"]
+shape = SubResource("BoxShape3D_steps_start")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/StepsStart"]
+mesh = SubResource("BoxMesh_steps_start")
+
+[node name="Step1" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -78.4)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/Step1"]
+shape = SubResource("BoxShape3D_step_1")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/Step1"]
+mesh = SubResource("BoxMesh_step_1")
+
+[node name="Step2" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, -83.4)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/Step2"]
+shape = SubResource("BoxShape3D_step_2")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/Step2"]
+mesh = SubResource("BoxMesh_step_2")
+
+[node name="LowPassageStart" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -93.9)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/LowPassageStart"]
+shape = SubResource("BoxShape3D_low_passage_start")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/LowPassageStart"]
+mesh = SubResource("BoxMesh_low_passage_start")
+
+[node name="Ramp" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 0.970143, 0.242536, 0, -0.242536, 0.970143, 0, 1.514929, -105.778732)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/Ramp"]
+shape = SubResource("BoxShape3D_ramp")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/Ramp"]
+mesh = SubResource("BoxMesh_ramp")
+
+[node name="LowPassageFloor" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, -120.9)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/LowPassageFloor"]
+shape = SubResource("BoxShape3D_low_passage_floor")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/LowPassageFloor"]
+mesh = SubResource("BoxMesh_low_passage_floor")
+
+[node name="LowBeam" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.7, -119.4)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/LowBeam"]
+shape = SubResource("BoxShape3D_low_beam")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/LowBeam"]
+mesh = SubResource("BoxMesh_low_beam")
+
+[node name="BigDropLanding" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -4.5, -146.9)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/BigDropLanding"]
+shape = SubResource("BoxShape3D_big_drop_landing")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/BigDropLanding"]
+mesh = SubResource("BoxMesh_big_drop_landing")
+
+[node name="Ledge" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -3.6, -167.9)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/Ledge"]
+shape = SubResource("BoxShape3D_ledge")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/Ledge"]
+mesh = SubResource("BoxMesh_ledge")
+
+[node name="WallRunWall" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.25, -2.6, -177.4)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/WallRunWall"]
+shape = SubResource("BoxShape3D_wall_run_wall")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/WallRunWall"]
+mesh = SubResource("BoxMesh_wall_run_wall")
+
+[node name="WallRunLanding" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -3.6, -186.9)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/WallRunLanding"]
+shape = SubResource("BoxShape3D_ledge")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/WallRunLanding"]
+mesh = SubResource("BoxMesh_ledge")
+
+[node name="ZigzagLeft" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.25, 0.4, -197.4)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/ZigzagLeft"]
+shape = SubResource("BoxShape3D_zigzag_wall")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/ZigzagLeft"]
+mesh = SubResource("BoxMesh_zigzag_wall")
+
+[node name="ZigzagRight" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.95, 0.4, -197.4)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/ZigzagRight"]
+shape = SubResource("BoxShape3D_zigzag_wall")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/ZigzagRight"]
+mesh = SubResource("BoxMesh_zigzag_wall")
+
+[node name="ZigzagLanding" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.6, -212.4)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/ZigzagLanding"]
+shape = SubResource("BoxShape3D_zigzag_landing")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/ZigzagLanding"]
+mesh = SubResource("BoxMesh_zigzag_landing")
+
+[node name="FinalBeam" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.6, -215.4)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/FinalBeam"]
+shape = SubResource("BoxShape3D_final_beam")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/FinalBeam"]
+mesh = SubResource("BoxMesh_final_beam")
+
+[node name="FinalWall" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.25, -1.1, -226.4)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/FinalWall"]
+shape = SubResource("BoxShape3D_final_wall")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/FinalWall"]
+mesh = SubResource("BoxMesh_final_wall")
+
+[node name="FinalLanding" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.6, -233.9)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/FinalLanding"]
+shape = SubResource("BoxShape3D_final_landing")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/FinalLanding"]
+mesh = SubResource("BoxMesh_final_landing")
+
+[node name="FinalLedge" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.3, -242.9)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/FinalLedge"]
+shape = SubResource("BoxShape3D_final_ledge")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/FinalLedge"]
+mesh = SubResource("BoxMesh_final_ledge")
+
+[node name="Targets" type="Node3D" parent="."]
+
+[node name="Bridge" parent="Targets" instance=ExtResource("9_falling_bridge")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, -7)
+target_id = 1
+
+[node name="LongJump1" parent="Targets" instance=ExtResource("10_falling_platform")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, -57.7)
+target_id = 2
+
+[node name="Barrier" parent="Targets" instance=ExtResource("11_rising_barrier")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.5, -96.5)
+target_id = 3
+
+[node name="Obstacle" parent="Targets" instance=ExtResource("12_falling_obstacle")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -3.1, -144.5)
+target_id = 4
+
+[node name="Checkpoints" type="Node3D" parent="."]
+
+[node name="RunUp" type="Area3D" parent="Checkpoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 3)
+collision_layer = 0
+collision_mask = 2
+monitorable = false
+script = ExtResource("3_checkpoint")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Checkpoints/RunUp"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+shape = SubResource("BoxShape3D_trigger")
+
+[node name="ShortJumps" type="Area3D" parent="Checkpoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -16)
+collision_layer = 0
+collision_mask = 2
+monitorable = false
+script = ExtResource("3_checkpoint")
+index = 1
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Checkpoints/ShortJumps"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+shape = SubResource("BoxShape3D_trigger")
+
+[node name="LongJumps" type="Area3D" parent="Checkpoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -39.5)
+collision_layer = 0
+collision_mask = 2
+monitorable = false
+script = ExtResource("3_checkpoint")
+index = 2
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Checkpoints/LongJumps"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+shape = SubResource("BoxShape3D_trigger")
+
+[node name="Steps" type="Area3D" parent="Checkpoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -67.9)
+collision_layer = 0
+collision_mask = 2
+monitorable = false
+script = ExtResource("3_checkpoint")
+index = 3
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Checkpoints/Steps"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+shape = SubResource("BoxShape3D_trigger")
+
+[node name="LowPassage" type="Area3D" parent="Checkpoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, -91.9)
+collision_layer = 0
+collision_mask = 2
+monitorable = false
+script = ExtResource("3_checkpoint")
+index = 4
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Checkpoints/LowPassage"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+shape = SubResource("BoxShape3D_trigger")
+
+[node name="BigDrop" type="Area3D" parent="Checkpoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -124.9)
+collision_layer = 0
+collision_mask = 2
+monitorable = false
+script = ExtResource("3_checkpoint")
+index = 5
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Checkpoints/BigDrop"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+shape = SubResource("BoxShape3D_trigger")
+
+[node name="Ledge" type="Area3D" parent="Checkpoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -4, -151.9)
+collision_layer = 0
+collision_mask = 2
+monitorable = false
+script = ExtResource("3_checkpoint")
+index = 6
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Checkpoints/Ledge"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+shape = SubResource("BoxShape3D_trigger")
+
+[node name="WallRun" type="Area3D" parent="Checkpoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -2.1, -165.9)
+collision_layer = 0
+collision_mask = 2
+monitorable = false
+script = ExtResource("3_checkpoint")
+index = 7
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Checkpoints/WallRun"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+shape = SubResource("BoxShape3D_trigger")
+
+[node name="Zigzag" type="Area3D" parent="Checkpoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -2.1, -186.9)
+collision_layer = 0
+collision_mask = 2
+monitorable = false
+script = ExtResource("3_checkpoint")
+index = 8
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Checkpoints/Zigzag"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+shape = SubResource("BoxShape3D_trigger")
+
+[node name="Final" type="Area3D" parent="Checkpoints"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, -207.9)
+collision_layer = 0
+collision_mask = 2
+monitorable = false
+script = ExtResource("3_checkpoint")
+index = 9
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Checkpoints/Final"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+shape = SubResource("BoxShape3D_trigger_wide")
+
+[node name="StartLine" type="Area3D" parent="."]
+collision_layer = 0
+collision_mask = 2
+monitorable = false
+script = ExtResource("4_race_line")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="StartLine"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+shape = SubResource("BoxShape3D_trigger")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="StartLine"]
+mesh = SubResource("BoxMesh_line")
+
+[node name="FinishLine" type="Area3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.8, -243.9)
+collision_layer = 0
+collision_mask = 2
+monitorable = false
+script = ExtResource("4_race_line")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="FinishLine"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+shape = SubResource("BoxShape3D_trigger")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="FinishLine"]
+mesh = SubResource("BoxMesh_line")

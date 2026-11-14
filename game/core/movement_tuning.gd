@@ -1,7 +1,7 @@
 class_name MovementTuning
 extends Resource
 ## The single tuning resource of the feel: every speed, gravity, tolerance window, flow,
-## trick, sabotage and camera value lives here and nowhere else. The values are in
+## trick, sabotage, duel and camera value lives here and nowhere else. The values are in
 ## movement_tuning.tres; the zeros below are only the neutral defaults of an empty
 ## resource. Durations are in seconds: the runner applies them in fixed steps.
 
@@ -197,6 +197,20 @@ extends Resource
 @export var sabotage_duration_bridge: float = 0.0
 @export var sabotage_duration_obstacle: float = 0.0
 @export var sabotage_duration_barrier: float = 0.0
+
+@export_group("Duel")
+## How long each number of the countdown before a round (3, 2, 1) stays, and GO after
+## them, in s.
+@export var round_countdown_number_time: float = 0.0
+## The longest a round lasts from GO, in s.
+@export var round_time_limit: float = 0.0
+## The bot sabotages a target of the player's lane once the player is at most this far
+## before it, along the way, in m.
+@export var bot_sabotage_lead: float = 0.0
+## How long the bot aims before it shoots, in s.
+@export var bot_aim_time: float = 0.0
+## The ammunition each runner of a duel has at the start of a round.
+@export var duel_start_ammo: int = 0
 
 @export_group("Character")
 ## Dead zone of both sticks (0 to 1).

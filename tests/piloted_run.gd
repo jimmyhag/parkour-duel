@@ -1,6 +1,6 @@
 class_name PilotedRun
 extends RefCounted
-## One run led by the test pilot (tests/pilot_intent_source.gd), in the real physics:
+## One run led by the pilot (game/player/pilot_intent_source.gd), in the real physics:
 ## a runner is led, once it stands on the floor, straight towards a goal. A test calls
 ## observe_step() after every fixed step until the run is over (see ReplayTest), then
 ## reads here how it ended and what the runner did while the pilot was leading it.

@@ -134,6 +134,11 @@ static func fixed_tuning() -> MovementTuning:
 	tuning.sabotage_duration_bridge = 6.0
 	tuning.sabotage_duration_obstacle = 6.0
 	tuning.sabotage_duration_barrier = 4.0
+	tuning.round_countdown_number_time = 1.0
+	tuning.round_time_limit = 180.0
+	tuning.bot_sabotage_lead = 25.0
+	tuning.bot_aim_time = 0.8
+	tuning.duel_start_ammo = 2
 	return tuning
 
 

@@ -15,7 +15,9 @@ and press F5, or from a terminal at the repository root:
 godot --path .
 ```
 
-The game starts on the test course, a short timed run made of grey blocks: a start
+The game opens on its start screen: SOLO PRACTICE, DUEL VS GHOST and DUEL VS BOT (see
+"Local duel" below). Solo practice is the test course, a short timed run made of grey
+blocks: a start
 platform and its start line, a straight to gather speed with a bridge in its middle, a
 series of short jumps, a
 series of long jumps that need both the run-up and a held jump, steps to climb, a low
@@ -26,7 +28,8 @@ walls facing each other with its far side higher (wall jumps), and a last combin
 of a low obstacle, a gap along a wall and a ledge before the finish line. The walls
 meant to be run along are blue-grey. Four blocks glow orange: they are targets (see
 "Shooting and sabotage" below). The timer starts at the start line and stops at the finish line; the best
-time of the session stays on screen (nothing is saved to disk). Each section opens with
+time of the session stays on screen, from one solo practice to the next (nothing is
+saved to disk). Each section opens with
 a checkpoint: falling off the course brings the runner back to the last one reached,
 and the timer keeps running.
 
@@ -65,8 +68,10 @@ below are the keys at those places on a QWERTY keyboard (Z, Q, S, D on an AZERTY
 | Aim (hold) | Right mouse button | Left trigger (LT) |
 | Shoot, while aiming | Left mouse button | Right trigger (RT) |
 | Back to the last checkpoint | R | Y |
-| Restart the course | Backspace | Back (Select) |
-| Release the mouse (a click takes it back) | Escape | none |
+| Restart the course (solo practice only) | Backspace | Back (Select) |
+| Back to the start screen, which frees the mouse | Escape | Start |
+| Menus: change the choice | Up and Down arrows, or W and S | Left stick, or the cross |
+| Menus: take the choice | Space | A |
 | Debug display (state, speeds, timers) | F3 | none |
 | Reload the tuning file | F4 | none |
 
@@ -139,7 +144,7 @@ running, sliding or rolling (to 60 % of its top speed), and starts no trick; in 
 it changes nothing; time itself never slows down. Shooting fires at whatever is in the
 middle of the screen, once the aim has been held for a quarter of a second without a
 break, counted on the ground only and again for every shot (so every shot costs that
-much slowed running; the count waits in the air), and only at a target: one of the orange blocks, within 45 m,
+much slowed running; the count waits in the air), and only at a target: one of the orange blocks, within 60 m,
 ready, and paid for with the ammunition the flow gives (the platform, the obstacle and
 the barrier cost one, the bridge two). The reticle shows a ring on a target the shot
 would hit, and a slash on one the ammunition does not pay for; otherwise a shot does
@@ -150,8 +155,34 @@ the big drop (6 s: too high to jump over, jump at it and climb over it), a barri
 (4 s: jump at it and climb over it). Then it comes back, never onto a runner (it waits
 for its place to be free), rests for 3 s and glows again. A runner where the effect
 starts is sabotaged: its combo is broken and its gauge loses a tier, as on a hard
-landing. On this course the runner shoots its own scenery, to practise; shooting the
-opponent's course comes with the duel.
+landing. A platform or a bridge whose warning is over waits while a runner is in the air
+above it; once delayed so, it also waits for its zone to be empty, so that a runner
+landing back on it and running off is not hit (a runner standing on it when a warning
+ends without delay is hit). In solo
+practice the runner shoots its own scenery, to practise; in a duel, only the
+opponent's.
+
+Local duel: two identical copies of the course side by side, 4 m apart, the player's on
+the left. Choose DUEL VS BOT, or DUEL VS GHOST once a solo run is finished in the
+session. A countdown (3, 2, 1, GO) holds both runners at their start; both timers start
+at GO, and both runners start with 2 ammunition (a rematch gives them again). The first
+over the finish line wins; at the same step, the higher style score; the same score is a
+draw. Against the bot, after 3 minutes, if nobody finished, the farthest checkpoint
+wins, then the style score. Against the ghost there is no time limit: the round ends
+when the ghost crosses the finish line, and a player not finished by then loses. The ghost, half transparent, replays the best solo run of
+the session step by step: it touches nothing and shoots nothing. The bot, orange, runs
+the course with the pilot the tests use, towards the next checkpoint, does no trick,
+and sabotages a target of your lane when it has the ammunition, the target is within
+its range and on a clear line from its head and you are less than 25 m before it and getting closer: it aims for 0.8 s,
+slowed like any runner that aims, then shoots. It never sabotages the same target twice
+before you reach a new checkpoint, and does not start an aim when a jump comes before
+the aim would end. Only the
+targets of the opposing lane can be shot, from as far as the section before them. Next
+to your timer, the gap with the opponent at your last common checkpoint (+1.24: you
+are behind). Restarting does not exist in a duel: the result screen offers REMATCH
+(everything from zero, the countdown again) and MENU; Escape or Back also goes back to
+the start screen. The opponent's flow and ammunition show only on the debug display
+(F3).
 
 ## Roadmap
 
@@ -161,6 +192,6 @@ opponent's course comes with the duel.
 | 1 | Solo movement prototype | done: validated by the owner on 2026-11-14 |
 | 2 | Tricks and flow | built: the flow gauge and combo (`docs/specs/flow-combo.md`), the aerial tricks and the sounds (`docs/specs/air-tricks.md`); chained without validation on the owner's delegation (2026-11-14), judged at stop point 3 |
 | 3 | Shooting and sabotage | built: aiming, shooting and the four sabotageable targets, on the runner's own course (`docs/specs/sabotage.md`); chained without validation on the owner's delegation, judged at stop point 3 |
-| 4 | Local duel (ghost, then bot) | not started |
+| 4 | Local duel (ghost, then bot) | built: two lanes side by side, the start screen, the ghost of the best solo run, the bot, the round, the result and the rematch (`docs/specs/local-duel.md`); chained without validation on the owner's delegation, judged at stop point 3 |
 | 5 | Online PVP | not started |
 | 6 | Art, audio, menus, release | not started |

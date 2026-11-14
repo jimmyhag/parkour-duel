@@ -7,7 +7,8 @@ extends Label
 ## the gauge, the tier, the time left to chain a move, the repeated move and its count,
 ## the multiplier and the speed bonus; then its aim: whether it aims and the aim counted
 ## towards the next shot, the target under the reticle with its type, its state and how
-## far it is, and the time left to the state of each target that is not ready. Hidden
+## far it is, and the time left to the state of each target that is not ready; in a duel,
+## the gauge and the ammunition of the opponent, which no other display shows. Hidden
 ## until its action shows it.
 
 const TOGGLE_DEBUG: StringName = &"toggle_debug"
@@ -38,12 +39,15 @@ const AIM_OFF: String = "AIM OFF"
 const AIMED: String = "AIMED %d %s %s %.1f m"
 const NOTHING_AIMED: String = "AIMED -"
 const TARGET: String = "TARGET %d %s %s %.2f s"
+const OPPONENT: String = "OPPONENT GAUGE %d AMMO %d"
 
 ## The runner to display, its flow, its weapon and the targets of its course.
 var motor: RunnerMotor
 var flow: FlowState
 var shooter: Shooter
 var targets: TargetBoard
+## In a duel: the flow of the opponent.
+var opponent_flow: FlowState
 
 
 func _process(_delta: float) -> void:
@@ -82,6 +86,8 @@ func refresh() -> void:
 		text += "\n" + _flow_lines()
 	if shooter != null and targets != null:
 		text += "\n" + _aim_lines()
+	if opponent_flow != null:
+		text += "\n" + OPPONENT % [floori(opponent_flow.gauge), opponent_flow.ammo]
 
 
 func _flow_lines() -> String:

@@ -1,9 +1,13 @@
 class_name TargetBoard
 extends RefCounted
-## The targets of one course (SabotageTarget), by their identity in it: where the
-## messages of sabotage arrive, and what tells which runners their effects hit.
+## The targets of one lane of the course (SabotageTarget), by their identity in it: where
+## the messages of sabotage arrive, and what tells which runners their effects hit. Two
+## lanes are copies of the same course: their targets have the same identities, and the
+## lane tells them apart.
 
 var targets: Dictionary[int, SabotageTarget] = {}
+## The lane of these targets, by the runner that runs it.
+var lane: int = 0
 
 
 func add(target: SabotageTarget) -> void:
