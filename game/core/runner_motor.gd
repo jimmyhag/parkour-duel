@@ -4,10 +4,11 @@ extends RefCounted
 ## and the facts it observed (RunnerFacts); it answers with the state of the runner and
 ## the velocity it wants, and announces the moves it starts and the tricks its landings
 ## pay (RunnerEvent). It plays the aerial trick (AirTrick) of each jump: the recipe drawn
-## starts as the trick button is released in the air, and a landing poses it only with
-## the slide pressed just before the ground. A runner that aims is slower on the ground,
-## sliding and rolling included, and starts no trick. It uses nothing but its arguments,
-## the tuning and the speed bonus the flow gives it: no input, no clock, no scene.
+## starts as the trick button is released, in the air, or on the ground with a full jump
+## that carries it, and a landing poses it only with the slide pressed just before the
+## ground. A runner that aims is slower on the ground, sliding and rolling included, and
+## starts no trick. It uses nothing but its arguments, the tuning and the speed bonus the
+## flow gives it: no input, no clock, no scene.
 
 enum State {
 	GROUNDED,
@@ -58,6 +59,8 @@ var _steps_since_landing: int = LONG_AGO
 ## The slide was pressed since the last slide started: the next one counts.
 var _slide_pressed_since_the_last_slide: bool = false
 var _jump_spent: bool = true
+## The height of the jump under way is settled: the jump was released and cut, or it is
+## the jump of a trick, which goes up to its top whatever the jump button does.
 var _jump_cut: bool = false
 ## Where the slide is heading: what moves a runner that a low ceiling keeps down.
 var _slide_heading: Vector3 = Vector3.ZERO
@@ -556,8 +559,10 @@ func _move(intent: MoveIntent, facts: RunnerFacts, delta: float) -> void:
 	_cap_horizontal_speed()
 	if _can_wall_jump():
 		_wall_jump()
+	elif _can_trick_jump(intent, facts):
+		_start_jump(delta, true)
 	elif _can_jump(facts):
-		_start_jump(delta)
+		_start_jump(delta, false)
 	elif state == State.SLIDING:
 		velocity.y = _speed_down_the_slope(facts.floor_normal)
 	elif state == State.WALL_RUNNING:
@@ -708,26 +713,46 @@ func _wall_jump() -> void:
 	_announce(RunnerEvent.Kind.WALL_JUMP)
 
 
+## A jump asked for (now, or within the jump buffer) where a jump is allowed.
 func _can_jump(facts: RunnerFacts) -> bool:
+	if _steps_since_jump_request > _window_steps(tuning.jump_buffer_time):
+		return false
+	return _may_jump(facts)
+
+
+## A jump is allowed: on the ground or within the coyote time, the jump of this contact
+## not spent yet, not in a hard landing, and with room to stand up for a low runner.
+func _may_jump(facts: RunnerFacts) -> bool:
 	if _jump_spent:
 		return false
 	if state == State.HARD_LANDING:
 		return false
 	if is_low() and not facts.can_stand:
 		return false
-	if _steps_since_jump_request > _window_steps(tuning.jump_buffer_time):
-		return false
 	return _steps_in_the_air <= _window_steps(tuning.coyote_time)
 
 
-func _start_jump(delta: float) -> void:
+## The trick button released with a drawing that reads, where a jump is allowed and the
+## runner neither rolls nor aims, before any trick of this jump: the jump of a trick.
+func _can_trick_jump(intent: MoveIntent, facts: RunnerFacts) -> bool:
+	if not intent.trick_released or intent.trick_recipe == null:
+		return false
+	if intent.aim_held or _trick != null or state == State.ROLLING:
+		return false
+	return _may_jump(facts)
+
+
+## The runner jumps. The jump of a trick (`trick`) goes up to its top as if the jump were
+## held, and is not announced: the trick it carries is the move.
+func _start_jump(delta: float, trick: bool) -> void:
 	velocity.y = _jump_speed(delta)
 	state = State.RISING
 	_jump_spent = true
-	_jump_cut = false
+	_jump_cut = trick
 	_steps_since_jump_request = LONG_AGO
 	_take_off = TakeOff.JUMP
-	_announce(RunnerEvent.Kind.JUMP)
+	if not trick:
+		_announce(RunnerEvent.Kind.JUMP)
 
 
 func _fly(jump_held: bool, delta: float) -> void:
@@ -842,8 +867,10 @@ func _crash() -> void:
 ## The trick button released in the air, rising or falling (not along a wall), starts
 ## the trick its drawing reads, unless the runner aims or already did a trick in this
 ## jump; a drawing that cannot be read starts nothing, and an empty one starts the trick
-## of the context. Its front is where the runner went as the step started: the push of
-## this step does not bend it.
+## of the context. Released where a jump is allowed, the jump of the trick (see _move)
+## has just made the runner rise: the trick starts at the same step. Released anywhere
+## else on the ground, nothing starts. Its front is where the runner went as the step
+## started: the push of this step does not bend it.
 func _start_a_trick(intent: MoveIntent) -> void:
 	var horizontal: Vector3 = Vector3(_real_velocity.x, 0.0, _real_velocity.z)
 	if horizontal.length() > ALMOST_STILL:

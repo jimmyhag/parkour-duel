@@ -1,8 +1,9 @@
 extends GutTest
 ## The drawing of a trick in the player layer, with the real inputs: while the trick
 ## button is held, the mouse and the right stick draw instead of turning the camera, and
-## what they draw reaches the motor in the intent. Key, mouse, button and stick events go
-## through the input map of project.godot, as a device would send them.
+## what they draw reaches the motor in the intent; released on the ground, the button
+## jumps into the trick drawn. Key, mouse, button and stick events go through the input
+## map of project.godot, as a device would send them.
 
 const PLAYER_SCENE: PackedScene = preload("res://game/player/player.tscn")
 const WORLD_LAYER: int = 1
@@ -20,6 +21,10 @@ const ROLL_STEPS: int = 24
 const FLIGHT_STEPS: int = 60
 const SETTLE_STEPS: int = 30
 const POSE_HEIGHT: float = 0.6
+## How close to the height of the tuning a full jump tops, and how high above the floor
+## a runner is dropped to land hard.
+const JUMP_HEIGHT_TOLERANCE: float = 0.1
+const DROP_HEIGHT: float = 7.0
 
 var _intents: Array[MoveIntent] = []
 
@@ -140,7 +145,7 @@ func test_the_trick_of_the_context_with_lb_posed_with_b() -> void:
 	assert_eq(paid.size(), 1, "posed with B: the landing pays it")
 
 
-func test_releasing_the_button_on_the_ground_starts_nothing() -> void:
+func test_releasing_the_button_on_the_ground_jumps_and_starts_the_trick() -> void:
 	_add_box(Vector3(20.0, 1.0, 200.0), Vector3(0.0, -0.5, -80.0))
 	var player: Player = _add_player()
 	await _wait_steps(FEW_STEPS)
@@ -148,7 +153,8 @@ func test_releasing_the_button_on_the_ground_starts_nothing() -> void:
 	await _wait_steps(RUN_STEPS)
 	assert_true(player.is_on_floor(), "a runner on the ground")
 
-	# A backflip drawn with the mouse, the pad going down, on the ground.
+	# On the keyboard and the mouse: a backflip drawn on the ground, the pad going down,
+	# then F released, the jump never pressed.
 	_send(_key(KEY_F, true))
 	for step: int in STROKE_STEPS:
 		_send(_mouse(MOUSE_STROKE))
@@ -157,13 +163,63 @@ func test_releasing_the_button_on_the_ground_starts_nothing() -> void:
 	var drawn: TrickRecipe = _intents[-1].trick_recipe
 	assert_true(drawn != null and drawn.flip == TrickRecipe.Flip.BACKFLIP, "a backflip drawn")
 	_send(_key(KEY_F, false))
+	await _wait_steps(2)
+	_assert_a_trick_jump(player, "F released")
+
+	# A full jump: the runner rises to the height of a jump held up to its top.
+	var apex: float = await _apex_of_the_flight(player)
+	assert_almost_eq(apex, player.tuning.jump_height, JUMP_HEIGHT_TOLERANCE, "a full jump")
+	_send(_key(KEY_W, false))
+	await _wait_steps(SETTLE_STEPS)
+	assert_eq(player.motor.state, RunnerMotor.State.GROUNDED, "back on its feet")
+
+	# On the gamepad: LB held, the right stick flicked down and back, then LB released.
+	_send(_button(JOY_BUTTON_LEFT_SHOULDER, true))
+	await _wait_steps(1)
+	_send(_stick(JOY_AXIS_RIGHT_Y, 1.0))
+	await _wait_steps(STROKE_STEPS)
+	_send(_stick(JOY_AXIS_RIGHT_Y, 0.0))
+	await _wait_steps(FEW_STEPS)
+	drawn = _intents[-1].trick_recipe
+	assert_true(drawn != null and drawn.flip == TrickRecipe.Flip.BACKFLIP, "a backflip drawn")
+	_send(_button(JOY_BUTTON_LEFT_SHOULDER, false))
+	await _wait_steps(2)
+	_assert_a_trick_jump(player, "LB released")
+	apex = await _apex_of_the_flight(player)
+	assert_almost_eq(apex, player.tuning.jump_height, JUMP_HEIGHT_TOLERANCE, "a full jump")
+
+
+func test_releasing_the_button_where_no_jump_is_allowed_starts_nothing() -> void:
+	_add_box(Vector3(20.0, 1.0, 20.0), Vector3(0.0, -0.5, 0.0))
+	var player: Player = _add_player()
 	await _wait_steps(FEW_STEPS)
 
-	assert_true(player.is_on_floor(), "still on the ground")
-	assert_null(player.motor.current_trick(), "nothing starts")
+	# Dropped from high above the height of a roll, a backflip drawn on the way down with
+	# the mouse, F still held as it lands hard.
+	player.teleport(Transform3D(Basis.IDENTITY, Vector3(0.0, DROP_HEIGHT, 0.0)))
+	_send(_key(KEY_F, true))
+	for step: int in STROKE_STEPS:
+		_send(_mouse(MOUSE_STROKE))
+		await _wait_steps(1)
+	var drawn: TrickRecipe = _intents[-1].trick_recipe
+	assert_true(drawn != null and drawn.flip == TrickRecipe.Flip.BACKFLIP, "a backflip drawn")
+	for step: int in FLIGHT_STEPS:
+		if player.motor.state == RunnerMotor.State.HARD_LANDING:
+			break
+		await _wait_steps(1)
+	assert_eq(player.motor.state, RunnerMotor.State.HARD_LANDING, "a runner in a hard landing")
 
-	# Forgotten: a jump, then a press and a release in the air without drawing, start the
-	# trick of the context (a front flip, running forward), not the backflip.
+	_send(_key(KEY_F, false))
+	await _wait_steps(1)
+	assert_ne(player.motor.state, RunnerMotor.State.RISING, "it does not jump")
+	assert_null(player.motor.current_trick(), "nothing starts")
+	await _wait_steps(FEW_STEPS)
+	assert_true(player.is_on_floor(), "still on the ground")
+
+	# Forgotten: once on its feet, a jump, then a press and a release in the air without
+	# drawing, start the trick of the context (a backflip, at a stop), not the one drawn.
+	await _wait_steps(SETTLE_STEPS)
+	assert_eq(player.motor.state, RunnerMotor.State.GROUNDED, "back on its feet")
 	_send(_key(KEY_SPACE, true))
 	await _wait_steps(2)
 	_send(_key(KEY_F, true))
@@ -175,7 +231,28 @@ func test_releasing_the_button_on_the_ground_starts_nothing() -> void:
 	assert_not_null(trick, "a trick starts")
 	if trick != null:
 		assert_true(trick.recipe.context, "the trick of the context")
-		assert_eq(trick.name(), "FRONT FLIP", "running forward: a front flip")
+		assert_eq(trick.name(), "BACKFLIP", "at a stop: a backflip")
+
+
+## The runner jumped at the release, and the backflip drawn started with it.
+func _assert_a_trick_jump(player: Player, context: String) -> void:
+	assert_eq(player.motor.state, RunnerMotor.State.RISING, context + ": it jumps")
+	var trick: AirTrick = player.motor.current_trick()
+	assert_not_null(trick, context + ": a trick starts at the same step")
+	if trick != null:
+		assert_eq(trick.name(), "BACKFLIP", context + ": the backflip drawn")
+		assert_false(trick.recipe.context, context + ": not the trick of the context")
+
+
+## The highest the feet of the runner go above the floor until it lands again.
+func _apex_of_the_flight(player: Player) -> float:
+	var apex: float = player.global_position.y
+	for step: int in FLIGHT_STEPS:
+		await _wait_steps(1)
+		apex = maxf(apex, player.global_position.y)
+		if player.is_on_floor():
+			break
+	return apex
 
 
 func _add_player() -> Player:

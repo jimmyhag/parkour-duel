@@ -64,7 +64,7 @@ below are the keys at those places on a QWERTY keyboard (Z, Q, S, D on an AZERTY
 | Turn the camera (not while the trick is held) | Mouse | Right stick |
 | Jump (hold to jump higher) | Space | A |
 | Slide (hold), roll (press just before a high landing), pose a trick (press just before the ground) | Left Ctrl | B, or RB |
-| Trick: hold to draw it, release in the air to start it | F | LB |
+| Trick: hold to draw it, release to start it (on the ground, the release jumps too) | F | LB |
 | Draw a trick, the trick held | Mouse | Right stick |
 | Aim (hold) | Right mouse button | Left trigger (LT) |
 | Shoot, while aiming | Left mouse button | Right trigger (RT) |
@@ -136,12 +136,18 @@ the stick rolled round its rim. On the pad, each stroke read gets an arrow, each
 and each spin a coloured arc; the name of the recipe shows under the pad (and above the
 flow gauge), or ? while nothing reads yet; when the trick is complete, the hand at rest,
 the border of the pad turns green and thickens: that is the trick that will start. Every
-threshold of the drawing is in the tuning file (group Tricks). The trick starts as the button is released, if the runner is
-in the air (after a jump, a wall jump or a fall from a ledge; not along a wall, in a
-mantle or while aiming) and has done no trick in this jump yet: draw while running,
-then release just after the jump. Released on the ground, nothing starts and the
-drawing is forgotten; a drawing that does not read starts nothing. A press without
-drawing starts the trick of the context, worth half a front flip: a front flip when
+threshold of the drawing is in the tuning file (group Tricks). The trick starts as the
+button is released. On the ground, where a jump is allowed (or just after leaving a
+ledge, within the coyote time), the release jumps too: a full jump, as if jump were held
+to the top, and the trick starts with it, at the same step; draw while running, then
+release to jump into the trick. The jump button stays the plain jump. Released where no
+jump is allowed (rolling, in a hard landing, low under a ceiling, or aiming), nothing
+starts and the drawing is forgotten. In the air (after a jump, a wall jump or a fall
+from a ledge; not along a wall, in a mantle or while aiming), the release starts the
+trick without a jump, if the runner has done no trick in this jump yet. A drawing that
+does not read starts nothing, not even the jump. The jump of a trick is not a move of
+the flow of its own: the trick is the move. A press without drawing starts the trick of
+the context, worth half a front flip: a front flip when
 running, a backflip at a stop or just after a wall jump, a side flip away from the wall
 when leaving a wall run. A turn takes 0.35 s and each twist adds 0.3 s: a single fits
 in a jump on the flat; measured with the tuning file, a held jump on the flat lasts 36

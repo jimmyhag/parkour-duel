@@ -1,7 +1,8 @@
 extends TrickTest
 ## The risk of the aerial tricks of the runner's motor (game/core): how long a trick lasts
-## against the height of a jump, so that only a single fits in a jump on the flat; what a
-## riskless loop on the flat earns; and the perfect landings that do not raise the speed
+## against the height of a jump, so that only a single fits in a jump on the flat, the
+## jump of a trick included; what a riskless loop on the flat earns, jumping or releasing
+## the trick button on the ground; and the perfect landings that do not raise the speed
 ## without end. The tests of the risk weigh the tuning of the project, the one the player
 ## plays with.
 
@@ -19,7 +20,10 @@ class Minute:
 	var style: int = 0
 	var tricks_paid: int = 0
 	var crashes: int = 0
+	## The jumps the motor announced, and the times the runner left the ground on purpose:
+	## a jump of a trick is not announced.
 	var jumps: int = 0
+	var take_offs: int = 0
 	var ammo: int = 0
 	var top_speed: float = 0.0
 	var mean_speed: float = 0.0
@@ -46,6 +50,28 @@ func test_a_single_fits_in_a_jump_on_the_flat() -> void:
 
 		_assert_events(events, [TRICK])
 		if events.size() == 1 and events[0].trick != null:
+			assert_true(events[0].trick.perfect, context + ": finished before the ground, posed")
+
+
+func test_a_trick_jump_on_the_flat_leaves_time_for_a_single() -> void:
+	var tuning: MovementTuning = _project_tuning()
+	var singles: Array[TrickRecipe] = [
+		_front_flip(),
+		_backflip(),
+		TrickRecipe.drawn(SIDE_FLIP),
+		TrickRecipe.drawn(SPIN),
+		TrickRecipe.of_the_context(),
+	]
+	for recipe: TrickRecipe in singles:
+		var context: String = recipe.name()
+		var body: MotorBody = MotorBody.running(tuning, FORWARD, tuning.top_speed)
+
+		# The trick button released on the ground, the jump never pressed.
+		var events: Array[RunnerEvent] = _trick_jump(body, null, recipe)
+
+		_assert_events(events, [TRICK])
+		if events.size() == 1 and events[0].trick != null:
+			assert_eq(events[0].trick.name(), recipe.name(), context + ": the trick drawn")
 			assert_true(events[0].trick.perfect, context + ": finished before the ground, posed")
 
 
@@ -111,12 +137,17 @@ func test_a_riskless_loop_on_the_flat_earns_little() -> void:
 		TrickRecipe.drawn(SPIN),
 	]
 	var tricking: Minute = _hop_for_a_minute(tuning, fitting)
+	# The same recipes, each one released on the ground: the jump of the trick.
+	var trick_jumping: Minute = _hop_for_a_minute(tuning, fitting, 0, true)
 	gut.p(_report("running and jumping alone", plain))
 	gut.p(_report("a trick at every jump", tricking))
+	gut.p(_report("a trick jump at every jump", trick_jumping))
 
-	assert_gt(tricking.tricks_paid, 60, "a runner that poses a trick at every jump")
-	assert_eq(tricking.crashes, 0, "and never crashes")
-	assert_lt(tricking.style, RISKLESS_STYLE_PER_MINUTE, "earns less style than the threshold")
+	for minute: Minute in [tricking, trick_jumping]:
+		assert_gt(minute.tricks_paid, 60, "a runner that poses a trick at every jump")
+		assert_eq(minute.crashes, 0, "and never crashes")
+		assert_lt(minute.style, RISKLESS_STYLE_PER_MINUTE, "earns less style than the threshold")
+	assert_eq(trick_jumping.jumps, 0, "a jump of a trick is not a jump of the flow")
 
 
 func test_the_repetition_of_tricks_survives_the_end_of_a_combo() -> void:
@@ -184,6 +215,18 @@ func _hop(
 	return body.motor.events.duplicate()
 
 
+## From the ground, `recipe` released at the first step, the jump never pressed: the
+## jump of the trick, then the slide pressed two steps before the ground; what the motor
+## announced at the landing.
+func _trick_jump(body: MotorBody, flow: FlowState, recipe: TrickRecipe) -> Array[RunnerEvent]:
+	var landing: int = _steps_to_land(body.motor.tuning)
+	for step: int in landing + 1:
+		var intent: MoveIntent = _release(recipe, FORWARD) if step == 0 else _push(FORWARD)
+		intent.slide_pressed = step == landing - 2
+		_play(body, flow, intent)
+	return body.motor.events.duplicate()
+
+
 ## How many steps after it jumps on the flat at the top speed, holding the jump, a runner
 ## of `tuning` sees the floor again.
 func _steps_to_land(tuning: MovementTuning) -> int:
@@ -203,9 +246,10 @@ func _steps_to_land(tuning: MovementTuning) -> int:
 
 ## A minute of a runner on the flat that jumps whenever it stands, holding the jump to
 ## its top; with `recipes`, it releases the next of them at the first step of every jump,
-## and poses it perfect.
+## and poses it perfect. With `trick_jumps`, it never presses the jump: the release of
+## the trick button on the ground is its jump.
 func _hop_for_a_minute(
-	tuning: MovementTuning, recipes: Array[TrickRecipe], rest: int = 0
+	tuning: MovementTuning, recipes: Array[TrickRecipe], rest: int = 0, trick_jumps: bool = false
 ) -> Minute:
 	var body: MotorBody = MotorBody.running(tuning, FORWARD, tuning.top_speed)
 	var flow: FlowState = FlowState.new(tuning, STEPS_PER_SECOND)
@@ -226,15 +270,21 @@ func _hop_for_a_minute(
 			resting = rest
 			in_a_row = 0
 			since_take_off = -1
+		elif state == RunnerMotor.State.GROUNDED and trick_jumps:
+			intent = _release(recipes[minute.take_offs % recipes.size()], FORWARD)
+			since_take_off = 0
+			in_a_row += 1
+			minute.take_offs += 1
 		elif state == RunnerMotor.State.GROUNDED:
 			intent.jump_pressed = true
 			intent.jump_held = true
 			since_take_off = 0
 			in_a_row += 1
+			minute.take_offs += 1
 		elif since_take_off >= 0:
 			intent.jump_held = state == RunnerMotor.State.RISING
 			since_take_off += 1
-		if not recipes.is_empty() and since_take_off == 1:
+		if not recipes.is_empty() and not trick_jumps and since_take_off == 1:
 			intent = _release(recipes[minute.jumps % recipes.size()], FORWARD)
 			intent.jump_held = true
 		var ground_soon: bool = body.position.y + 2.0 * body.velocity.y * MotorBody.STEP <= 0.0
@@ -257,11 +307,15 @@ func _hop_for_a_minute(
 
 func _report(title: String, minute: Minute) -> String:
 	return (
-		"%s: style %d, ammunition %d, jumps %d, tricks %d, crashes %d, speed %.2f m/s (top %.2f)"
+		(
+			"%s: style %d, ammunition %d, take-offs %d, jumps %d, tricks %d, crashes %d,"
+			+ " speed %.2f m/s (top %.2f)"
+		)
 		% [
 			title,
 			minute.style,
 			minute.ammo,
+			minute.take_offs,
 			minute.jumps,
 			minute.tricks_paid,
 			minute.crashes,
