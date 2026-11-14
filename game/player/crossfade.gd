@@ -16,8 +16,10 @@ var _blend_time: float = 0.0
 
 ## Asks for `state`, in `blend_time` s from what is shown now; whether it comes from
 ## nothing (its clip then starts again): a state still blending out comes back from where
-## it is.
+## it is. The state asked for already goes on in the blend time it was asked in.
 func go_to(state: StringName, blend_time: float) -> bool:
+	if state == _wanted:
+		return false
 	_wanted = state
 	_blend_time = blend_time
 	return weight(state) <= 0.0

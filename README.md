@@ -49,7 +49,7 @@ everything works as before, the tests included.
 
 On [mixamo.com](https://www.mixamo.com) (free, with an Adobe account), download in one
 folder, as FBX Binary (.fbx), "With Skin" (Walking and Sprint without it, as the table
-says), with the default settings (In Place or not: the game removes the movement of the
+says), with the default settings (In Place or not: the game removes the way forward of the
 root), every animation with that same character selected: its bones are the ones the
 game moves (another character keeps the capsule):
 
@@ -77,23 +77,25 @@ Each state of the runner has its animation. On its feet, a blend of Idle, Walkin
 Running and Sprint on its speed (`docs/specs/locomotion-blend.md`): Idle standing,
 Walking at its own pace, Running at 1.3 times its own pace, Sprint from the top speed
 (faster beyond, with the flow), two neighbours blended in between, at the same phase of
-their stride and as fast as the feet keep up with the ground; back to the run (after a
-landing, a slide), the stride resumes where the legs already are. In the air and the
-other states: Jump rising, Falling Idle falling, Landing briefly after a small fall,
-Hard Landing, the roll of Falling To Roll, Running Slide, the hoist of Sprint To Wall
-Climb in a mantle; along a wall, the run of the blend, Running or Sprint by the speed
-along the wall, the whole body rolled about the way it runs, its feet towards the wall
-and its head away from it, and moved across once so that its feet brush the wall
-(`docs/specs/animation-polish.md`); during a trick, a tucked pose taken from Backflip,
-the body turning as before; while aiming, the upper body holds Pistol Idle. Every change
-shows through a blend, even one cut short by the next; the visible body and the blend
-move at every frame shown, between two fixed steps; no clip plays faster than 1.8 times
-its own pace (a state too short for its clip plays its first part). The blend times (a
-table of pairs, "from>to", and a default), the speed of the stride of Walking, Running
-and Sprint (measured from their clips), the pace of Running where it plays alone, the
-speed under which a runner stands still, how long Landing plays, the fastest pace of a
-clip, and the roll of the body along a wall and how long it takes to come and to go are
-in the tuning file (group Animation).
+their stride and as fast as the feet keep up with the ground, the left one as the right
+one; the blend follows the speed no faster than a tuned time, so that a stop and a start
+go through the walk; back to the run (after a landing, a slide), the stride resumes
+where the legs already are. In the air and the other states: Jump rising, Falling Idle
+falling, Landing briefly after a small fall, Hard Landing, the roll of Falling To Roll,
+Running Slide, the hoist of Sprint To Wall Climb in a mantle; along a wall, the run of
+the blend, Running or Sprint by the speed along the wall, the whole body rolled about
+the way it runs, its feet towards the wall and its head away from it, and moved across
+once so that its feet brush the wall (`docs/specs/animation-polish.md`); during a trick,
+a tucked pose taken from Backflip, the body turning as before; while aiming, the upper
+body holds Pistol Idle. Every change shows through a blend, even one cut short by the
+next; the visible body and the blend move at every frame shown, between two fixed steps;
+no clip plays faster than 1.8 times its own pace (a state too short for its clip plays
+its first part). The blend times (a table of pairs, "from>to", and a default), the speed
+of the stride of Walking, Running and Sprint (measured from their clips), the pace of
+Running where it plays alone, the speed under which a runner stands still, how long a
+start or a stop takes at the least, how long Landing plays, the fastest pace of a clip,
+and the roll of the body along a wall and how long it takes to come and to go are in the
+tuning file (group Animation).
 
 ## Working on the project
 

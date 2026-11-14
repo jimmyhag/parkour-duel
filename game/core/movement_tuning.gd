@@ -317,6 +317,10 @@ extends Resource
 ## faster to fit its move plays its first part only; the locomotion plays no faster, its
 ## feet then slipping on the ground.
 @export var animation_max_pace: float = 0.0
+## On its feet, how long the body takes, at the least, to go from standing to moving or back
+## (Idle blended with the walk), in s; the clips that stride go from Walking to Sprint or
+## back in no less time. The blend follows the speed, no faster.
+@export var animation_start_stop_time: float = 0.0
 ## In a wall run, how far the character's whole body rolls about the way it runs, its feet
 ## towards the wall and its head away from it, in degrees; and how long the roll takes to
 ## come, in s, and as long to go once the wall run is over.

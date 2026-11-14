@@ -59,3 +59,28 @@ func test_an_interrupted_blend_does_not_jump() -> void:
 	fade.advance(FRAME)
 	assert_almost_eq(fade.weight(&"hard_landing"), 1.0, 0.0001, "a hard landing, at once")
 	assert_almost_eq(fade.weight(&"running"), 0.0, 0.0001, "nothing else shown")
+
+
+func test_a_blend_asked_for_again_keeps_its_time() -> void:
+	# Out of a slide into the run: the run is asked for again at every fixed step, with the
+	# blend time of a clip into itself (the default); the blend takes the time of its pair.
+	var tuning: MovementTuning = MotorBody.fixed_tuning()
+	var slide: RunnerAnimation.Clip = RunnerAnimation.Clip.RUNNING_SLIDE
+	var run: RunnerAnimation.Clip = RunnerAnimation.Clip.RUNNING
+	var pair: float = RunnerAnimation.blend_time_between(slide, run, tuning)
+	var again: float = RunnerAnimation.blend_time_between(run, run, tuning)
+	assert_ne(pair, again, "the pair has its own time, not the default")
+	var fade: Crossfade = Crossfade.new()
+	fade.go_to(&"running_slide", 0.0)
+	fade.advance(FRAME)
+	assert_true(fade.go_to(&"locomotion", pair), "the run comes from nothing")
+	var frames: int = 0
+	while fade.weight(&"locomotion") < 1.0 and frames < 1000:
+		fade.advance(FRAME)
+		frames += 1
+		# A fixed step at least every other frame of a display at 144 images a second.
+		if frames % 2 == 0:
+			assert_false(fade.go_to(&"locomotion", again), "asked for again: not from nothing")
+	var lasted: float = frames * FRAME
+	gut.p("slide to run lasted %.3f s, its pair %.3f s" % [lasted, pair])
+	assert_almost_eq(lasted, pair, FRAME, "the blend lasts the time of the pair slide to run")

@@ -61,6 +61,18 @@ const MADE_UP_HEAD: int = 2
 const ROLL_SHARES: Array[float] = [0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0]
 ## Of a place that should not move from one step to the next, how far it may move, in m.
 const FIXED: float = 0.001
+## The gaps between the side of the runner and the wall of the runs along a wall the
+## character's tests share, as shares of the reach of a wall run: against the wall, halfway,
+## almost out of reach; and which of them keeps the body at a distance a wall run keeps.
+const GAP_SHARES: Array[float] = [0.0, 0.5, ALMOST_OUT_OF_REACH]
+const HALFWAY: int = 1
+## How many steps the pose of a made-up run is placed, one after the other.
+const POSE_STEPS: int = 20
+
+## The runs along a wall the character's tests share, run once, the wall at the runner's
+## left, then at its right, at each gap of GAP_SHARES; and what was measured of each.
+var _along_the_walls: Array[BesideAWall] = []
+var _watches: Array[BonesAlongTheWall] = []
 
 
 ## One runner beside one wall, the wall at its left, or at its right.
@@ -350,31 +362,24 @@ func test_the_keyboard_diagonal_starts_a_wall_run() -> void:
 		assert_eq(body.motor.state, WALL_RUNNING, "split at %.0f degrees: a wall run" % split)
 
 
+func after_all() -> void:
+	super.after_all()
+	for scene: BesideAWall in _along_the_walls:
+		scene.free()
+	_along_the_walls.clear()
+	_watches.clear()
+
+
 func test_in_a_wall_run_the_feet_are_at_the_wall_and_the_head_moves_away() -> void:
 	# The character itself, along a wall at its left, then at its right, against it or as
 	# far as a wall run allows: its bones measured against the wall. Without the files
 	# (CI), the capsule shows the wall run as before.
 	var tuning: MovementTuning = load(TUNING) as MovementTuning
-	var far: float = tuning.wall_run_distance * ALMOST_OUT_OF_REACH
-	var gaps: Array[float] = [0.0, tuning.wall_run_distance / 2.0, far]
-	var scenes: Array[BesideAWall] = []
-	for at_the_right: bool in [false, true]:
-		for gap: float in gaps:
-			var scene: BesideAWall = BesideAWall.new(gap, 0.0, WALL_SIZE.y, INF, at_the_right)
-			scene.position.x = scenes.size() * ASIDE
-			add_child_autofree(scene)
-			scenes.append(scene)
-	var watches: Array[BonesAlongTheWall] = []
-	for scene: BesideAWall in scenes:
-		watches.append(BonesAlongTheWall.new(scene))
-		scene.launch(FORWARD, 0.0, WALL_RUN_STEPS)
-	while scenes[0].runner.motor.steps < WALL_RUN_STEPS:
-		await get_tree().process_frame
+	await _run_along_the_walls()
 
-	for index: int in scenes.size():
-		var watch: BonesAlongTheWall = watches[index]
-		var side: String = "right" if index >= gaps.size() else "left"
-		var context: String = "a wall at its %s, %.2f m away" % [side, gaps[index % gaps.size()]]
+	for index: int in _along_the_walls.size():
+		var watch: BonesAlongTheWall = _watches[index]
+		var context: String = _context_of(index, tuning)
 		assert_gt(watch.samples, 0, context + ": it ran along the wall")
 		if watch.character == null:
 			_assert_the_capsule_leans(watch, tuning, context)
@@ -405,33 +410,43 @@ func test_the_wall_run_offset_is_fixed() -> void:
 	# Along a wall at its left, then at its right, at a distance a wall run keeps: once the
 	# body has rolled, the visible body is moved across by one offset, step after step, and
 	# the character's hips stay where they are in it: no sway from one key to the next.
+	# Without the files, the pose of a made-up run, placed step after step, does not move.
 	var tuning: MovementTuning = load(TUNING) as MovementTuning
-	var gap: float = tuning.wall_run_distance / 2.0
-	var scenes: Array[BesideAWall] = []
-	var watches: Array[BonesAlongTheWall] = []
-	for at_the_right: bool in [false, true]:
-		var scene: BesideAWall = BesideAWall.new(gap, 0.0, WALL_SIZE.y, INF, at_the_right)
-		scene.position.x = scenes.size() * ASIDE
-		add_child_autofree(scene)
-		scenes.append(scene)
-		watches.append(BonesAlongTheWall.new(scene))
-		scene.launch(FORWARD, 0.0, WALL_RUN_STEPS)
-	while scenes[0].runner.motor.steps < WALL_RUN_STEPS:
-		await get_tree().process_frame
+	var gap: float = tuning.wall_run_distance * GAP_SHARES[HALFWAY]
+	var runs: Array[PackedVector2Array] = [MADE_UP_RUN]
+	var pose: WallRunPose = WallRunPose.measure(runs)
+	var weights: PackedFloat32Array = [1.0]
+	var full: float = deg_to_rad(tuning.wall_run_body_roll)
+	var placed: Array[Array] = [[], []]
+	for step: int in POSE_STEPS:
+		for way: int in placed.size():
+			var roll: float = full * (1.0 if way == 1 else -1.0)
+			placed[way].append(pose.placed(roll, gap, weights, tuning).origin.x)
+		await get_tree().physics_frame
+	for way: int in placed.size():
+		var context: String = "a made-up run along a wall at its %s" % ["left", "right"][way]
+		var across: Array[float] = []
+		across.assign(placed[way])
+		_assert_fixed(across, context + ": its pose, step after step")
+		assert_ne(across[0], 0.0, context + ": moved across")
 
-	for index: int in scenes.size():
-		var watch: BonesAlongTheWall = watches[index]
-		var context: String = "a wall at its %s" % ("right" if index == 1 else "left")
+	await _run_along_the_walls()
+	for index: int in _along_the_walls.size():
+		if index % GAP_SHARES.size() != HALFWAY:
+			continue
+		var watch: BonesAlongTheWall = _watches[index]
+		var context: String = _context_of(index, tuning)
 		assert_gt(watch.across.size(), 1, context + ": steps along the wall, the body rolled")
 		_assert_fixed(watch.across, context + ": the visible body moved across")
 		if watch.character == null:
 			assert_almost_eq(watch.across[0], 0.0, FIXED, context + ": the capsule stays")
 			continue
 		# The runner faces -Z along the wall: the frame of its body is the scene's.
-		var rolled: float = deg_to_rad(tuning.wall_run_body_roll) * (1.0 if index == 1 else -1.0)
+		var right: bool = index >= GAP_SHARES.size()
+		var rolled: float = full * (1.0 if right else -1.0)
 		var run: PackedFloat32Array = watch.locomotion
-		var placed: Transform3D = watch.character.placed_against_the_wall(rolled, gap, run)
-		var offset: float = placed.origin.dot(scenes[index].normal)
+		var where: Transform3D = watch.character.placed_against_the_wall(rolled, gap, run)
+		var offset: float = where.origin.dot(_along_the_walls[index].normal)
 		gut.p("%s: the body moved %.3f m away from the wall" % [context, watch.across[0]])
 		assert_almost_eq(watch.across[0], offset, FIXED, context + ": by the offset of its pose")
 		assert_gt(watch.hips_across.size(), 1, context + ": its hips measured")
@@ -480,6 +495,33 @@ func test_the_feet_brush_the_wall_and_the_head_moves_away() -> void:
 						least = minf(least, distance)
 				var rolled: String = "%s, %d%% rolled" % [context, share * 100]
 				assert_gt(least, minf(upright, 0.0) - 0.001, rolled + ": none behind the wall")
+
+
+## Runs the runners along the walls the character's tests share, once, the first time a
+## test asks for them: along a wall at their left, then at their right, at each gap of
+## GAP_SHARES, for a whole wall run and the fall after it, each one measured.
+func _run_along_the_walls() -> void:
+	if not _along_the_walls.is_empty():
+		return
+	var tuning: MovementTuning = load(TUNING) as MovementTuning
+	for at_the_right: bool in [false, true]:
+		for share: float in GAP_SHARES:
+			var gap: float = tuning.wall_run_distance * share
+			var scene: BesideAWall = BesideAWall.new(gap, 0.0, WALL_SIZE.y, INF, at_the_right)
+			scene.position.x = _along_the_walls.size() * ASIDE
+			add_child(scene)
+			_along_the_walls.append(scene)
+			_watches.append(BonesAlongTheWall.new(scene))
+			scene.launch(FORWARD, 0.0, WALL_RUN_STEPS)
+	while _along_the_walls[0].runner.motor.steps < WALL_RUN_STEPS:
+		await get_tree().process_frame
+
+
+## The run along a wall of the shared ones at `index`, in words.
+func _context_of(index: int, tuning: MovementTuning) -> String:
+	var side: String = "right" if index >= GAP_SHARES.size() else "left"
+	var gap: float = tuning.wall_run_distance * GAP_SHARES[index % GAP_SHARES.size()]
+	return "a wall at its %s, %.2f m away" % [side, gap]
 
 
 ## The frames of the made-up run, each one its places.

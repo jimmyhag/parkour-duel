@@ -147,6 +147,7 @@ animation_run_alone_pace = 1.3
 animation_still_speed = 0.5
 animation_landing_time = 0.25
 animation_max_pace = 1.8
+animation_start_stop_time = 0.18
 wall_run_body_roll = 35.0
 wall_run_roll_time = 0.15
 camera_distance = 4.5
