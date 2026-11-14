@@ -7,6 +7,11 @@ conception (« enchaîne sur tout le reste […] fais tout jusqu'à ce que tu pu
 faire ») : chaque décision ci-dessous est la recommandation de l'assistant, prise à sa
 place, et Jimmy peut rouvrir chacune après avoir joué. Son développement commence quand
 l'étape 2 (`docs/specs/flow-combo.md` et `docs/specs/air-tricks.md`) est fusionnée.
+La feuille de route ne commence une étape que quand la précédente est validée par
+Jimmy (`AGENTS.md`, « Out of scope ») : Jimmy a levé cette attente pour les étapes 2 à 4
+(« enchaîne sur tout le reste, puis une fois que t'as fini ça, enchaîne sur tout le
+reste […] jusqu'à ce que tu puisses plus faire ») ; les étapes 2, 3 et 4 se jugent
+ensemble au point d'arrêt n° 3.
 
 Amendée le 2026-11-14 après le premier développement : viser puis tirer au même pas
 coûtait 0,002 s, si bien que « chaque tir coûte de l'avance » n'était vrai que pour une
@@ -309,7 +314,10 @@ et Jimmy peut rouvrir chacun après avoir joué.
   avant le saut le franchirait : c'est une échappatoire de skill, acceptée ; « visible depuis la section d'avant » se
   lit « visible depuis le départ ».
 - **Les autres cibles** : la plateforme remplace `LongJump1` (même forme), la barrière
-  est sur `LowPassageStart`, l'obstacle tombe de 5 m sur `BigDropLanding`.
+  est sur `LowPassageStart`, l'obstacle (1,8 m de haut, plus qu'un saut, dans la plage
+  d'un mantle) tombe sur `BigDropLanding`, avancé à z = −144,5 pour que le saut depuis
+  son sommet ne fasse pas manquer le checkpoint du rebord ; il coûte environ 0,3 s.
+- **Chaque tir paie sa visée minimale**, même dans une visée gardée après un tir.
 - **L'obstacle et la barrière ne se posent pas sur un coureur** : celui qui est dans la
   zone au début de l'effet est touché, et l'objet se pose dès que la place est libre.
 - **Les zones de touche** : plateforme et pont, leur volume et l'espace au-dessus ;

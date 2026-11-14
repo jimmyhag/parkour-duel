@@ -159,8 +159,8 @@ opponent's course comes with the duel.
 | ---- | ------- | ------ |
 | 0 | Repository, Godot skeleton, harness and gates | done |
 | 1 | Solo movement prototype | done: validated by the owner on 2026-11-14 |
-| 2 | Tricks and flow | in progress: the flow gauge and combo (`docs/specs/flow-combo.md`), then the aerial tricks and the sounds (`docs/specs/air-tricks.md`), are built; the owner has not validated the step yet |
-| 3 | Shooting and sabotage | in progress: aiming, shooting and the four sabotageable targets, on the runner's own course (`docs/specs/sabotage.md`), are built; the owner has not validated the step yet |
+| 2 | Tricks and flow | built: the flow gauge and combo (`docs/specs/flow-combo.md`), the aerial tricks and the sounds (`docs/specs/air-tricks.md`); chained without validation on the owner's delegation (2026-11-14), judged at stop point 3 |
+| 3 | Shooting and sabotage | built: aiming, shooting and the four sabotageable targets, on the runner's own course (`docs/specs/sabotage.md`); chained without validation on the owner's delegation, judged at stop point 3 |
 | 4 | Local duel (ghost, then bot) | not started |
 | 5 | Online PVP | not started |
 | 6 | Art, audio, menus, release | not started |
