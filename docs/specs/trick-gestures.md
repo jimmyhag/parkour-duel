@@ -31,6 +31,9 @@ parfaite) rapportait 64 000 à 72 000 points par minute sur le plat, et les figu
 payées par un wall-run entre deux murs 23 000. Décisions 22 à 27, scénarios marqués
 « troisième amendement ».
 
+Puis, à la demande de Jimmy : « quand on est en wallrun, la sortie de wallrun doit être
+aussi faisable avec des tricks ». Décision 28, scénarios marqués « sortie de mur ».
+
 ## Contexte
 
 Ce que Jimmy a vu en jouant, avec ses mots : « clavier-souris, c'est pas très
@@ -98,6 +101,7 @@ limites de temps des portes.
 | 25 | Ce qui part au lâcher | **Troisième amendement.** Au lâcher, part la **dernière recette validée** ; une recette lue en passant (un « DOUBLE BACKFLIP » d'un instant au début d'une vrille) ne part pas si elle n'a pas été validée. Une recette est validée quand elle est stable depuis `trick_gesture_settle` (**0,1 s**) et que la main ne dépasse pas une longueur de bruit cumulée. Le pavé ne montre l'état validé que si le moteur peut lancer une figure à ce moment (pas en wall-run, en visée, ni après la figure du saut). | Le pavé doit dire exactement ce qui partira (décision 17). |
 | 26 | La sensibilité de la souris | **Troisième amendement.** Le pavé lit la souris à l'échelle de la sensibilité de la caméra (`camera_mouse_sensitivity`) : un joueur qui a réglé sa caméra a réglé son pavé. Le README le dit. | Les seuils étaient en pixels bruts : une souris à grande sensibilité tremblait assez pour ne plus rien lire. |
 | 27 | Les tests manquants | **Troisième amendement.** Le moteur ne lance rien quand le dessin ne se lit pas ; le pavé affiche « ? » avant tout mouvement ; les tests de soutien sans scénario reçoivent le leur. | Mutations non attrapées par la seconde inspection. |
+| 28 | La sortie de mur | **Sortie de mur.** Lâché **en wall-run**, ou dans la tolérance de wall-jump après l'avoir quitté, le bouton de figure fait le **wall-jump** à ce pas et lance la figure dessinée au même pas ; sans dessin, la figure du contexte (side flip à l'opposé du mur). Le wall-jump est celui du bouton de saut (mêmes vitesses), entier. Le pavé peut donc montrer l'état validé en wall-run (ceci corrige la décision 25 pour le wall-run). La figure se pose ensuite comme toute autre. | Demande de Jimmy ; même logique que le saut de figure au sol (second amendement). |
 | 21 | Le Trick Park, mur par mur | **Amendement.** Aucune face d'un bloc du Trick Park n'est dans le même plan que la face d'un bloc voisin qui la touche : chaque mur visible est un seul objet (règle d'`AGENTS.md`). | L'inspection a trouvé un mur de 8 m fait de trois blocs alignés, où un wall-run pouvait se relancer. |
 | 16 | Les réglages | Toutes les valeurs nouvelles (seuils des gestes, durées, fenêtres, points) vivent dans la ressource de réglage, groupe « Tricks » ; F4 les recharge. | Règle d'`AGENTS.md`. |
 
@@ -387,8 +391,8 @@ Fonctionnalité: Figures par gestes
     Alors c'est le backflip, la dernière recette validée, qui part
 
   Scénario: Le pavé ne valide que ce qui peut partir
-    # troisième amendement
-    Soit un coureur en wall-run, puis en visée, qui tient le bouton de figure et dessine un backflip
+    # troisième amendement ; le wall-run en est retiré par la sortie de mur (décision 28)
+    Soit un coureur en visée, puis un coureur qui a déjà fait la figure de son saut, qui tient le bouton de figure et dessine un backflip
     Quand le pavé se met à jour
     Alors il montre la recette sans l'état validé
 
@@ -409,6 +413,30 @@ Fonctionnalité: Figures par gestes
     Soit un coureur en l'air qui a dessiné un geste illisible
     Quand il lâche le bouton de figure
     Alors aucune figure ne commence
+
+  Scénario: Lâcher le bouton en wall-run fait le wall-jump et la figure
+    # sortie de mur
+    Soit un coureur en wall-run qui a dessiné un backflip
+    Quand il lâche le bouton de figure
+    Alors il fait un wall-jump et le backflip commence au même pas
+
+  Scénario: Juste après le mur, le bouton de figure fait encore le wall-jump
+    # sortie de mur
+    Soit un coureur qui vient de quitter un wall-run, dans la tolérance de wall-jump, un backflip dessiné
+    Quand il lâche le bouton de figure
+    Alors il fait un wall-jump et le backflip commence
+
+  Scénario: Sans geste en wall-run, la sortie fait un side flip
+    # sortie de mur
+    Soit un coureur en wall-run
+    Quand il appuie sur le bouton de figure et le lâche sans rien dessiner
+    Alors il fait un wall-jump et un side flip à l'opposé du mur commence
+
+  Scénario: Une sortie de mur aux vraies entrées
+    # sortie de mur
+    Soit un coureur en wall-run le long du mur du Trick Park, mené par les vraies entrées du clavier et de la souris, puis de la manette
+    Quand il dessine un backflip, lâche le bouton de figure, puis appuie sur glissade au bon moment
+    Alors il pose le backflip
 
   Scénario: Le HUD montre la recette en cours de dessin
     Soit un coureur qui tient le bouton de figure
