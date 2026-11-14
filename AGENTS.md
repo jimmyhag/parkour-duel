@@ -55,24 +55,36 @@ assistant. `CLAUDE.md` and `GEMINI.md` only import it: edit this file, not them.
 
 ## Commands
 
-`just check` is the gate: it must pass locally and in CI before every commit.
-`just preflight` is the fast subset for the edit loop: run it after every change,
-`check` before the commit.
+`just check` is the gate: it must pass locally and in CI before every commit, and it
+runs every test. `just preflight` is the fast subset for the edit loop: run it after
+every change, `check` before the commit.
 
-| Command          | Purpose                                                    |
-| ---------------- | ---------------------------------------------------------- |
-| `just setup`     | Install a fresh checkout or worktree (`.venv`, import cache) |
-| `just dev`       | Start the game                                             |
-| `just test`      | Tests once (GUT, headless); `just test <filter>` runs the test scripts whose file name contains the filter |
-| `just typecheck` | Every script loaded by Godot with the typing warnings raised to errors |
-| `just lint`      | `gdlint` and `gdformat --check`; any finding fails. `.venv/bin/gdformat <file>` (`.venv\Scripts\gdformat` on Windows) formats a file |
-| `just deadcode`  | Layer boundaries, dead files and the `.claude/` mirror (`tools/check_structure.py`) |
-| `just preflight` | typecheck + lint + test + deadcode: the edit-loop gate     |
-| `just build`     | Export the Windows and Linux release builds, then start the host platform's one headless |
-| `just check`     | preflight + build: the commit gate                         |
+The tests come in two tiers (`docs/specs/test-tiers.md`). The **course replays**, the
+test scripts whose file name starts with `test_course`, replay the course or one of its
+sections with the test pilot or the bot: they are the slow ones, and `just preflight`
+leaves them out. Every test that loads a course scene (a scene of `game/levels/`),
+directly or through a helper such as `CourseTest`, lives in such a script; `just
+deadcode` refuses one that does not. Time limits on the owner's machine: 30 s for
+`just preflight`, 90 s for `just check`, builds included.
+
+| Command            | Purpose                                                    |
+| ------------------ | ---------------------------------------------------------- |
+| `just setup`       | Install a fresh checkout or worktree (`.venv`, import cache) |
+| `just dev`         | Start the game                                             |
+| `just test`        | Every test once (GUT, headless); `just test <filter>` runs the test scripts whose file name contains the filter |
+| `just test-course` | Only the course replays (`test_course*`)                   |
+| `just typecheck`   | Every script loaded by Godot with the typing warnings raised to errors |
+| `just lint`        | `gdlint` and `gdformat --check`; any finding fails. `.venv/bin/gdformat <file>` (`.venv\Scripts\gdformat` on Windows) formats a file |
+| `just deadcode`    | Layer boundaries, dead files, course replay names and the `.claude/` mirror (`tools/check_structure.py`) |
+| `just preflight`   | typecheck + lint + every test but the course replays + deadcode: the edit-loop gate |
+| `just build`       | Export the Windows and Linux release builds, then start the host platform's one headless |
+| `just check`       | typecheck + lint + every test + deadcode + build: the commit gate |
+
+A tier, like a filter, fails when it runs no test or when GUT's summary does not say
+that every test passed.
 
 Read-only commands, safe for a reviewer: `just typecheck`, `just lint`, `just test`,
-`just deadcode`. `just build` writes to `build/`, which Git ignores.
+`just test-course`, `just deadcode`. `just build` writes to `build/`, which Git ignores.
 
 ## Business invariants (non-negotiable)
 
