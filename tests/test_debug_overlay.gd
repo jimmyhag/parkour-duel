@@ -124,12 +124,12 @@ func test_the_debug_display_shows_the_flow() -> void:
 	overlay.flow = flow
 	add_child_autofree(overlay)
 	_trigger(TOGGLE_DEBUG)
-	# Just under tier 2, then a slide and three jumps: 2075 points, x2, the jump three
-	# times in a row; then half a second on the ground.
+	# Just under tier 2, then a slide, a jump, a roll and a jump: 2175 points, x2, the
+	# jump the second time among the last moves; then half a second on the ground.
 	flow.gauge = 1950.0
 	var none: Array[RunnerEvent] = []
 	for kind: RunnerEvent.Kind in [
-		RunnerEvent.Kind.SLIDE, RunnerEvent.Kind.JUMP, RunnerEvent.Kind.JUMP, RunnerEvent.Kind.JUMP
+		RunnerEvent.Kind.SLIDE, RunnerEvent.Kind.JUMP, RunnerEvent.Kind.ROLL, RunnerEvent.Kind.JUMP
 	]:
 		var events: Array[RunnerEvent] = [RunnerEvent.new(kind, 0)]
 		flow.step(events, tuning.top_speed, false)
@@ -139,10 +139,10 @@ func test_the_debug_display_shows_the_flow() -> void:
 
 	overlay.refresh()
 
-	assert_string_contains(overlay.text, "GAUGE 2075")
+	assert_string_contains(overlay.text, "GAUGE 2175")
 	assert_string_contains(overlay.text, "TIER 2")
 	assert_string_contains(overlay.text, "CHAIN 1.50 s")
-	assert_string_contains(overlay.text, "REPEAT JUMP x3")
+	assert_string_contains(overlay.text, "REPEAT JUMP x2")
 	assert_string_contains(overlay.text, "MULTIPLIER x2")
 	assert_string_contains(overlay.text, "SPEED BONUS 10 %")
 

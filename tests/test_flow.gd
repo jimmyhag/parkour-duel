@@ -17,6 +17,9 @@ const VARIED: Array[RunnerEvent.Kind] = [JUMP, SLIDE, ROLL, MANTLE, WALL_RUN, WA
 ## The chain delay of the fixed tuning (2 s), and its stop duration (1 s), in fixed steps
 ## at 60 steps per second. Written out on purpose, not computed.
 const CHAIN_STEPS: int = 120
+const HALF_CHAIN_STEPS: int = 60
+## Out of a combo, the steps that take a little less than a jump's points from the gauge.
+const DIP_STEPS: int = 29
 const STOP_STEPS: int = 60
 ## The horizontal speed of a runner at the top speed of the fixed tuning, in m/s.
 const RUNNING: float = 9.0
@@ -48,7 +51,7 @@ func test_the_same_move_repeated_in_a_row_is_worth_less_and_less() -> void:
 	assert_eq(worth[3], 0, "nor the ones after")
 	assert_eq(flow.style_score, 100 + 50 + 25, "the style score adds what they are worth")
 	assert_eq(flow.repeated_move, JUMP, "the jump is the repeated move")
-	assert_eq(flow.repeat_count, 4, "four times in a row")
+	assert_eq(flow.repeat_count, 3, "the third time among the last moves")
 
 
 func test_the_end_of_a_combo_resets_the_repetition() -> void:
@@ -66,38 +69,42 @@ func test_the_end_of_a_combo_resets_the_repetition() -> void:
 	assert_eq(flow.repeat_count, 1, "the jump counts from one again")
 
 
-func test_another_move_resets_the_repetition() -> void:
+func test_a_move_absent_from_the_last_four_is_worth_all_its_points() -> void:
 	var flow: FlowState = _flow()
 	_move(flow, JUMP)
+	for kind: RunnerEvent.Kind in [SLIDE, ROLL, MANTLE, WALL_RUN]:
+		_move(flow, kind)
+	assert_true(flow.in_combo(), "a runner in a combo, that jumped, then made four other moves")
+
 	_move(flow, JUMP)
-	assert_eq(flow.last_points, 25, "two jumps in a row")
 
-	_move(flow, SLIDE)
-	assert_eq(flow.last_points, 50, "the slide is worth all its points")
-	_move(flow, JUMP)
+	assert_eq(flow.last_points, 50 * flow.multiplier(), "the jump is worth all its points")
 
-	assert_eq(flow.last_points, 50, "and the jump after it too")
-	assert_eq(flow.repeat_count, 1, "the jump counts from one again")
+	# With only three other moves since, the jump is still among the last four.
+	var sooner: FlowState = _flow()
+	_move(sooner, JUMP)
+	for kind: RunnerEvent.Kind in [SLIDE, ROLL, MANTLE]:
+		_move(sooner, kind)
+	_move(sooner, JUMP)
+	assert_eq(sooner.last_points, 25 * 2, "three moves since: half of its points, x2")
 
 
-func test_a_repeated_move_worth_nothing_still_extends_the_combo() -> void:
+func test_a_move_worth_nothing_does_not_extend_the_combo() -> void:
 	var flow: FlowState = _flow()
-	for i: int in 3:
-		_move(flow, JUMP)
+	for kind: RunnerEvent.Kind in [ROLL, JUMP, JUMP]:
+		_move(flow, kind)
+	assert_eq(flow.last_points, 25, "the last move that was worth something")
+	_wait(flow, HALF_CHAIN_STEPS)
+
+	_move(flow, JUMP)
+
 	assert_eq(flow.last_points, 0, "the jump is worth nothing any more")
-	_wait(flow, CHAIN_STEPS - 1)
-	assert_true(flow.in_combo(), "the combo is still on, at the last step of its delay")
-	assert_eq(flow.multiplier(), 1)
-
-	_move(flow, JUMP)
-
-	assert_eq(flow.last_points, 0, "the jump is still worth nothing")
-	assert_true(flow.in_combo(), "the combo goes on")
-	assert_eq(flow.multiplier(), 2, "the jump was the fourth move of the combo")
-	_wait(flow, CHAIN_STEPS - 1)
-	assert_true(flow.in_combo(), "its delay started again at that jump")
-	_move(flow, SLIDE)
-	assert_eq(flow.last_points, 50 * 2, "the next move is counted at the new multiplier")
+	assert_eq(flow.multiplier(), 1, "and does not count for the multiplier")
+	_wait(flow, HALF_CHAIN_STEPS - 1)
+	assert_true(flow.in_combo(), "one step before the delay since the last move worth something")
+	_wait(flow, 1)
+	assert_false(flow.in_combo(), "the combo is over: the jump did not extend it")
+	assert_eq(flow.combos_broken, 0, "it ended, it was not broken")
 
 
 func test_the_multiplier_rises_every_four_moves() -> void:
@@ -196,12 +203,14 @@ func test_stopping_breaks_the_combo() -> void:
 
 func test_a_fall_off_the_course_empties_the_gauge_and_keeps_the_rest() -> void:
 	var flow: FlowState = _flow()
-	flow.gauge = _tuning.flow_tier_value - 10.0
-	_move(flow, WALL_RUN)
+	# 300 points at x1, then 300 + 100 + 300 at x2: 1 000 points of style.
+	for index: int in 7:
+		_move(flow, VARIED[index % VARIED.size()])
 	_move(flow, WALL_RUN)
 	assert_eq(flow.ammo, 1, "a runner with ammunition")
 	assert_gt(flow.gauge, 0.0, "gauge")
-	assert_eq(flow.style_score, 150 + 75, "and a style score")
+	var score: int = flow.style_score
+	assert_gt(score, 0, "and a style score")
 	assert_true(flow.in_combo())
 
 	flow.respawn()
@@ -210,7 +219,7 @@ func test_a_fall_off_the_course_empties_the_gauge_and_keeps_the_rest() -> void:
 	assert_false(flow.in_combo(), "the combo is broken")
 	assert_eq(flow.combos_broken, 1)
 	assert_eq(flow.ammo, 1, "the ammunition stays")
-	assert_eq(flow.style_score, 150 + 75, "and the style score")
+	assert_eq(flow.style_score, score, "and the style score")
 	_move(flow, WALL_RUN)
 	assert_eq(flow.last_points, 150, "the repetition is back to zero")
 
@@ -280,57 +289,53 @@ func test_the_speed_bonus_follows_the_gauge_down() -> void:
 	assert_eq(flow.speed_bonus(), 0.0, "then none")
 
 
-func test_crossing_a_tier_upwards_gives_ammunition() -> void:
+func test_every_slice_of_style_points_gives_ammunition() -> void:
 	var flow: FlowState = _flow()
-	flow.gauge = _tuning.flow_tier_value - 40.0
-	assert_eq(flow.ammo, 0, "a runner without ammunition, just under the first tier")
+	# 50 + 50 + 100 + 100 at x1, then 150 + 150 at x2: 900 points of style.
+	for index: int in 6:
+		_move(flow, VARIED[index])
+	_wait(flow, CHAIN_STEPS + 10 * STEPS_PER_SECOND)
+	assert_eq(flow.style_score, 900, "900 points of style")
+	assert_eq(flow.ammo, 0, "and no ammunition yet")
+	assert_eq(flow.gauge, 0.0, "the gauge back to empty: no tier to cross")
 
-	_move(flow, JUMP)
-
-	assert_eq(flow.tier(), 1, "the jump crossed the first tier")
-	assert_eq(flow.ammo, 1, "it has one ammunition")
-	assert_eq(flow.tiers_crossed, 1)
-	assert_eq(flow.last_tier_crossed, 1)
-	_move(flow, SLIDE)
-	assert_eq(flow.ammo, 1, "a move that crosses no tier gives none")
-	# Back under the tier, then over it again.
-	_wait(flow, CHAIN_STEPS + 2 * STEPS_PER_SECOND)
-	assert_eq(flow.tier(), 0, "under the first tier again")
 	_move(flow, WALL_RUN)
-	assert_eq(flow.tier(), 1, "and over it again")
-	assert_eq(flow.ammo, 2, "crossing it again gives another one")
+
+	assert_eq(flow.last_points, 150, "a move that earns 150 points")
+	assert_eq(flow.ammo, 1, "it has one ammunition")
+	assert_eq(flow.ammo_progress, 50, "and 50 points already count for the next one")
+	assert_eq(flow.tier(), 0, "with a gauge under the first tier")
 
 
-func test_a_full_gauge_keeps_giving_ammunition_for_style() -> void:
+func test_a_gauge_that_drops_then_rises_again_gives_no_extra_ammunition() -> void:
 	var flow: FlowState = _flow()
 	flow.gauge = flow.max_gauge()
-	_move(flow, WALL_RUN)
-	assert_eq(flow.ammo, 0, "a runner without ammunition, the gauge full, in a combo")
-	var beyond_full: int = flow.last_points
+	assert_false(flow.in_combo(), "a full gauge, no combo, no style yet")
 
-	var index: int = 0
-	while beyond_full + _next_points(flow, index) < _tuning.flow_tier_value:
-		_move(flow, VARIED[index % VARIED.size()])
-		beyond_full += flow.last_points
-		index += 1
-		assert_eq(flow.ammo, 0, "%d points beyond full: no ammunition yet" % beyond_full)
-	_move(flow, VARIED[index % VARIED.size()])
-	beyond_full += flow.last_points
+	# The gauge drops a little under tier 3, then a jump takes it over again: many times.
+	# Each jump starts a combo, which holds the gauge for its delay, then it drops again.
+	for i: int in 24:
+		_wait(flow, DIP_STEPS if i == 0 else CHAIN_STEPS + DIP_STEPS)
+		assert_lt(flow.tier(), 3, "round %d: under tier 3" % i)
+		_move(flow, JUMP)
+		assert_eq(flow.tier(), 3, "round %d: over it again" % i)
 
-	assert_gte(beyond_full, int(_tuning.flow_tier_value), "the moves earned a tier beyond full")
-	assert_eq(flow.ammo, 1, "it has one ammunition")
-	assert_eq(flow.gauge, flow.max_gauge(), "and the gauge stays full")
+	assert_eq(flow.style_score, 24 * 50, "1 200 points of style")
+	assert_eq(flow.ammo, 1, "one ammunition, what the style points give, no more")
 
 
 func test_ammunition_does_not_go_above_its_maximum() -> void:
 	var flow: FlowState = _flow()
 	flow.ammo = _tuning.flow_max_ammo
-	flow.gauge = _tuning.flow_tier_value - 40.0
+	assert_eq(flow.ammo, 3, "a runner with the most ammunition it may hold")
 
-	_move(flow, JUMP)
+	# 50 + 50 + 100 + 100 at x1, then 150 + 150 + 50 + 50 at x2: 1 100 points.
+	for index: int in 8:
+		_move(flow, VARIED[index % VARIED.size()])
 
-	assert_eq(flow.tier(), 1, "the gauge crossed a tier upwards")
-	assert_eq(flow.ammo, 3, "the runner still has the most it may hold")
+	assert_eq(flow.style_score, 1100, "it earned another slice of style points")
+	assert_eq(flow.ammo, 3, "it still has the most")
+	assert_eq(flow.ammo_progress, 100, "what is over the slice counts for the next one")
 
 
 func test_at_the_finish_the_flow_freezes() -> void:
@@ -395,12 +400,6 @@ func _wait(flow: FlowState, steps: int, on_foot: bool = true, speed: float = RUN
 	for i: int in steps:
 		_step += 1
 		flow.step(none, speed, on_foot)
-
-
-## What the move `index` of VARIED will earn next in `flow`: never a repeat, so all its
-## points, at the multiplier of the moment.
-func _next_points(flow: FlowState, index: int) -> int:
-	return _points(VARIED[index % VARIED.size()]) * flow.multiplier()
 
 
 func _points(kind: RunnerEvent.Kind) -> int:

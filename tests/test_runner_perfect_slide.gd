@@ -80,6 +80,8 @@ func test_a_slide_out_of_the_window_is_a_plain_slide() -> void:
 
 func test_perfect_slides_do_not_raise_the_speed_without_end() -> void:
 	var flow: FlowState = FlowState.new(_tuning, 60)
+	# A gauge at tier 2: the repeated moves soon earn nothing, the bonus stays.
+	flow.gauge = 2.5 * _tuning.flow_tier_value
 	var body: MotorBody = MotorBody.running(_tuning, FORWARD, _tuning.top_speed)
 	var gain: float = _tuning.perfect_slide_speed_gain
 	var perfect_slides: int = 0

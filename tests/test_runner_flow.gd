@@ -19,6 +19,9 @@ const HARD_LANDING: RunnerEvent.Kind = RunnerEvent.Kind.HARD_LANDING
 ## per second. Written out on purpose, not computed.
 const CHAIN_STEPS: int = 120
 const HALF_CHAIN_STEPS: int = 60
+## Steps a runner stays on its feet between two moves on the flat: past the window of a
+## perfect slide (0.15 s, 9 steps).
+const STEPS_ON_FOOT_BETWEEN_MOVES: int = 12
 ## A wall at the left of a runner going along -Z, close to its side, and tall.
 const LEFT_WALL: Vector3 = Vector3.RIGHT
 const A_WALL: int = 1
@@ -116,6 +119,73 @@ func test_a_wall_jump_does_not_also_count_as_a_jump() -> void:
 	assert_eq(flow.last_move, WALL_JUMP, "the wall jump is counted")
 	assert_eq(flow.moves_counted, 2, "and nothing else")
 	assert_eq(flow.style_score, 150 + 150, "a wall run and a wall jump")
+
+
+func test_alternating_jump_and_slide_on_the_flat_does_not_fill_the_gauge_without_end() -> void:
+	var flow: FlowState = _flow()
+	var body: MotorBody = MotorBody.running(_tuning, FORWARD, _tuning.top_speed)
+	var worth: Array[int] = []
+	var moves_when_the_combo_ended: int = -1
+	var steps_on_foot: int = 0
+	var last_was_a_jump: bool = false
+	var steps: int = 0
+
+	# On the flat: run a little, jump, land, run a little, slide with a new press, jump out
+	# of the slide, and so on.
+	while moves_when_the_combo_ended < 0 and steps < MANY_STEPS * 10:
+		var intent: MoveIntent = _run(FORWARD)
+		match body.motor.state:
+			RunnerMotor.State.SLIDING:
+				intent = _jump(FORWARD)
+			RunnerMotor.State.GROUNDED:
+				steps_on_foot += 1
+				if steps_on_foot > STEPS_ON_FOOT_BETWEEN_MOVES:
+					intent = _slide(FORWARD) if last_was_a_jump else _jump(FORWARD)
+			_:
+				steps_on_foot = 0
+		var was_in_combo: bool = flow.in_combo()
+		_follow(body, flow, intent)
+		steps += 1
+		for event: RunnerEvent in body.motor.events:
+			assert_true(event.kind == JUMP or event.kind == SLIDE, "only jumps and slides")
+			last_was_a_jump = event.kind == JUMP
+			worth.append(flow.last_points)
+		if was_in_combo and not flow.in_combo():
+			moves_when_the_combo_ended = worth.size()
+
+	var first_four: Array[int] = [50, 50, 25, 25]
+	assert_eq(worth.slice(0, 4), first_four, "the first four moves: all, all, half, half")
+	assert_gt(moves_when_the_combo_ended, 8, "then several more moves")
+	var after_the_fourth: Array[int] = worth.slice(4, moves_when_the_combo_ended)
+	var most: int = after_the_fourth.max()
+	assert_eq(most, 0, "from the fifth move on, none is worth anything")
+	assert_eq(flow.combos_broken, 0, "and the combo ends, by its delay")
+	assert_almost_eq(flow.gauge, 150.0, 1.0, "the gauge kept what the first four gave")
+
+
+func test_a_held_slide_counts_only_once() -> void:
+	var flow: FlowState = _flow()
+	var body: MotorBody = MotorBody.running(_tuning, FORWARD, _tuning.top_speed)
+	var slides_started: int = 0
+	var slides_counted: int = 0
+
+	# The slide pressed once and held down; the jump pressed whenever the runner can.
+	for step: int in 5 * STEPS_PER_SECOND:
+		var intent: MoveIntent = _run(FORWARD)
+		intent.slide_held = true
+		intent.slide_pressed = step == 0
+		var before: RunnerMotor.State = body.motor.state
+		if before == RunnerMotor.State.SLIDING or before == RunnerMotor.State.GROUNDED:
+			intent.jump_pressed = true
+			intent.jump_held = true
+		_follow(body, flow, intent)
+		var sliding: bool = body.motor.state == RunnerMotor.State.SLIDING
+		slides_started += int(sliding and before != RunnerMotor.State.SLIDING)
+		for event: RunnerEvent in body.motor.events:
+			slides_counted += int(event.kind == SLIDE or event.kind == PERFECT_SLIDE)
+
+	assert_gt(slides_started, 3, "the runner slid again and again")
+	assert_eq(slides_counted, 1, "only the first slide counts")
 
 
 func test_the_delay_does_not_run_in_the_air() -> void:

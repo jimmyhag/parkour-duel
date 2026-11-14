@@ -39,6 +39,8 @@ var _steps_since_jump_request: int = LONG_AGO
 var _steps_since_slide_press: int = LONG_AGO
 ## Steps since the runner last landed after a fall.
 var _steps_since_landing: int = LONG_AGO
+## The slide was pressed since the last slide started: the next one counts.
+var _slide_pressed_since_the_last_slide: bool = false
 var _jump_spent: bool = true
 var _jump_cut: bool = false
 ## Where the slide is heading: what moves a runner that a low ceiling keeps down.
@@ -103,6 +105,7 @@ func reset() -> void:
 	_real_velocity = Vector3.ZERO
 	events.clear()
 	_steps_since_landing = LONG_AGO
+	_slide_pressed_since_the_last_slide = false
 	_steps_in_the_air = LONG_AGO
 	_steps_since_jump_request = LONG_AGO
 	_jump_spent = true
@@ -211,6 +214,7 @@ func _remember_requests(intent: MoveIntent) -> void:
 		_steps_since_jump_request = mini(_steps_since_jump_request + 1, LONG_AGO)
 	if intent.slide_pressed and heeded:
 		_steps_since_slide_press = 0
+		_slide_pressed_since_the_last_slide = true
 	else:
 		_steps_since_slide_press = mini(_steps_since_slide_press + 1, LONG_AGO)
 
@@ -304,8 +308,13 @@ func _choose_floor_state(intent: MoveIntent, facts: RunnerFacts) -> void:
 ## landing, the slide pressed at most that long before touching the floor or after: its
 ## horizontal speed gains the tuned speed the way it slides, but never beyond the top
 ## speed of the moment plus that gain, so that perfect slides in a row do not add up; a
-## runner already faster keeps its speed. The absolute cap holds too (see _move).
+## runner already faster keeps its speed. The absolute cap holds too (see _move). Only a
+## slide pressed since the last one counts: a slide held down through several is
+## announced once, and is never perfect again.
 func _start_slide() -> void:
+	if not _slide_pressed_since_the_last_slide:
+		return
+	_slide_pressed_since_the_last_slide = false
 	var window: int = _window_steps(tuning.perfect_slide_window)
 	if _steps_since_landing > window or _steps_since_slide_press > window:
 		_announce(RunnerEvent.Kind.SLIDE)

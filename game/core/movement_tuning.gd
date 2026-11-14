@@ -118,9 +118,11 @@ extends Resource
 @export var flow_points_wall_jump: int = 0
 ## Least horizontal speed of a jump that counts, as a share of the top speed (0 to 1).
 @export_range(0.0, 1.0) var flow_jump_min_speed_share: float = 0.0
-## Share of its points a move is worth the second time in a row (0 to 1).
+## How many of the last moves of a combo a move is judged against.
+@export var flow_repetition_window: int = 0
+## Share of its points a move is worth when it is once among those last moves (0 to 1).
 @export_range(0.0, 1.0) var flow_second_time_share: float = 0.0
-## Share of its points a move is worth the third time in a row and after (0 to 1).
+## Share of its points a move is worth when it is twice or more among them (0 to 1).
 @export_range(0.0, 1.0) var flow_later_times_share: float = 0.0
 ## Longest time on the ground between two moves of a combo, in s.
 @export var flow_chain_delay: float = 0.0
@@ -138,6 +140,8 @@ extends Resource
 @export var flow_tier_speed_bonus: Array[float] = []
 ## Most ammunition held at once.
 @export var flow_max_ammo: int = 0
+## Style points that give one ammunition.
+@export var flow_points_per_ammo: int = 0
 ## Time before and after a landing during which a slide press makes a perfect slide, in s.
 @export var perfect_slide_window: float = 0.0
 ## Horizontal speed a perfect slide gains, in m/s.

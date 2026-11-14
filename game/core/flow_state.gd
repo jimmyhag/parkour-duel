@@ -1,7 +1,8 @@
 class_name FlowState
 extends RefCounted
-## The flow of one runner: the gauge its moves fill, the combo that chains them and its
-## multiplier, the ammunition the gauge gives, and the style score of the run. It counts
+## The flow of one runner: the gauge its moves fill and the speed it gives, the combo
+## that chains them and its multiplier, the style score of the run and the ammunition its
+## style points give. It counts
 ## only from what the motor announces (RunnerEvent), the speed and the ground contact
 ## the motor knows, and the orders of the course: respawn, restart, finish. Time is
 ## counted in fixed steps. Nothing is saved to disk.
@@ -9,18 +10,22 @@ extends RefCounted
 ## The gauge, in points: from 0 to the value of a tier times the number of tiers.
 var gauge: float = 0.0
 var ammo: int = 0
+## Style points earned since the last ammunition, towards the next one. Kept through
+## the combos and the falls, even with the most ammunition held.
+var ammo_progress: int = 0
 ## The style score of the run: the sum of the points of its moves, multiplied.
 var style_score: int = 0
 ## The best style score of a finished run of the session.
 var best_style_score: int = 0
 ## The run is finished: nothing counts until it restarts.
 var frozen: bool = false
-## The move last counted, and how many times in a row it was (0 after an error).
+## The move last judged, and how many times it was among the last moves of the combo,
+## itself included (0 once the combo is over).
 var repeated_move: RunnerEvent.Kind = RunnerEvent.Kind.JUMP
 var repeat_count: int = 0
-## What the displays announce: the moves counted in the session, the last one and the
-## points it earned; the tiers crossed upwards in the session and the last one; the
-## combos broken by an error in the session.
+## What the displays announce: the moves judged in the session, the last one and the
+## points it earned (0 for a move worth nothing); the tiers crossed upwards in the
+## session and the last one; the combos broken by an error in the session.
 var moves_counted: int = 0
 var last_move: RunnerEvent.Kind = RunnerEvent.Kind.JUMP
 var last_points: int = 0
@@ -30,15 +35,15 @@ var combos_broken: int = 0
 var tuning: MovementTuning
 
 var _steps_per_second: int
-## Moves of the combo under way: 0 out of a combo.
+## Moves of the combo under way that were worth something: 0 out of a combo.
 var _combo_moves: int = 0
-## Steps spent on the ground since the last move of the combo.
+## The last moves of the combo that were worth something, the oldest first: what a move
+## is judged against.
+var _last_moves: Array[RunnerEvent.Kind] = []
+## Steps spent on the ground since the last move of the combo that was worth something.
 var _steps_on_the_ground: int = 0
 ## Steps the runner has stood still on the ground, in a row.
 var _steps_stopped: int = 0
-## Points earned beyond a full gauge since it is full, and not turned into ammunition
-## yet.
-var _beyond_full: float = 0.0
 
 
 func _init(movement_tuning: MovementTuning, steps_per_second: int) -> void:
@@ -50,8 +55,7 @@ func _init(movement_tuning: MovementTuning, steps_per_second: int) -> void:
 ## real horizontal speed (m/s), and whether it is on its feet on the ground. On the
 ## ground the delay of the combo runs, and its end resets the repetition; the moves are
 ## counted; a runner that stays still has stopped. The gauge drops at a step spent out
-## of a combo from its start to its end. What was earned beyond a full gauge only counts
-## while it stays full.
+## of a combo from its start to its end.
 func step(events: Array[RunnerEvent], horizontal_speed: float, on_foot: bool) -> void:
 	if frozen:
 		return
@@ -59,15 +63,12 @@ func step(events: Array[RunnerEvent], horizontal_speed: float, on_foot: bool) ->
 	if was_in_combo and on_foot:
 		_steps_on_the_ground += 1
 		if _steps_on_the_ground >= _steps(tuning.flow_chain_delay):
-			_combo_moves = 0
-			repeat_count = 0
+			_end_the_combo()
 	for event: RunnerEvent in events:
 		_count(event.kind, horizontal_speed)
 	_watch_for_a_stop(horizontal_speed, on_foot)
 	if not was_in_combo and not in_combo():
 		gauge = maxf(gauge - tuning.flow_decay / _steps_per_second, 0.0)
-	if gauge < max_gauge():
-		_beyond_full = 0.0
 
 
 ## Counts the fixed step the motor just played, then gives the motor the speed bonus of
@@ -84,7 +85,6 @@ func respawn() -> void:
 		return
 	_break_the_combo()
 	gauge = 0.0
-	_beyond_full = 0.0
 	_steps_stopped = 0
 
 
@@ -93,12 +93,10 @@ func restart() -> void:
 	frozen = false
 	gauge = 0.0
 	ammo = 0
+	ammo_progress = 0
 	style_score = 0
-	_combo_moves = 0
-	_steps_on_the_ground = 0
+	_end_the_combo()
 	_steps_stopped = 0
-	_beyond_full = 0.0
-	repeat_count = 0
 
 
 ## The run is over: the flow freezes, and its style score may be the best of the session.
@@ -150,10 +148,11 @@ func max_gauge() -> float:
 	return tuning.flow_tier_value * tuning.flow_tier_count
 
 
-## A move earns its points, worth less when it repeats the one before, multiplied by the
-## multiplier the combo had before it; it goes on with the combo even when it is worth
-## nothing. A jump without enough speed is no move at all. A hard landing is an error,
-## and costs one tier.
+## A move earns its points, worth less for each time it is among the last moves of the
+## combo, multiplied by the multiplier the combo had before it. A move worth nothing earns
+## nothing, does not go on with the combo and does not count for the multiplier. A jump
+## without enough speed is no move at all. A hard landing is an error, and costs one
+## tier.
 func _count(kind: RunnerEvent.Kind, horizontal_speed: float) -> void:
 	if kind == RunnerEvent.Kind.HARD_LANDING:
 		_break_the_combo()
@@ -162,30 +161,44 @@ func _count(kind: RunnerEvent.Kind, horizontal_speed: float) -> void:
 	var least_speed: float = tuning.top_speed * tuning.flow_jump_min_speed_share
 	if kind == RunnerEvent.Kind.JUMP and horizontal_speed < least_speed:
 		return
-	if repeat_count > 0 and kind == repeated_move:
-		repeat_count += 1
-	else:
-		repeated_move = kind
-		repeat_count = 1
-	var points: int = roundi(_points(kind) * _repetition_share()) * multiplier()
-	_combo_moves += 1
-	_steps_on_the_ground = 0
-	style_score += points
-	_fill(points)
+	var times: int = _last_moves.count(kind)
+	repeated_move = kind
+	repeat_count = times + 1
+	var points: int = roundi(_points(kind) * _repetition_share(times)) * multiplier()
 	moves_counted += 1
 	last_move = kind
 	last_points = points
+	if points <= 0:
+		return
+	_combo_moves += 1
+	_steps_on_the_ground = 0
+	_last_moves.append(kind)
+	while _last_moves.size() > tuning.flow_repetition_window:
+		_last_moves.pop_front()
+	style_score += points
+	_earn_ammo(points)
+	_fill(points)
 
 
-## What the move counted now is worth, as a share of its points, for the times in a row
-## it was made.
-func _repetition_share() -> float:
-	match repeat_count:
-		1:
+## The share of its points a move is worth, for the times it is among the last moves.
+func _repetition_share(times: int) -> float:
+	match times:
+		0:
 			return 1.0
-		2:
+		1:
 			return tuning.flow_second_time_share
 	return tuning.flow_later_times_share
+
+
+## Style points go towards the next ammunition: each slice of them gives one, up to the
+## most the runner may hold, and what is over goes towards the next one.
+func _earn_ammo(points: int) -> void:
+	ammo_progress += points
+	if tuning.flow_points_per_ammo <= 0:
+		return
+	while ammo_progress >= tuning.flow_points_per_ammo:
+		ammo_progress -= tuning.flow_points_per_ammo
+		ammo = mini(ammo + 1, tuning.flow_max_ammo)
 
 
 ## The points of a move, before the repetition and the multiplier.
@@ -202,25 +215,14 @@ func _points(kind: RunnerEvent.Kind) -> int:
 	return points[kind]
 
 
-## The gauge gains `points`, up to its maximum; every tier it crosses upwards gives one
-## ammunition, up to the most the runner may hold. Full, it keeps what goes beyond: each
-## time that reaches the value of a tier, one more ammunition, and the count goes on
-## with what is left over.
+## The gauge gains `points`, up to its maximum; a tier crossed upwards is announced.
 func _fill(points: int) -> void:
 	var before: int = tier()
-	var room: float = max_gauge() - gauge
 	gauge = minf(gauge + points, max_gauge())
 	var after: int = tier()
 	if after > before:
-		ammo = mini(ammo + after - before, tuning.flow_max_ammo)
 		tiers_crossed += 1
 		last_tier_crossed = after
-	if points <= room or tuning.flow_tier_value <= 0.0:
-		return
-	_beyond_full += points - room
-	while _beyond_full >= tuning.flow_tier_value:
-		_beyond_full -= tuning.flow_tier_value
-		ammo = mini(ammo + 1, tuning.flow_max_ammo)
 
 
 ## A runner on its feet slower than the stop speed for the stop duration has stopped: an
@@ -234,12 +236,18 @@ func _watch_for_a_stop(horizontal_speed: float, on_foot: bool) -> void:
 		_break_the_combo()
 
 
-## An error: the combo is over, its multiplier back to x1, and the repetition to zero.
+## An error: the combo is over, broken.
 func _break_the_combo() -> void:
 	if in_combo():
 		combos_broken += 1
+	_end_the_combo()
+
+
+## The combo is over: its multiplier back to x1, and its last moves forgotten.
+func _end_the_combo() -> void:
 	_combo_moves = 0
 	_steps_on_the_ground = 0
+	_last_moves.clear()
 	repeat_count = 0
 
 

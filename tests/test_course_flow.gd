@@ -182,11 +182,22 @@ func test_restarting_resets_everything() -> void:
 	await _replay(course, ScriptedIntentSource.new().request_restart(), 0)
 	assert_false(flow.frozen, "a new run")
 	_start_at(course, SHORT_JUMPS)
-	flow.gauge = course.player.tuning.flow_tier_value - 100.0
-	_count(flow, WALL_RUN_MOVE)
+	# 300 points at x1, then 300 + 300 + 100 + 150 at x2: 1 150 points of style.
+	for kind: RunnerEvent.Kind in [
+		RunnerEvent.Kind.JUMP,
+		RunnerEvent.Kind.SLIDE,
+		RunnerEvent.Kind.ROLL,
+		RunnerEvent.Kind.MANTLE,
+		WALL_RUN_MOVE,
+		WALL_JUMP_MOVE,
+		RunnerEvent.Kind.JUMP,
+		WALL_RUN_MOVE,
+	]:
+		_count(flow, kind)
 	assert_true(flow.in_combo(), "a runner with gauge, a combo")
 	assert_eq(flow.ammo, 1, "ammunition")
-	assert_eq(flow.style_score, 150, "and a style score")
+	assert_eq(flow.ammo_progress, 150, "points towards the next one")
+	assert_eq(flow.style_score, 1150, "and a style score")
 
 	await _replay(course, ScriptedIntentSource.new().request_restart(), 0)
 
@@ -195,6 +206,7 @@ func test_restarting_resets_everything() -> void:
 	assert_false(flow.in_combo(), "no combo")
 	assert_eq(flow.multiplier(), 1)
 	assert_eq(flow.ammo, 0, "no ammunition")
+	assert_eq(flow.ammo_progress, 0, "nor points towards one")
 	assert_eq(flow.style_score, 0, "a style score at zero")
 	assert_eq(flow.best_style_score, 300, "the best style score of the session stays")
 	_count(flow, WALL_RUN_MOVE)
