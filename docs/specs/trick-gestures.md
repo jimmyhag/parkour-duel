@@ -223,7 +223,7 @@ Fonctionnalité: Figures par gestes
   Scénario: Une boucle sans risque sur le plat rapporte peu
     Soit un coureur qui, sur le plat, enchaîne pendant une minute saut, figure et réception parfaite, en variant les figures qui tiennent dans un saut à plat
     Quand on compte ce qu'il a gagné
-    Alors son style par minute reste sous le seuil écrit dans la spec après la mesure de la décision 15
+    Alors son style par minute reste sous 4 800 (3 790 mesurés)
 
   # --- Vraies entrées et vraie physique ---
 
@@ -272,6 +272,39 @@ Fonctionnalité: Figures par gestes
   plus, après les duels.
 - **Libellés** (en anglais) : « TRICK PARK », « ? », les noms de
   `docs/specs/air-tricks.md`.
+
+## Choix acceptés après le développement
+
+Le code et la session principale ont tranché ces points le 2026-11-14 ; Jimmy peut
+rouvrir chacun après avoir joué.
+
+- **La boucle sans risque sur le plat (décision 15)** : avec la fenêtre de répétition du
+  flow à 4 moves et une vrille de 0,15 s, enchaîner les six figures qui tenaient dans un
+  saut à plat, toutes en PERFECT, rapportait 156 200 points de style par minute. La
+  fenêtre de répétition passe à **10 moves** (`flow_repetition_window`, réglage du
+  projet) et une vrille dure **0,3 s** (`trick_twist_duration`) : une figure vrillée ne
+  tient plus dans un saut à plat, il reste les quatre simples, et la boucle rapporte
+  **3 790** points par minute (75 en sautant sans figure). Le test refuse plus de 4 800.
+- **Les seuils des gestes** (dans la ressource de réglage) : un coup sec fait au moins
+  80 px de souris ou environ 0,08 s de stick à fond ; un dessin de moins de 30 px compte
+  comme rien (la figure du contexte part) ; un demi-cercle se lit dès 120°, un cercle dès
+  270° ; une pause de 0,05 s ou un virage de plus de 90° sépare deux éléments ; le retour
+  de la main entre deux coups est ignoré. À régler par Jimmy en jouant.
+- **Le spin** : un deuxième cercle fait un 720, un troisième un 1080, trois tours au plus.
+- **« À l'arrêt »** pour la figure du contexte : sous la vitesse d'arrêt du flow (1 m/s).
+- **Le côté d'un side flip** ne compte pas pour la variété ; une figure du contexte est le
+  même move que la recette dessinée qui lui correspond.
+- **Le sens de la vrille** suit le sens du demi-cercle ; les points ne changent pas.
+- **Poser** : un appui dans la fenêtre compte même avant la fin de la figure, si elle est
+  finie au contact ; un appui au pas du contact est un PERFECT ; un appui entre 0,2 et
+  0,25 s avant le sol pose la figure mais ne fait pas rouler (fenêtre de roulade 0,2 s).
+- **Le dessin à la souris** marche même souris non capturée ; la caméra, elle, demande la
+  capture.
+- **Le HUD** : bouton tenu, le dessin passe avant la figure en cours ; « ? » aussi pour un
+  dessin vide.
+- **Le Trick Park** : 120 m × 120 m, blocs de 1, 2, 3, 5 et 8 m (5 et 8 m par des marches
+  de 2,5 m), deux murs face à face à 4 m, un mur à wall-run ; pas de réticule, et
+  recommencer n'y fait rien.
 
 ## Hors périmètre
 
