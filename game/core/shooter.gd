@@ -3,6 +3,7 @@ extends RefCounted
 ## The weapon of one runner: whether it aims, what it aims at (the facts the player layer
 ## observed under the reticle, AimFacts), what its reticle shows, and its shots. A shot
 ## goes only once the aim has been held without a break for the least aim of the tuning,
+## counted on the ground only (it waits in the air, without starting over),
 ## at a ready target within range that the runner can pay for: it is then a dated message
 ## (SabotageMessage) given to the board of the targets, and its cost is spent from the
 ## flow. Otherwise nothing happens and nothing is spent.
@@ -23,7 +24,8 @@ var last_message: SabotageMessage
 var tuning: MovementTuning
 
 var _steps_per_second: int
-## Steps the aim has been held without a break, this one included: 0 while not aiming.
+## Steps the aim has been held on the ground without a break, this one included: 0 while
+## not aiming; it does not grow in the air.
 var _steps_aiming: int = 0
 
 
@@ -34,14 +36,23 @@ func _init(runner_id: int, movement_tuning: MovementTuning, steps_per_second: in
 
 
 ## One fixed step of the runner, at its step `step`: its intent, the facts under its
-## reticle, the targets it may shoot and its flow. Returns the message of the shot it
+## reticle, the targets it may shoot, its flow, and whether it is on the ground (on its
+## feet, sliding or rolling). Returns the message of the shot it
 ## fired, or null.
 func follow(
-	intent: MoveIntent, facts: AimFacts, step: int, board: TargetBoard, flow: FlowState
+	intent: MoveIntent,
+	facts: AimFacts,
+	step: int,
+	board: TargetBoard,
+	flow: FlowState,
+	on_the_ground: bool
 ) -> SabotageMessage:
 	aiming = intent.aim_held
 	aim = facts if aiming else AimFacts.new()
-	_steps_aiming = _steps_aiming + 1 if aiming else 0
+	if not aiming:
+		_steps_aiming = 0
+	elif on_the_ground:
+		_steps_aiming += 1
 	var message: SabotageMessage = null
 	var aimed_enough: bool = _steps_aiming >= roundi(tuning.aim_min_time * _steps_per_second)
 	if intent.shoot_pressed and aimed_enough and _judge(board, flow.ammo) == Verdict.SHOOTABLE:

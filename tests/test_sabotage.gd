@@ -38,6 +38,8 @@ const OTHER_RUNNER: int = 2
 const AT_STEP: int = 123
 const IN_RANGE: float = 30.0
 const NOBODY: Array[int] = []
+## The shooter stands on the ground.
+const ON_THE_GROUND: bool = true
 const WALL_RUN: RunnerEvent.Kind = RunnerEvent.Kind.WALL_RUN
 const HUD_SCENE: PackedScene = preload("res://game/ui/flow_hud.tscn")
 
@@ -61,7 +63,9 @@ func test_a_shot_at_a_ready_target_in_range_hits_it() -> void:
 		var facts: AimFacts = AimFacts.new(IDS[kind], IN_RANGE)
 		_aim(shooter, facts, board, flow, AIM_MIN_STEPS - 1)
 
-		var message: SabotageMessage = shooter.follow(_shot(), facts, AT_STEP, board, flow)
+		var message: SabotageMessage = shooter.follow(
+			_shot(), facts, AT_STEP, board, flow, ON_THE_GROUND
+		)
 
 		assert_not_null(message, context + "a message")
 		if message != null:
@@ -83,7 +87,7 @@ func test_a_shot_at_a_ready_target_in_range_hits_it() -> void:
 	var edge_shooter: Shooter = _shooter()
 	_aim(edge_shooter, at_the_edge, edge_board, edge_flow, AIM_MIN_STEPS - 1)
 	var shot: SabotageMessage = edge_shooter.follow(
-		_shot(), at_the_edge, AT_STEP, edge_board, edge_flow
+		_shot(), at_the_edge, AT_STEP, edge_board, edge_flow, ON_THE_GROUND
 	)
 	assert_not_null(shot, "a target exactly at the range is hit")
 
@@ -95,7 +99,9 @@ func test_no_shot_without_enough_ammunition() -> void:
 	var facts: AimFacts = AimFacts.new(IDS[BRIDGE], IN_RANGE)
 	_aim(shooter, facts, board, flow, AIM_MIN_STEPS)
 
-	var message: SabotageMessage = shooter.follow(_shot(), facts, AT_STEP, board, flow)
+	var message: SabotageMessage = shooter.follow(
+		_shot(), facts, AT_STEP, board, flow, ON_THE_GROUND
+	)
 
 	assert_null(message, "no message")
 	assert_eq(flow.ammo, 1, "the ammunition stays")
@@ -113,7 +119,9 @@ func test_no_shot_into_the_void() -> void:
 		AimFacts.new(SabotageTarget.NO_TARGET, IN_RANGE), AimFacts.new(unknown, IN_RANGE)
 	]:
 		_aim(shooter, facts, board, flow, AIM_MIN_STEPS)
-		var message: SabotageMessage = shooter.follow(_shot(), facts, AT_STEP, board, flow)
+		var message: SabotageMessage = shooter.follow(
+			_shot(), facts, AT_STEP, board, flow, ON_THE_GROUND
+		)
 		assert_null(message, "no message, aiming at %d" % facts.target)
 
 	assert_eq(flow.ammo, 3, "nothing spent")
@@ -128,7 +136,9 @@ func test_no_shot_out_of_range() -> void:
 	var too_far: AimFacts = AimFacts.new(IDS[PLATFORM], RANGE + 0.01)
 	_aim(shooter, too_far, board, flow, AIM_MIN_STEPS)
 
-	var message: SabotageMessage = shooter.follow(_shot(), too_far, AT_STEP, board, flow)
+	var message: SabotageMessage = shooter.follow(
+		_shot(), too_far, AT_STEP, board, flow, ON_THE_GROUND
+	)
 
 	assert_null(message, "no message")
 	assert_eq(flow.ammo, 3, "nothing spent")
@@ -144,26 +154,83 @@ func test_no_shot_before_the_minimal_aim() -> void:
 	# Aiming from this step on, the shot pressed at every step: nothing before the least
 	# aim, the shot at its last step.
 	for step: int in AIM_MIN_STEPS - 1:
-		var early: SabotageMessage = shooter.follow(_shot(), platform, AT_STEP, board, flow)
+		var early: SabotageMessage = shooter.follow(
+			_shot(), platform, AT_STEP, board, flow, ON_THE_GROUND
+		)
 		assert_null(early, "aimed %d steps: no shot" % (step + 1))
 		assert_eq(shooter.verdict, Shooter.Verdict.SHOOTABLE, "the reticle on a shootable target")
 	assert_eq(flow.ammo, 3, "nothing spent")
 	assert_eq(board.target(IDS[PLATFORM]).state, READY, "the platform stays ready")
 	assert_eq(shooter.shots, 0, "no shot")
-	var message: SabotageMessage = shooter.follow(_shot(), platform, AT_STEP, board, flow)
+	var message: SabotageMessage = shooter.follow(
+		_shot(), platform, AT_STEP, board, flow, ON_THE_GROUND
+	)
 	assert_not_null(message, "aimed for the least aim: the shot goes")
 	assert_eq(flow.ammo, 2, "its cost spent")
 
 	# The aim let go for one step, then taken again: the least aim starts over.
 	var obstacle: AimFacts = AimFacts.new(IDS[OBSTACLE], IN_RANGE)
-	shooter.follow(MoveIntent.new(), obstacle, AT_STEP, board, flow)
+	shooter.follow(MoveIntent.new(), obstacle, AT_STEP, board, flow, ON_THE_GROUND)
 	for step: int in AIM_MIN_STEPS - 1:
-		var again: SabotageMessage = shooter.follow(_shot(), obstacle, AT_STEP, board, flow)
+		var again: SabotageMessage = shooter.follow(
+			_shot(), obstacle, AT_STEP, board, flow, ON_THE_GROUND
+		)
 		assert_null(again, "aimed again %d steps: no shot" % (step + 1))
 	assert_eq(board.target(IDS[OBSTACLE]).state, READY, "the obstacle stays ready")
 	assert_eq(flow.ammo, 2, "nothing more spent")
-	assert_not_null(shooter.follow(_shot(), obstacle, AT_STEP, board, flow), "then it goes")
+	assert_not_null(
+		shooter.follow(_shot(), obstacle, AT_STEP, board, flow, ON_THE_GROUND), "then it goes"
+	)
 	assert_eq(flow.ammo, 1, "its cost spent")
+
+
+func test_the_minimal_aim_does_not_count_in_the_air() -> void:
+	var board: TargetBoard = _board()
+	var flow: FlowState = _flow(3)
+	var shooter: Shooter = _shooter()
+	var platform: AimFacts = AimFacts.new(IDS[PLATFORM], IN_RANGE)
+	var in_the_air: bool = not ON_THE_GROUND
+
+	# A runner that jumps and starts aiming in the air, the shot pressed at every step,
+	# for longer than the least aim: nothing.
+	for step: int in 3 * AIM_MIN_STEPS:
+		var shot: SabotageMessage = shooter.follow(
+			_shot(), platform, AT_STEP, board, flow, in_the_air
+		)
+		assert_null(shot, "aimed %d steps in the air: no shot" % (step + 1))
+	assert_eq(flow.ammo, 3, "nothing spent")
+	assert_eq(board.target(IDS[PLATFORM]).state, READY, "the platform stays ready")
+
+	# Back on the ground, still aiming: the least aim counts from there. In the air again
+	# for a while, the count waits; on the ground once more, it goes on from where it was.
+	var on_the_ground_first: int = AIM_MIN_STEPS - 5
+	for step: int in on_the_ground_first:
+		var early: SabotageMessage = shooter.follow(
+			_shot(), platform, AT_STEP, board, flow, ON_THE_GROUND
+		)
+		assert_null(early, "aimed %d steps on the ground: no shot" % (step + 1))
+	for step: int in 20:
+		var flying: SabotageMessage = shooter.follow(
+			_shot(), platform, AT_STEP, board, flow, in_the_air
+		)
+		assert_null(flying, "in the air again, step %d: no shot" % (step + 1))
+	for step: int in 4:
+		var almost: SabotageMessage = shooter.follow(
+			_shot(), platform, AT_STEP, board, flow, ON_THE_GROUND
+		)
+		assert_null(almost, "one step short of the least aim on the ground: no shot")
+	assert_eq(flow.ammo, 3, "still nothing spent")
+	var message: SabotageMessage = shooter.follow(
+		_shot(), platform, AT_STEP, board, flow, ON_THE_GROUND
+	)
+	assert_not_null(message, "the least aim paid on the ground: the shot goes")
+
+	# Paid on the ground, the aim may then shoot in the air.
+	var obstacle: AimFacts = AimFacts.new(IDS[OBSTACLE], IN_RANGE)
+	var airborne: SabotageMessage = shooter.follow(
+		_shot(), obstacle, AT_STEP, board, flow, in_the_air
+	)
+	assert_not_null(airborne, "aimed long enough on the ground: a shot in the air goes")
 
 
 func test_no_shot_without_aiming() -> void:
@@ -176,7 +243,9 @@ func test_no_shot_without_aiming() -> void:
 	# Aimed for all but the last step of the least aim, then the aim let go.
 	_aim(shooter, facts, board, flow, AIM_MIN_STEPS - 1)
 
-	var message: SabotageMessage = shooter.follow(not_aiming, facts, AT_STEP, board, flow)
+	var message: SabotageMessage = shooter.follow(
+		not_aiming, facts, AT_STEP, board, flow, ON_THE_GROUND
+	)
 
 	assert_null(message, "no message")
 	assert_false(shooter.aiming, "the shooter does not aim")
@@ -198,17 +267,17 @@ func test_a_hit_target_goes_through_the_warning_then_the_effect() -> void:
 
 		assert_eq(target.state, WARNING, context + "in warning")
 		for step: int in WARNING_STEPS - 1:
-			target.step(NOBODY)
+			target.step(NOBODY, true)
 			assert_eq(target.state, WARNING, context + "step %d: still in warning" % step)
 			assert_false(target.displaced, context + "still in its place")
-		target.step(NOBODY)
+		target.step(NOBODY, true)
 		assert_eq(target.state, SABOTAGED, context + "after the warning: sabotaged")
 		assert_true(target.displaced, context + "its effect is on")
 		assert_almost_eq(target.time_left(), EFFECT_STEPS[kind] / 60.0, 0.001, context + "time")
 		for step: int in EFFECT_STEPS[kind] - 1:
-			target.step(NOBODY)
+			target.step(NOBODY, true)
 			assert_eq(target.state, SABOTAGED, context + "step %d of the effect" % step)
-		target.step(NOBODY)
+		target.step(NOBODY, true)
 		assert_ne(target.state, SABOTAGED, context + "for the duration of its type, no more")
 		assert_eq(target.warnings, 1, context + "one warning")
 		assert_eq(target.effects, 1, context + "one effect")
@@ -219,18 +288,18 @@ func test_a_target_comes_back_then_rests() -> void:
 		var context: String = SabotageTarget.Kind.keys()[kind] + ": "
 		var target: SabotageTarget = _sabotaged(kind)
 		for step: int in EFFECT_STEPS[kind] - 1:
-			target.step(NOBODY)
+			target.step(NOBODY, true)
 		assert_true(target.displaced, context + "a sabotaged target")
 
-		target.step(NOBODY)
+		target.step(NOBODY, true)
 
 		assert_false(target.displaced, context + "the effect over, it is back in its place")
 		assert_eq(target.state, RESTING, context + "resting")
 		assert_eq(target.returns, 1, context + "one return")
 		for step: int in COOLDOWN_STEPS - 1:
-			target.step(NOBODY)
+			target.step(NOBODY, true)
 			assert_eq(target.state, RESTING, context + "step %d: still resting" % step)
-		target.step(NOBODY)
+		target.step(NOBODY, true)
 		assert_eq(target.state, READY, context + "then ready")
 
 
@@ -260,7 +329,9 @@ func test_a_target_that_is_not_ready_cannot_be_hit() -> void:
 		var time_before: float = target.time_left()
 		assert_false(board.receive(_message(target)), state + ": the message is refused")
 		var facts: AimFacts = AimFacts.new(target.id, IN_RANGE)
-		var shot: SabotageMessage = shooter.follow(_shot(), facts, AT_STEP, board, flow)
+		var shot: SabotageMessage = shooter.follow(
+			_shot(), facts, AT_STEP, board, flow, ON_THE_GROUND
+		)
 		assert_null(shot, state + ": no shot")
 		assert_eq(shooter.verdict, Shooter.Verdict.NONE, state + ": the reticle shows nothing")
 		assert_eq(target.state, before, state + ": its state does not change")
@@ -275,21 +346,21 @@ func test_a_target_does_not_come_back_onto_the_runner() -> void:
 		var context: String = SabotageTarget.Kind.keys()[kind] + ": "
 		var target: SabotageTarget = _sabotaged(kind)
 		for step: int in EFFECT_STEPS[kind] - 1:
-			target.step(NOBODY)
+			target.step(NOBODY, true)
 
 		# The effect over, the runner where the object would come back, then away, back
 		# in, and away for good.
 		for step: int in 50:
-			target.step([RUNNER])
+			target.step([RUNNER], false)
 			assert_true(target.displaced, context + "step %d: it waits" % step)
 			assert_eq(target.state, RECOVERING, context + "step %d: to come back" % step)
-		target.step([OTHER_RUNNER, RUNNER])
+		target.step([OTHER_RUNNER, RUNNER], false)
 		assert_true(target.displaced, context + "with two runners there, it waits")
-		target.step(NOBODY)
+		target.step(NOBODY, true)
 
 		assert_false(target.displaced, context + "the place free, it is back")
 		assert_eq(target.state, RESTING, context + "and rests")
-		target.step([RUNNER])
+		target.step([RUNNER], false)
 		assert_false(target.displaced, context + "a runner back on it changes nothing")
 		assert_eq(target.hits, NOBODY, context + "and nobody is hit")
 
@@ -300,25 +371,25 @@ func test_a_target_does_not_land_on_the_runner() -> void:
 		var target: SabotageTarget = _target(kind)
 		target.receive(_message(target))
 		for step: int in WARNING_STEPS - 1:
-			target.step(NOBODY)
+			target.step(NOBODY, true)
 
-		target.step([RUNNER])
+		target.step([RUNNER], false)
 		assert_eq(target.state, SABOTAGED, context + "the effect starts")
 		assert_eq(target.hits, [RUNNER] as Array[int], context + "the runner there is hit")
 		assert_false(target.displaced, context + "but nothing lands on it")
 		for step: int in 20:
-			target.step([RUNNER])
+			target.step([RUNNER], false)
 			assert_false(target.displaced, context + "step %d: it waits" % step)
-		target.step(NOBODY)
+		target.step(NOBODY, true)
 		assert_true(target.displaced, context + "the place free, the effect is on")
 		assert_eq(target.hits, NOBODY, context + "and hits nobody")
 
 		# It goes back to where it came from, where no runner can be, when its effect is
 		# over: counted from its start, not from its landing.
 		for step: int in EFFECT_STEPS[kind] - 22:
-			target.step([RUNNER])
+			target.step([RUNNER], false)
 		assert_true(target.displaced, context + "one step before its end, still on")
-		target.step([RUNNER])
+		target.step([RUNNER], false)
 		assert_false(target.displaced, context + "back at the end of its effect")
 		assert_eq(target.state, RESTING, context + "and rests")
 
@@ -342,7 +413,7 @@ func test_being_in_the_zone_when_the_effect_starts_breaks_the_combo() -> void:
 	board.receive(_message(platform))
 
 	for step: int in WARNING_STEPS:
-		platform.step([RUNNER])
+		platform.step([RUNNER], false)
 		flow.follow_targets(board, RUNNER)
 		bystander.follow_targets(board, OTHER_RUNNER)
 		if step < WARNING_STEPS - 1:
@@ -363,7 +434,7 @@ func test_being_in_the_zone_when_the_effect_starts_breaks_the_combo() -> void:
 	assert_eq(bystander.sabotages, 0)
 
 	# Being in the zone during the effect is no new hit.
-	platform.step([RUNNER])
+	platform.step([RUNNER], false)
 	flow.follow_targets(board, RUNNER)
 	assert_false(board.hit(RUNNER), "no new hit during the effect")
 	assert_eq(flow.sabotages, 1, "one sabotage received, no more")
@@ -382,7 +453,7 @@ func test_leaving_the_zone_during_the_warning_avoids_being_hit() -> void:
 	for step: int in WARNING_STEPS + 5:
 		var inside: bool = step < WARNING_STEPS - 3 or step > WARNING_STEPS
 		var zone: Array[int] = [RUNNER]
-		platform.step(zone if inside else NOBODY)
+		platform.step(zone if inside else NOBODY, not inside)
 		flow.follow_targets(board, RUNNER)
 		assert_false(board.hit(RUNNER), "step %d: not hit" % step)
 
@@ -412,7 +483,7 @@ func _sabotaged(kind: SabotageTarget.Kind) -> SabotageTarget:
 	var target: SabotageTarget = _target(kind)
 	target.receive(_message(target))
 	for step: int in WARNING_STEPS:
-		target.step(NOBODY)
+		target.step(NOBODY, true)
 	assert_eq(target.state, SABOTAGED, "a target whose effect just started")
 	return target
 
@@ -423,7 +494,7 @@ func _steps(board: TargetBoard, playing: Array, steps: int, inside: Array[int]) 
 	for step: int in steps:
 		for target: SabotageTarget in playing:
 			assert_true(board.targets.values().has(target))
-			target.step(inside)
+			target.step(inside, inside.is_empty())
 
 
 func _shooter() -> Shooter:
@@ -436,7 +507,9 @@ func _aim(
 	shooter: Shooter, facts: AimFacts, board: TargetBoard, flow: FlowState, steps: int
 ) -> void:
 	for step: int in steps:
-		var message: SabotageMessage = shooter.follow(_shot(), facts, AT_STEP, board, flow)
+		var message: SabotageMessage = shooter.follow(
+			_shot(), facts, AT_STEP, board, flow, ON_THE_GROUND
+		)
 		assert_null(message, "aimed %d steps: no shot" % (step + 1))
 
 

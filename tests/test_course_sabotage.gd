@@ -16,8 +16,7 @@ const SABOTAGED: SabotageTarget.State = SabotageTarget.State.SABOTAGED
 ## Who shoots in these tests: nobody of the course.
 const SHOOTER: int = 9
 const FORWARD: Vector3 = Vector3.FORWARD
-## The fixed tuning's warning in fixed steps, and a few more for the scene to follow.
-const WARNING_STEPS: int = 36
+## A few steps more, for a scene to follow its target.
 const FEW_STEPS: int = 5
 ## Steps a runner pushing ahead from its checkpoint is given to reach what stands ahead.
 const RUN_STEPS: int = 90
@@ -120,6 +119,99 @@ func test_a_sabotaged_bridge_leaves_a_gap() -> void:
 
 	assert_true(fell_in_the_gap, "the runner that comes to the edge falls into the gap")
 	assert_eq(bridge.target.state, SABOTAGED, "while the bridge is sabotaged")
+
+
+func test_the_gap_of_a_sabotaged_bridge_cannot_be_crossed() -> void:
+	var attempt: SectionRun = _section_run(RUN_UP)
+	var runner: Player = attempt.course.player
+	var tuning: MovementTuning = runner.tuning
+	var bonuses: Array[float] = tuning.flow_tier_speed_bonus
+	var bonus: float = bonuses[tuning.flow_tier_count - 1]
+	var fastest: float = tuning.top_speed * (1.0 + bonus)
+	var bridge: TargetBlock = _block_of(attempt.course, SabotageTarget.Kind.BRIDGE)
+	var gap: float = _bounds_of(bridge.get_node("Body")).size.z
+	var reach: float = _farthest_crossing(tuning, fastest)
+	gut.p(
+		"bridge gap %.2f m, farthest jump then mantle at %.2f m/s: %.2f m" % [gap, fastest, reach]
+	)
+	assert_gt(gap, reach, "wider than a jump then a mantle cross, at the speed of tier 3")
+	await _sabotage(attempt.course, bridge)
+	var top: Array[float] = [0.0]
+	runner.stepped.connect(
+		func(_intent: MoveIntent) -> void:
+			runner.motor.top_speed_bonus = bonus
+			top[0] = maxf(top[0], Vector2(runner.velocity.x, runner.velocity.z).length())
+	)
+
+	await _play([attempt.run])
+
+	assert_almost_eq(top[0], fastest, 0.05, "the pilot came at the speed of tier 3")
+	assert_gt(attempt.run.jumps, 0, "it jumped at the edge")
+	assert_eq(attempt.run.steps_mantling, 0, "no mantle at the far edge")
+	assert_eq(attempt.run.outcome, PilotedRun.Outcome.FELL, "it fell into the gap")
+	assert_false(attempt.run.goal_reached, "the far side is not reached")
+
+
+func test_a_runner_waiting_at_the_edge_does_not_block_the_return_of_the_bridge() -> void:
+	var course: Course = _add_course()
+	var bridge: TargetBlock = _block_of(course, SabotageTarget.Kind.BRIDGE)
+	var place: AABB = _bounds_of(bridge.get_node("Body"))
+	var runner: Player = course.player
+	var radius: float = runner.tuning.capsule_radius
+	# Standing on the block before the gap, its capsule over the edge but above the
+	# bridge: the lowest point of the capsule over the bridge is that high above its top.
+	var from_the_edge: float = radius / 2.0
+	var above: float = radius - sqrt(radius * radius - from_the_edge * from_the_edge)
+	var at_the_edge: Vector3 = Vector3(0.0, place.end.y, place.end.z + from_the_edge)
+	runner.teleport(Transform3D(Basis.IDENTITY, at_the_edge))
+	await _wait_steps(SETTLE_STEPS)
+	assert_true(runner.is_on_floor(), "a runner standing at the edge")
+	assert_gt(above, 0.0, "not touching the volume of the bridge")
+	await _sabotage(course, bridge)
+	assert_true(bridge.holds(runner), "in the zone of the bridge")
+	var effect: int = _steps_of(runner.tuning.sabotage_duration_bridge)
+
+	await _wait_steps(effect + FEW_STEPS)
+
+	assert_true(runner.is_on_floor(), "the runner still waits at the edge")
+	assert_false(bridge.target.displaced, "the bridge came back")
+	assert_eq(bridge.target.state, SabotageTarget.State.RESTING, "and rests")
+
+
+func test_the_warning_leaves_time_to_get_off_a_platform() -> void:
+	var attempt: SectionRun = _section_run(LONG_JUMPS)
+	var course: Course = attempt.course
+	var runner: Player = course.player
+	var platform: TargetBlock = _block_of(course, SabotageTarget.Kind.PLATFORM)
+	var body: AABB = _bounds_of(platform.get_node("Body"))
+	var landing: Array[Vector3] = []
+	var speed_on_landing: Array[float] = []
+	runner.stepped.connect(
+		func(_intent: MoveIntent) -> void:
+			var at: Vector3 = runner.global_position
+			var on_it: bool = at.z < body.end.z and at.z > body.position.z
+			if landing.is_empty() and on_it and runner.is_on_floor():
+				landing.append(at)
+				speed_on_landing.append(Vector2(runner.velocity.x, runner.velocity.z).length())
+				var message: SabotageMessage = SabotageMessage.new(SHOOTER, platform.target_id, 0)
+				assert_true(course.targets.receive(message), "the platform warns as it lands")
+	)
+
+	await _play([attempt.run])
+	var waited: int = 0
+	while platform.target.effects == 0 and waited < 200:
+		await get_tree().physics_frame
+		waited += 1
+
+	assert_eq(landing.size(), 1, "the runner landed on the platform")
+	if landing.size() == 1:
+		var into_it: float = body.end.z - landing[0].z
+		gut.p("landed %.2f m into the platform, at %.2f m/s" % [into_it, speed_on_landing[0]])
+		assert_lt(into_it, 2.0, "at its start")
+		assert_gt(speed_on_landing[0], 0.95 * runner.tuning.top_speed, "at top speed")
+	assert_eq(platform.target.effects, 1, "the effect started")
+	assert_eq(course.flow.sabotages, 0, "the runner was gone: not hit")
+	_assert_cleared(attempt)
 
 
 func test_a_fallen_obstacle_can_be_cleared() -> void:
@@ -317,8 +409,25 @@ func _section_of(course: Course, block: TargetBlock) -> int:
 func _sabotage(course: Course, block: TargetBlock) -> void:
 	var message: SabotageMessage = SabotageMessage.new(SHOOTER, block.target_id, 0)
 	assert_true(course.targets.receive(message), "%s hit" % block.name)
-	await _wait_steps(WARNING_STEPS + FEW_STEPS)
+	await _wait_steps(_steps_of(course.player.tuning.sabotage_warning) + FEW_STEPS)
 	assert_eq(block.target.state, SABOTAGED, "%s sabotaged" % block.name)
+
+
+## A duration of the tuning, in fixed steps.
+func _steps_of(seconds: float) -> int:
+	return roundi(seconds * STEPS_PER_SECOND)
+
+
+## The farthest a runner at `speed` crosses a gap between two floors at the same height,
+## from the tuning: it jumps at the very end of its coyote time, flies at its speed, and
+## reaches the far face with its feet as low as the highest ledge a mantle climbs; its
+## capsule leaves the near edge and catches the far one a radius from its axis.
+func _farthest_crossing(tuning: MovementTuning, speed: float) -> float:
+	var coyote_drop: float = tuning.fall_gravity * tuning.coyote_time * tuning.coyote_time / 2.0
+	var rise: float = sqrt(2.0 * tuning.jump_height / tuning.rise_gravity)
+	var drop: float = tuning.jump_height - coyote_drop + tuning.mantle_max_height
+	var fall: float = sqrt(2.0 * drop / tuning.fall_gravity)
+	return speed * (tuning.coyote_time + rise + fall) + 2.0 * tuning.capsule_radius
 
 
 func _is_not_back(block: TargetBlock) -> bool:

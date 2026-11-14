@@ -8,7 +8,9 @@ extends Node3D
 ## it looks like any block. Its body holds the identity of its target, for the shot to
 ## read it; its zone tells the course which runners are where its object goes or stands.
 ## Expected children: Body (a StaticBody3D with its CollisionShape3D and MeshInstance3D),
-## and Zone (an Area3D whose mask holds the runners' layer and nothing else).
+## and Zone (an Area3D whose mask holds the runners' layer and nothing else); an object
+## that leaves its place has a Place too, an Area3D of the volume of its body, whose
+## return waits for nobody to be in it.
 
 ## The physics layers of project.godot: the blocks the runners stand on, and what the
 ## reticle sees.
@@ -45,6 +47,7 @@ var _clock: float = 0.0
 @onready var _body: StaticBody3D = $Body as StaticBody3D
 @onready var _mesh: MeshInstance3D = $Body/MeshInstance3D as MeshInstance3D
 @onready var _zone: Area3D = $Zone as Area3D
+@onready var _place: Area3D = _place_area()
 
 
 func _ready() -> void:
@@ -60,9 +63,21 @@ func _process(delta: float) -> void:
 	refresh(_clock)
 
 
+## The area of its place: its Place, or else its zone.
+func _place_area() -> Area3D:
+	var place: Area3D = get_node_or_null("Place") as Area3D
+	return place if place != null else $Zone as Area3D
+
+
 ## Whether `body` is in its zone.
 func holds(body: Node3D) -> bool:
 	return _zone.overlaps_body(body)
+
+
+## Whether `body` is in the place of its object: where it would come back to (its Place,
+## the volume of its body) or come onto (its zone).
+func place_holds(body: Node3D) -> bool:
+	return _place.overlaps_body(body)
 
 
 ## Puts its body where its target says: in its place; or, displaced, gone (a platform, a

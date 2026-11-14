@@ -98,7 +98,9 @@ func _on_player_stepped(intent: MoveIntent) -> void:
 	flow.follow(player.motor)
 	_step_the_targets()
 	shooter.tuning = player.tuning
-	shooter.follow(intent, player.aim_facts, player.motor.steps, targets, flow)
+	shooter.follow(
+		intent, player.aim_facts, player.motor.steps, targets, flow, player.motor.is_on_the_ground()
+	)
 	for block: TargetBlock in _blocks:
 		block.focused = shooter.shootable_target() == block.target_id
 		block.follow()
@@ -113,7 +115,7 @@ func _step_the_targets() -> void:
 		var inside: Array[int] = []
 		if block.holds(player):
 			inside.append(RUNNER)
-		block.target.step(inside)
+		block.target.step(inside, not block.place_holds(player))
 	flow.follow_targets(targets, RUNNER)
 
 

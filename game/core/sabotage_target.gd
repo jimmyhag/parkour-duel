@@ -5,8 +5,9 @@ extends RefCounted
 ## a while; then its effect lasts the time of its type; then it comes back to its place
 ## and rests; then it is ready again. Its scene (game/world) only shows what this machine
 ## says: whether the object is out of its place (`displaced`), and its state.
-## Its zone is where its object goes or stands: a runner in it as the effect starts is
-## hit, and the object never moves into a runner: it waits for its place to be free.
+## Its zone is where its object goes or stands, and the space a runner on it takes: a
+## runner in it as the effect starts is hit. Its place is the volume of its object alone:
+## the object never moves into a runner, it waits for its place to be free.
 
 ## A platform vanishes and a bridge falls away: they leave their place. An obstacle
 ## falls onto the way and a barrier rises across it: they come onto the way.
@@ -89,17 +90,18 @@ func receive(message: SabotageMessage) -> bool:
 	return true
 
 
-## One fixed step, with the runners that are in its zone. The warning over, the effect
-## starts and hits them. An object that comes onto the way does so once its place is
-## free; one that left its place comes back once it is free. Then it rests.
-func step(runners_in_zone: Array[int]) -> void:
+## One fixed step, with the runners that are in its zone, and whether its place is free.
+## The warning over, the effect starts and hits the runners in its zone. An object that
+## comes onto the way does so once its place is free; one that left its place comes back
+## once it is free. Then it rests.
+func step(runners_in_zone: Array[int], place_free: bool) -> void:
 	hits.clear()
-	var free: bool = runners_in_zone.is_empty()
+	var free: bool = place_free
 	match state:
 		State.WARNING:
 			_steps_left -= 1
 			if _steps_left <= 0:
-				_start_the_effect(runners_in_zone)
+				_start_the_effect(runners_in_zone, free)
 		State.SABOTAGED:
 			displaced = displaced or free
 			_steps_left -= 1
@@ -139,12 +141,12 @@ func leaves_its_place() -> bool:
 	return leaves_its_place_when(kind)
 
 
-func _start_the_effect(runners_in_zone: Array[int]) -> void:
+func _start_the_effect(runners_in_zone: Array[int], free: bool) -> void:
 	state = State.SABOTAGED
 	_steps_left = _steps(effect_duration())
 	effects += 1
 	hits = runners_in_zone.duplicate()
-	displaced = leaves_its_place() or runners_in_zone.is_empty()
+	displaced = leaves_its_place() or free
 
 
 ## The effect is over: an object that left its place comes back if its place is free,

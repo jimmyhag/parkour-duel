@@ -4,8 +4,9 @@ extends RefCounted
 ## and the facts it observed (RunnerFacts); it answers with the state of the runner and
 ## the velocity it wants, and announces the moves it starts and the tricks its landings
 ## pay (RunnerEvent). It plays the aerial tricks (AirTrick) of each jump. A runner that
-## aims is slower on the ground and starts no trick. It uses nothing but its arguments,
-## the tuning and the speed bonus the flow gives it: no input, no clock, no scene.
+## aims is slower on the ground, sliding and rolling included, and starts no trick. It
+## uses nothing but its arguments, the tuning and the speed bonus the flow gives it: no
+## input, no clock, no scene.
 
 enum State {
 	GROUNDED,
@@ -157,6 +158,12 @@ func real_speed() -> float:
 ## a mantle, a slide or a roll.
 func is_on_foot() -> bool:
 	return state == State.GROUNDED or state == State.HARD_LANDING
+
+
+## The runner is on the ground: on its feet, sliding or rolling; neither in the air,
+## nor along a wall, nor in a mantle.
+func is_on_the_ground() -> bool:
+	return is_on_foot() or state == State.SLIDING or state == State.ROLLING
 
 
 ## The runner is low: its capsule has the height of a slide. It is in a slide and in a
@@ -500,8 +507,10 @@ func _move(intent: MoveIntent, facts: RunnerFacts, delta: float) -> void:
 		var along: Vector3 = _along(velocity, _away_from_the_wall)
 		velocity.x = along.x
 		velocity.z = along.z
-	elif state != State.ROLLING:
-		# A roll keeps the speed it landed with.
+	elif state == State.ROLLING:
+		# A roll keeps the speed it landed with, unless the runner aims.
+		_brake_for_the_aim(delta)
+	else:
 		_steer(intent.direction, delta)
 	_keep_a_low_runner_moving()
 	_cap_horizontal_speed()
@@ -532,7 +541,8 @@ func _slide(direction: Vector3, facts: RunnerFacts, delta: float) -> void:
 		var turn: float = tuning.slide_turn_speed * delta
 		var angle: float = _slide_heading.signed_angle_to(wish, Vector3.UP)
 		_slide_heading = _slide_heading.rotated(Vector3.UP, clampf(angle, -turn, turn))
-	horizontal = _slide_heading * maxf(speed - tuning.slide_deceleration * delta, 0.0)
+	var slowed: float = maxf(speed - tuning.slide_deceleration * delta, 0.0)
+	horizontal = _slide_heading * minf(slowed, _speed_braked_for_the_aim(speed, delta))
 	var normal: Vector3 = facts.floor_normal
 	var downhill: Vector3 = Vector3(normal.x, 0.0, normal.z) * normal.y
 	horizontal += downhill * tuning.fall_gravity * delta
@@ -540,6 +550,28 @@ func _slide(direction: Vector3, facts: RunnerFacts, delta: float) -> void:
 		horizontal = _slide_heading * tuning.slide_stop_speed
 	velocity.x = horizontal.x
 	velocity.z = horizontal.z
+
+
+## While the runner aims on the ground, its horizontal speed comes down to the speed of
+## an aim as fast as the ground brakes: what a slide and a roll keep otherwise.
+func _brake_for_the_aim(delta: float) -> void:
+	var horizontal: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
+	var speed: float = horizontal.length()
+	if is_zero_approx(speed):
+		return
+	horizontal *= _speed_braked_for_the_aim(speed, delta) / speed
+	velocity.x = horizontal.x
+	velocity.z = horizontal.z
+
+
+## The speed `speed` becomes in one step of aiming on the ground: brought down towards
+## the speed of an aim at the rate the ground brakes, never under it; unchanged when the
+## runner does not aim or is not faster than that.
+func _speed_braked_for_the_aim(speed: float, delta: float) -> float:
+	var aim_speed: float = top_speed() * tuning.aim_speed_ratio
+	if not _aiming or speed <= aim_speed:
+		return speed
+	return maxf(speed - tuning.ground_deceleration * delta, aim_speed)
 
 
 ## A runner kept low by a ceiling, out of a slide (in the air over a crack, in a roll or

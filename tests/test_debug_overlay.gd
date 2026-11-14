@@ -168,12 +168,12 @@ func test_the_debug_display_shows_the_aim_and_the_targets() -> void:
 	platform.receive(SabotageMessage.new(7, 1, 0))
 	var nobody: Array[int] = []
 	for i: int in 10:
-		platform.step(nobody)
+		platform.step(nobody, true)
 	var aim: MoveIntent = MoveIntent.new()
 	aim.aim_held = true
 	var flow: FlowState = FlowState.new(tuning, 60)
 
-	shooter.follow(aim, AimFacts.new(2, 30.5), 0, targets, flow)
+	shooter.follow(aim, AimFacts.new(2, 30.5), 0, targets, flow, true)
 	overlay.refresh()
 
 	assert_string_contains(overlay.text, "AIM ON")

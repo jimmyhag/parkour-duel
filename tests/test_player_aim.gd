@@ -15,38 +15,6 @@ const TOLERANCE: float = 0.001
 const TARGET_FACE: float = 19.5
 const TARGET_ID: int = 5
 const GAME_ACTIONS: Array[StringName] = [&"aim", &"shoot"]
-const STEPS_PER_SECOND: int = 60
-## Two runners side by side, this far from the middle; a target this far ahead of them.
-const LANE: float = 3.0
-const FAR_TARGET: float = 40.0
-## Steps to reach the top speed before aiming, and steps after it for the lag to settle.
-const RUN_STEPS: int = 30
-const LAG_STEPS: int = 60
-## What a fixed step may shift a distance measured in the physics, in m.
-const LAG_TOLERANCE: float = 0.05
-
-
-## Runs ahead; after `start` steps, aims and presses the shot at every step until its
-## shot goes, then lets go of the aim. Without a shooter, it only runs.
-class QuickShooter:
-	extends IntentSource
-
-	var _shooter: Shooter
-	var _start: int
-	var _steps: int = 0
-
-	func _init(shooter: Shooter, start: int) -> void:
-		_shooter = shooter
-		_start = start
-
-	func next_intent() -> MoveIntent:
-		_steps += 1
-		var intent: MoveIntent = MoveIntent.new()
-		intent.direction = Vector3.FORWARD
-		var shooting: bool = _shooter != null and _steps > _start and _shooter.shots == 0
-		intent.aim_held = shooting
-		intent.shoot_pressed = shooting
-		return intent
 
 
 func after_each() -> void:
@@ -167,56 +135,6 @@ func test_the_runner_observes_what_is_under_the_reticle() -> void:
 	player.intent_source = IntentSource.new()
 	await wait_physics_frames(FEW_STEPS)
 	assert_eq(player.aim_facts.target, SabotageTarget.NO_TARGET, "no longer aiming: nothing")
-
-
-func test_every_shot_costs_advance_on_the_ground() -> void:
-	_add_box(Vector3(20.0, 1.0, 100.0), Vector3(0.0, -0.5, -40.0), WORLD_LAYER)
-	var plain: Player = _add_player()
-	var shooting: Player = _add_player()
-	plain.position.x = -LANE
-	shooting.position.x = LANE
-	var tuning: MovementTuning = shooting.tuning
-	# A target far ahead of both, within range.
-	var target: StaticBody3D = _add_box(
-		Vector3(20.0, 6.0, 1.0), Vector3(0.0, 3.0, -FAR_TARGET - 0.5), TARGETS_LAYER
-	)
-	target.set_meta(SabotageTarget.META, TARGET_ID)
-	var board: TargetBoard = TargetBoard.new()
-	var platform: SabotageTarget = SabotageTarget.new(
-		TARGET_ID, SabotageTarget.Kind.PLATFORM, tuning, STEPS_PER_SECOND
-	)
-	board.add(platform)
-	var flow: FlowState = FlowState.new(tuning, STEPS_PER_SECOND)
-	flow.ammo = 3
-	var shooter: Shooter = Shooter.new(1, tuning, STEPS_PER_SECOND)
-	shooting.stepped.connect(
-		func(intent: MoveIntent) -> void:
-			shooter.follow(intent, shooting.aim_facts, shooting.motor.steps, board, flow)
-	)
-	plain.intent_source = QuickShooter.new(null, RUN_STEPS)
-	shooting.intent_source = QuickShooter.new(shooter, RUN_STEPS)
-
-	await _wait_steps(RUN_STEPS + LAG_STEPS)
-
-	assert_eq(shooter.shots, 1, "the runner shot")
-	assert_eq(platform.state, SabotageTarget.State.WARNING, "and hit the target")
-	var speed: float = Vector2(shooting.velocity.x, shooting.velocity.z).length()
-	assert_almost_eq(speed, tuning.top_speed, TOLERANCE, "both run at top speed again")
-	var lag: float = shooting.global_position.z - plain.global_position.z
-	var least: float = _lag_of_a_minimal_aim(tuning)
-	assert_gt(least, 0.5, "a minimal aim costs a real distance")
-	assert_gte(lag, least - LAG_TOLERANCE, "the shooter lost at least the lag of a minimal aim")
-
-
-## The distance a runner at its top speed loses to an aim held for the least aim, then
-## let go, computed from the tuning: it brakes down to the speed of an aim, runs at it
-## until the least aim is over, then speeds up again.
-func _lag_of_a_minimal_aim(tuning: MovementTuning) -> float:
-	var lost_speed: float = tuning.top_speed * (1.0 - tuning.aim_speed_ratio)
-	var braking: float = lost_speed / tuning.ground_deceleration
-	var speeding_up: float = lost_speed / tuning.ground_acceleration
-	var held: float = maxf(tuning.aim_min_time - braking, 0.0)
-	return lost_speed * (braking / 2.0 + held + speeding_up / 2.0)
 
 
 func _add_player() -> Player:

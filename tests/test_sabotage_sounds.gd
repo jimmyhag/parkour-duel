@@ -48,18 +48,18 @@ func test_every_sabotage_event_plays_its_sound() -> void:
 	shot.shoot_pressed = true
 	var facts: AimFacts = AimFacts.new(TARGET, 10.0)
 	for step: int in AIM_MIN_STEPS - 1:
-		shooter.follow(shot, facts, 0, board, flow)
+		shooter.follow(shot, facts, 0, board, flow, true)
 	sounds.refresh()
 	assert_eq(_playing(sounds), [] as Array[String], "aiming, shooting too soon: silence")
-	shooter.follow(shot, facts, 0, board, flow)
+	shooter.follow(shot, facts, 0, board, flow, true)
 	_assert_plays(sounds, ["Shot", "Warning"], "a shot that hits")
 
 	# The effect starts, then the target comes back.
 	for step: int in WARNING_STEPS:
-		platform.step(NOBODY)
+		platform.step(NOBODY, true)
 	_assert_plays(sounds, ["Effect"], "the effect starts")
 	for step: int in PLATFORM_STEPS:
-		platform.step(NOBODY)
+		platform.step(NOBODY, true)
 	_assert_plays(sounds, ["Return"], "the target comes back")
 
 

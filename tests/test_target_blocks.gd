@@ -30,7 +30,7 @@ func test_a_ready_target_is_highlighted_and_a_resting_target_is_not() -> void:
 		var resting_one: TargetBlock = _add_block(kind, 2)
 		_sabotage(resting_one.target)
 		while resting_one.target.state != SabotageTarget.State.RESTING:
-			resting_one.target.step(NOBODY)
+			resting_one.target.step(NOBODY, true)
 		for block: TargetBlock in [ready_one, resting_one]:
 			block.follow()
 			block.refresh()
@@ -73,7 +73,7 @@ func test_a_target_block_shows_what_its_target_says() -> void:
 
 		# The effect.
 		for step: int in WARNING_STEPS:
-			block.target.step(NOBODY)
+			block.target.step(NOBODY, true)
 		block.follow()
 		block.refresh()
 		assert_true(block.target.displaced, context + "sabotaged")
@@ -91,7 +91,7 @@ func test_a_target_block_shows_what_its_target_says() -> void:
 
 		# Back in its place.
 		while block.target.displaced:
-			block.target.step(NOBODY)
+			block.target.step(NOBODY, true)
 		block.follow()
 		assert_true(body.visible, context + "back")
 		assert_eq(body.global_position, home, context + "in its place")

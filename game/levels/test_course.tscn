@@ -22,11 +22,11 @@ albedo_color = Color(0.55, 0.55, 0.58, 1)
 albedo_color = Color(0.95, 0.95, 0.95, 1)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_run_up_start"]
-size = Vector3(6, 1, 12)
+size = Vector3(6, 1, 8)
 
 [sub_resource type="BoxMesh" id="BoxMesh_run_up_start"]
 material = SubResource("StandardMaterial3D_block")
-size = Vector3(6, 1, 12)
+size = Vector3(6, 1, 8)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_run_up_end"]
 size = Vector3(6, 1, 10)
@@ -181,7 +181,7 @@ fall_limit = -8.0
 [node name="Blocks" type="Node3D" parent="."]
 
 [node name="RunUpStart" type="StaticBody3D" parent="Blocks"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 2)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/RunUpStart"]
 shape = SubResource("BoxShape3D_run_up_start")
@@ -390,7 +390,7 @@ mesh = SubResource("BoxMesh_final_ledge")
 [node name="Targets" type="Node3D" parent="."]
 
 [node name="Bridge" parent="Targets" instance=ExtResource("9_falling_bridge")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, -9)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, -7)
 target_id = 1
 
 [node name="LongJump1" parent="Targets" instance=ExtResource("10_falling_platform")]

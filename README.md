@@ -134,19 +134,21 @@ a CRASH (a hard landing that breaks the combo, and the tricks of the jump are lo
 high fall still asks for a roll.
 
 Shooting and sabotage: hold the aim to bring the camera over the right shoulder; a
-reticle appears in the middle of the screen. Aiming slows the runner down on the ground
-(to 60 % of its top speed) and starts no trick; in the air it changes nothing; time
-itself never slows down. Shooting fires at whatever is in the middle of the screen, once
-the aim has been held for a quarter of a second without a break (on the ground, every
-shot costs that much slowed running), and only at a target: one of the orange blocks, within 45 m, ready, and paid for with the
-ammunition the flow gives (the platform, the obstacle and the barrier cost one, the
-bridge two). The reticle shows a ring on a target the shot would hit, and a slash on one
-the ammunition does not pay for; otherwise a shot does nothing and costs nothing. A
-target hit flashes red for 0.6 s, then its effect lasts a few seconds: the platform of
-the long jumps vanishes (5 s), the bridge of the run-up falls away (6 s), an obstacle
-falls onto the way after the big drop (6 s, jump over it or climb it), a barrier rises
-across the low passage (4 s: jump at it and climb over it). Then it comes back, never onto a runner (it waits
-for the place to be free), rests for 3 s and glows again. A runner where the effect
+reticle appears in the middle of the screen. Aiming slows the runner down on the ground,
+running, sliding or rolling (to 60 % of its top speed), and starts no trick; in the air
+it changes nothing; time itself never slows down. Shooting fires at whatever is in the
+middle of the screen, once the aim has been held for a quarter of a second without a
+break, counted on the ground only (so every shot costs that much slowed running; the
+count waits in the air), and only at a target: one of the orange blocks, within 45 m,
+ready, and paid for with the ammunition the flow gives (the platform, the obstacle and
+the barrier cost one, the bridge two). The reticle shows a ring on a target the shot
+would hit, and a slash on one the ammunition does not pay for; otherwise a shot does
+nothing and costs nothing. A target hit flashes red for 1 s, then its effect lasts a few
+seconds: the platform of the long jumps vanishes (5 s), the bridge of the run-up falls
+away and leaves a 10 m gap no jump crosses (6 s), an obstacle falls onto the way after
+the big drop (6 s, jump over it or climb it), a barrier rises across the low passage
+(4 s: jump at it and climb over it). Then it comes back, never onto a runner (it waits
+for its place to be free), rests for 3 s and glows again. A runner where the effect
 starts is sabotaged: its combo is broken and its gauge loses a tier, as on a hard
 landing. On this course the runner shoots its own scenery, to practise; shooting the
 opponent's course comes with the duel.
