@@ -288,4 +288,4 @@ Escape or Start back to the start screen.
 | 3 | Shooting and sabotage | built: aiming, shooting and the four sabotageable targets, on the runner's own course (`docs/specs/sabotage.md`); chained without validation on the owner's delegation, judged at stop point 3 |
 | 4 | Local duel (ghost, then bot) | built: two lanes side by side, the start screen, the ghost of the best solo run, the bot, the round, the result and the rematch (`docs/specs/local-duel.md`); chained without validation on the owner's delegation, judged at stop point 3 |
 | 5 | Online PVP | not started |
-| 6 | Art, audio, menus, release | not started |
+| 6 | Art, audio, menus, release | in progress, brought forward before step 5 by the owner (2026-11-14): the animated Mixamo character (`docs/specs/character-animations.md`) |
