@@ -1,6 +1,6 @@
 # Le franchissement : passer par-dessus un obstacle sans casser sa course
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-14, avec Jimmy (« oui pour tout »). Jimmy veut partir vers le format
 « chat et souris » (une poursuite dans une arène d'obstacles), avec « beaucoup d'aspects
