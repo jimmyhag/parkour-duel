@@ -126,6 +126,24 @@ Fonctionnalité: Le mode Chase
   WINS », « PLAYER 1 WINS », « PLAYER 2 WINS », « CONNECT A GAMEPAD FOR PLAYER 2 »,
   « REMATCH », « MENU ».
 
+## Choix acceptés après le développement
+
+Acceptés le 2026-11-15 ; Jimmy peut rouvrir chacun après avoir joué.
+
+- **Pas de visée, de tir, de retour au checkpoint ni de recommencement** dans ce mode ;
+  les munitions ne s'affichent pas.
+- **Entre deux manches**, le HUD et la couleur montrent déjà le rôle de la manche
+  suivante ; les joueurs sont replacés à leur départ dès la fin d'une manche ; l'écran du
+  vainqueur reste affiché pendant le compte à rebours.
+- **Le joueur 1 est chat à la première manche** ; chacun part toujours du même côté.
+- **Un contact au pas même où le temps finit ne compte pas** : la souris gagne.
+- **Le contact est mesuré entre les deux capsules** ; les coureurs peuvent se traverser.
+- **Les plateformes** sont atteintes par des rebords, pas reliées entre elles ; les
+  passages bas sont des poutres flottantes.
+- **Pas de sons du flow ni d'affichage de debug** dans ce mode, pour commencer.
+- **« CHASE »** est le dernier choix de l'écran de départ.
+- **Les tests de soutien** : la chute hors de l'arène, et l'écran de fin de partie.
+
 ## Hors périmètre
 
 - Un bot chat ou souris : après, si le mode plaît.
