@@ -417,6 +417,10 @@ Le code a tranché ces points là où la spec se taisait ; ils sont acceptés le
   (décision 19) : la fin d'un combo au délai ne la vide plus ; et la fenêtre fait
   désormais 10 moves (`flow_repetition_window`, réglage du projet), décision 15 de cette
   spec-là.
+- **Une erreur ne vide plus la fenêtre de répétition des moves** (amendement du
+  2026-11-15, `docs/specs/vault.md`) : seuls une chute et un recommencement la vident,
+  comme pour les figures ; s'arrêter exprès ne rend plus les moves neufs (une boucle
+  « franchir, s'arrêter » rapportait 3 825 points par minute).
 - **Le reste des points d'une munition** est gardé à travers les combos et les
   chutes ; recommencer le remet à zéro. Avec le maximum de munitions en réserve, les
   points continuent de compter pour la suivante.
