@@ -8,10 +8,10 @@ extends TrickTest
 ## Fixed steps in one minute.
 const MINUTE: int = 3600
 const PERFECT_LANDINGS: int = 10
-## The most style a minute of riskless tricks on the flat may earn: proposed from the
-## measure of decision 15 of docs/specs/trick-gestures.md (156 200 with the tuning of
-## 2026-11-14), a guard against more, not yet a small number.
-const RISKLESS_STYLE_PER_MINUTE: int = 160000
+## The most style a minute of riskless tricks on the flat may earn (decision 15 of
+## docs/specs/trick-gestures.md): measured 78 369 with a repetition window of 10, rounded
+## up to the next thousand, plus 20 %.
+const RISKLESS_STYLE_PER_MINUTE: int = 94800
 
 
 ## What a minute of jumps earned.
