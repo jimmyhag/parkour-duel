@@ -1,7 +1,8 @@
-extends GutTest
+extends ReplayTest
 ## Aiming in the player layer: the aim and the shot read from the mouse and the gamepad,
 ## the camera over the shoulder, what the runner observes under the reticle, and time,
-## which aiming never slows down.
+## which aiming never slows down. Its fixed steps run faster than real time, each one
+## still 1/60 s of the game's time (ReplayTest).
 
 const PLAYER_SCENE: PackedScene = preload("res://game/player/player.tscn")
 const WORLD_LAYER: int = 1
