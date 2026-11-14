@@ -1,6 +1,6 @@
 # Figures par gestes, réception au bon moment, et le Trick Park
 
-**Statut : 🟢 Implémenté**
+**Statut : 🟡 Prêt pour le dev**
 
 Session du 2026-11-14, avec Jimmy, après qu'il a joué les figures de
 `docs/specs/air-tricks.md`. Cette spec **remplace le mécanisme de lancement et de
@@ -23,6 +23,13 @@ Amendée une seconde fois le même jour, à la demande de Jimmy : « quand tu as
 tracé et que tu lâches F, il fait le saut et la figure, parce que sinon c'est pas assez
 fluide, ça va être trop galère de timer les deux ensemble […] si on est dans les airs,
 il fait la figure sans sauter ». Décision 3 amendée (marquée « second amendement »).
+
+Amendée une troisième fois après la seconde inspection, qui a écrit 103 gestes humains
+(souris à plusieurs sensibilités, stick avec rampes et rebonds) et mesuré des boucles
+sans risque avec le vrai moteur : la « ligne flow » (figure posée puis glissade
+parfaite) rapportait 64 000 à 72 000 points par minute sur le plat, et les figures
+payées par un wall-run entre deux murs 23 000. Décisions 22 à 27, scénarios marqués
+« troisième amendement ».
 
 ## Contexte
 
@@ -85,6 +92,12 @@ limites de temps des portes.
 | 18 | Une lecture faite pour la main | **Amendement.** Tous les seuils de la reconnaissance sont dans la ressource de réglage (groupe Tricks), y compris ceux qui étaient des constantes du code (bruit, virage qui sépare deux éléments, courbure d'un coup sec, part droite d'un « J »). La reconnaissance doit lire ce qu'une main veut dire : un coup sec au stick finit dès que le stick revient dans sa zone morte, même vite et même s'il dépasse le centre ; un coup au stick poussé à 60 % compte ; un arc d'au moins **100°** après le salto est une vrille, qu'il commence par une partie droite ou non ; une petite tenue au début d'une courbe ne compte pas comme un coup de plus ; un retour de la main qui s'arrondit puis repart contre le coup n'est pas une vrille. Les 63 gestes humains mesurés par l'inspection, plus ceux décrits par Jimmy, deviennent un **corpus de test** : chacun avec la recette attendue. | Jimmy : « pas assez précis ». La spec disait déjà « à régler par Jimmy » : il faut que ce soit réglable. |
 | 19 | La répétition des figures survit à la fin d'un combo | **Amendement.** La fenêtre de répétition du flow n'est plus vidée par la fin d'un combo au délai (elle reste vidée par une erreur, une chute, un recommencement). Ceci remplace, dans `docs/specs/flow-combo.md`, la phrase « la fin d'un combo par le délai et une erreur le remettent aussi à zéro » pour la fin au délai. | L'inspection a mesuré une boucle sans risque à 27 350 points par minute : quatre figures simples, une pause de 2 s pour laisser finir le combo, et on recommence. |
 | 20 | Poser en grande chute | **Amendement.** L'appui qui pose une figure compte aussi pour la roulade, dans toute la fenêtre de réception : une figure posée ne finit jamais en réception dure. | Une figure posée entre 0,2 et 0,25 s avant le sol, en grande chute, payait ses points puis cassait le combo par une réception dure. |
+| 22 | La répétition des figures | **Troisième amendement.** La valeur d'une figure se juge sur les **figures** précédentes, pas sur tous les moves : présente une fois parmi les `trick_repetition_window` (**8**) dernières figures, elle vaut 50 % ; deux fois ou plus, 0 %. Cette fenêtre survit à la fin d'un combo et se vide sur une erreur, une chute, un recommencement. Les autres moves gardent la règle du flow. | Avec la fenêtre de moves, une glissade parfaite après chaque pose faisait sortir les figures de la fenêtre : 64 390 à 71 850 points par minute sur le plat, sans risque. |
+| 23 | Une figure payée sans réception | **Troisième amendement.** Une figure payée par un wall-run ou un mantle, sans appui de pose, vaut **la moitié** de ses points. | Pas de geste de réception, pas de risque : entre deux murs, 23 042 points par minute sans un seul crash. |
+| 24 | La lecture des gestes, encore | **Troisième amendement.** Un double dessiné « bas, haut, bas » avec des retournements arrondis est un double, pas une vrille ni un spin. Au stick, un coup se lit par sa **déflexion maximale** (passé au-delà d'un seuil, puis revenu), pas par sa durée : deux pas à fond ou quatre pas à 60 % sont un coup. Au stick, un creux de déflexion loin sous le maximum finit un élément. À la souris, un second coup dans le même sens demande un retour de la main ou une pause plus longue que `trick_gesture_repeat_pause` (**0,12 s**) : une hésitation au milieu d'un coup lent n'est pas un double. Après un salto, un arc ne fait jamais un spin : ce sont des vrilles. Les constantes restantes (180° par vrille au-delà de deux, l'arrondi des tours d'un spin) passent dans la ressource de réglage. Chaque geste mal lu par l'inspection entre dans le corpus avec la recette qu'une main veut dire. | Les gestes mesurés par la seconde inspection. |
+| 25 | Ce qui part au lâcher | **Troisième amendement.** Au lâcher, part la **dernière recette validée** ; une recette lue en passant (un « DOUBLE BACKFLIP » d'un instant au début d'une vrille) ne part pas si elle n'a pas été validée. Une recette est validée quand elle est stable depuis `trick_gesture_settle` (**0,1 s**) et que la main ne dépasse pas une longueur de bruit cumulée. Le pavé ne montre l'état validé que si le moteur peut lancer une figure à ce moment (pas en wall-run, en visée, ni après la figure du saut). | Le pavé doit dire exactement ce qui partira (décision 17). |
+| 26 | La sensibilité de la souris | **Troisième amendement.** Le pavé lit la souris à l'échelle de la sensibilité de la caméra (`camera_mouse_sensitivity`) : un joueur qui a réglé sa caméra a réglé son pavé. Le README le dit. | Les seuils étaient en pixels bruts : une souris à grande sensibilité tremblait assez pour ne plus rien lire. |
+| 27 | Les tests manquants | **Troisième amendement.** Le moteur ne lance rien quand le dessin ne se lit pas ; le pavé affiche « ? » avant tout mouvement ; les tests de soutien sans scénario reçoivent le leur. | Mutations non attrapées par la seconde inspection. |
 | 21 | Le Trick Park, mur par mur | **Amendement.** Aucune face d'un bloc du Trick Park n'est dans le même plan que la face d'un bloc voisin qui la touche : chaque mur visible est un seul objet (règle d'`AGENTS.md`). | L'inspection a trouvé un mur de 8 m fait de trois blocs alignés, où un wall-run pouvait se relancer. |
 | 16 | Les réglages | Toutes les valeurs nouvelles (seuils des gestes, durées, fenêtres, points) vivent dans la ressource de réglage, groupe « Tricks » ; F4 les recharge. | Règle d'`AGENTS.md`. |
 
@@ -94,6 +107,8 @@ limites de temps des portes.
 | ------- | ------ |
 | Durée d'un tour, d'une vrille (amendement) | 0,35 s, 0,3 s |
 | Arc minimal d'une vrille (amendement) | 100° |
+| Fenêtre de répétition des figures (troisième amendement) | 8 figures |
+| Pause qui sépare deux coups dans le même sens, stabilité d'une recette validée (troisième amendement) | 0,12 s, 0,1 s |
 | Tours au plus, vrilles au plus par tour | 3, 2 |
 | Fenêtre de réception, fenêtre PERFECT | 0,25 s, 0,1 s |
 | Points : front flip et backflip, side flip et spin, figure du contexte | 200, 250, 100 |
@@ -344,6 +359,56 @@ Fonctionnalité: Figures par gestes
     Soit le Trick Park
     Quand on compare les faces des blocs qui se touchent
     Alors aucune n'est dans le même plan qu'une face voisine
+
+  # --- Troisième amendement ---
+
+  Scénario: La ligne flow sur le plat rapporte peu
+    # troisième amendement
+    Soit un coureur qui, sur le plat, enchaîne pendant une minute saut de figure, réception parfaite gardée en glissade parfaite, et ressaute de la glissade
+    Quand on compte ce qu'il a gagné
+    Alors son style par minute reste sous le seuil de la boucle sans risque sur le plat
+
+  Scénario: Une figure payée sans réception vaut la moitié
+    # troisième amendement
+    Soit un coureur dont la figure est finie le long d'un mur, puis face à un rebord
+    Quand un wall-run, puis un mantle, la paie
+    Alors elle vaut la moitié de ses points
+
+  Scénario: Les figures entre deux murs rapportent peu sans risque
+    # troisième amendement
+    Soit un coureur qui enchaîne wall-run, wall-jump et figure entre les murs face à face du Trick Park pendant une minute
+    Quand on compte ce qu'il a gagné
+    Alors son style par minute reste sous le seuil de la boucle sans risque sur le plat
+
+  Scénario: Une recette lue en passant ne part pas
+    # troisième amendement
+    Soit un coureur qui a dessiné un backflip validé et commence une vrille vers le bas
+    Quand il lâche le bouton pendant que la lecture passe par « DOUBLE BACKFLIP »
+    Alors c'est le backflip, la dernière recette validée, qui part
+
+  Scénario: Le pavé ne valide que ce qui peut partir
+    # troisième amendement
+    Soit un coureur en wall-run, puis en visée, qui tient le bouton de figure et dessine un backflip
+    Quand le pavé se met à jour
+    Alors il montre la recette sans l'état validé
+
+  Scénario: Une main qui tremble garde la figure validée
+    # troisième amendement
+    Soit un backflip validé
+    Quand la main tremble de quelques pixels
+    Alors le backflip reste validé
+
+  Scénario: Le pavé suit la sensibilité de la caméra
+    # troisième amendement
+    Soit deux réglages de sensibilité de la caméra, l'un double de l'autre
+    Quand le même coup est tracé avec la moitié des pixels sous le réglage double
+    Alors il est lu pareil
+
+  Scénario: Un dessin illisible ne lance rien, même en l'air
+    # troisième amendement
+    Soit un coureur en l'air qui a dessiné un geste illisible
+    Quand il lâche le bouton de figure
+    Alors aucune figure ne commence
 
   Scénario: Le HUD montre la recette en cours de dessin
     Soit un coureur qui tient le bouton de figure
