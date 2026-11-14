@@ -49,8 +49,14 @@ typecheck: import
     {{ python }} tools/typecheck.py {{ godot }}
 
 # Lint and formatting of every script; any finding fails (gdtoolkit defaults)
-lint:
+[parallel]
+lint: _gdlint _gdformat
+
+# The two gdtoolkit checks run side by side; each one reads every script, and writes none
+_gdlint:
     {{ venv_bin }}gdlint game tests tools/typecheck.gd
+
+_gdformat:
     {{ venv_bin }}gdformat --check game tests tools/typecheck.gd
 
 # Layer boundaries, dead files, course replay names, .claude/ mirror (tools/check_structure.py)
