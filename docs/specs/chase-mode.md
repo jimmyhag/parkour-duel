@@ -144,6 +144,17 @@ Acceptés le 2026-11-15 ; Jimmy peut rouvrir chacun après avoir joué.
 - **« CHASE »** est le dernier choix de l'écran de départ.
 - **Les tests de soutien** : la chute hors de l'arène, et l'écran de fin de partie.
 
+### Après l'inspection (2026-11-15)
+
+- **Équilibre** : des bots montraient le chat toujours gagnant. Départ à **14 m** (et non
+  10, décision 5 amendée ; `chase_start_distance`) ; à chaque revanche, l'autre joueur est
+  chat à la première manche.
+- **Plateformes à 4,2 m** (au-dessus d'un saut suivi d'un mantle depuis le sol, calculé
+  depuis le réglage), atteintes par un bloc-rebord ; l'enceinte passe à 10 m. Contre le
+  chat bot qui fonce droit, une souris sur une plateforme lui échappe ; un chat humain y
+  monte par le rebord. À juger en jouant : refuge trop fort ou non.
+- **Un contact au pas exact de la fin du temps** ne fige plus la manche : la souris gagne.
+
 ## Hors périmètre
 
 - Un bot chat ou souris : après, si le mode plaît.
