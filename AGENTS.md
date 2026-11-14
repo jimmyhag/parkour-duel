@@ -64,7 +64,7 @@ test scripts whose file name starts with `test_course`, replay the course or one
 sections with the test pilot or the bot: they are the slow ones, and `just preflight`
 leaves them out. Every test that loads a course scene (a scene of `game/levels/`),
 directly or through a helper such as `CourseTest`, lives in such a script; `just
-deadcode` refuses one that does not. Time limits on the owner's machine: 30 s for
+deadcode` refuses one that does not. Time limits on the owner's machine: 40 s for
 `just preflight`, 90 s for `just check`, builds included.
 
 | Command            | Purpose                                                    |
