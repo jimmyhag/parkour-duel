@@ -120,7 +120,8 @@ class AimHold:
 
 
 ## The character, `height` tall, made from `model` and the clips; null when one of the
-## files is not there: the runner keeps its capsule.
+## files is not there, or when the character is not rigged as Ch08 (see fits): the runner
+## keeps its capsule.
 static func create(model: String, height: float) -> RunnerCharacter:
 	if not ResourceLoader.exists(model) or not ResourceLoader.exists(PISTOL_IDLE):
 		return null
@@ -132,10 +133,26 @@ static func create(model: String, height: float) -> RunnerCharacter:
 		if loaded == null:
 			return null
 		_scenes[model] = loaded
-	var scene: PackedScene = _scenes[model]
+	var instance: Node3D = _scenes[model].instantiate() as Node3D
+	if not fits(instance):
+		instance.free()
+		return null
 	var character: RunnerCharacter = RunnerCharacter.new()
-	character._build(scene.instantiate() as Node3D, height)
+	character._build(instance, height)
 	return character
+
+
+## Whether `model` has the skeleton the clips move: the bones of Ch08, whose names carry
+## the prefix Mixamo gave that character. Another character, or clips downloaded on
+## another one, have other names.
+static func fits(model: Node3D) -> bool:
+	var skeleton: Skeleton3D = model.get_node_or_null(SKELETON) as Skeleton3D
+	if skeleton == null:
+		return false
+	for bone: String in [HIPS, SPINE, KNEE]:
+		if skeleton.find_bone(bone) < 0:
+			return false
+	return true
 
 
 ## Shows `animation`: a new clip blends in, in its blend time; the clip plays at its speed,

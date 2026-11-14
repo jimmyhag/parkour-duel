@@ -155,6 +155,28 @@ func test_without_the_files_the_capsule_stays() -> void:
 		assert_true(seen.is_visible_in_tree(), "the ghost's %s is seen" % part)
 
 
+func test_a_character_of_another_rig_keeps_the_capsule() -> void:
+	var rig: Array[String] = [RunnerCharacter.HIPS, RunnerCharacter.SPINE, RunnerCharacter.KNEE]
+	assert_true(RunnerCharacter.fits(_model_with_bones(rig)), "the bones of Ch08: it fits")
+	var other: Array[String] = []
+	for bone: String in rig:
+		other.append(bone.replace("mixamorig7_", "mixamorig1_"))
+	assert_false(RunnerCharacter.fits(_model_with_bones(other)), "another prefix: the capsule")
+	assert_false(RunnerCharacter.fits(Node3D.new()), "no skeleton: the capsule")
+
+
+## A model as an imported character is: a skeleton with these bones, under its root.
+func _model_with_bones(bones: Array[String]) -> Node3D:
+	var model: Node3D = Node3D.new()
+	var skeleton: Skeleton3D = Skeleton3D.new()
+	skeleton.name = RunnerCharacter.SKELETON
+	for bone: String in bones:
+		skeleton.add_bone(bone)
+	model.add_child(skeleton)
+	autofree(model)
+	return model
+
+
 func _add_player() -> Player:
 	var player: Player = PLAYER_SCENE.instantiate() as Player
 	add_child_autofree(player)

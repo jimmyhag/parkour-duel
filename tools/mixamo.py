@@ -15,6 +15,9 @@ not import it again.
 
 Usage: python tools/mixamo.py <download-folder> [--into <folder>]
   --into  where to copy (assets/mixamo/ by default; the tests copy elsewhere).
+
+Under cmd.exe, a folder written between quotes with a backslash at its end arrives with
+a quote at its end: the backslash escaped the closing quote. That quote is dropped.
 """
 
 from __future__ import annotations
@@ -108,6 +111,12 @@ def pack_member(pack: zipfile.ZipFile, clip: str) -> zipfile.ZipInfo | None:
     return None
 
 
+def download_folder(argument: str) -> Path:
+    """The download folder named by `argument`, without the quote cmd.exe leaves at the
+    end of a quoted folder that ends with a backslash."""
+    return Path(argument.strip().rstrip('"'))
+
+
 def missing_files(downloads: Path) -> list[str]:
     missing = [
         name for name in (CHARACTER[0], *ANIMATIONS) if not (downloads / name).is_file()
@@ -159,7 +168,7 @@ def main() -> int:
     if len(arguments) != 1:
         print(__doc__)
         return 2
-    downloads = Path(arguments[0])
+    downloads = download_folder(arguments[0])
     missing = missing_files(downloads)
     if missing:
         print(f"mixamo: missing in {downloads}, nothing copied:")

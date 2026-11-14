@@ -31,7 +31,8 @@ const DOWNLOADED: Dictionary[String, String] = {
 	"Backflip.fbx": "backflip.fbx",
 	"Running Forward Flip.fbx": "",
 }
-## The pistol pack, the clips it holds, and the name of the one the game uses.
+## The pistol pack, the clips it holds, and the name of the one the game uses. Its
+## character is not the one downloaded: it must not replace it.
 const PACK: String = "Pistol_Handgun Locomotion Pack.zip"
 const PACK_CLIPS: Dictionary[String, String] = {
 	"Ch08_nonPBR.fbx": "",
@@ -39,6 +40,9 @@ const PACK_CLIPS: Dictionary[String, String] = {
 	"pistol run.fbx": "",
 	"pistol walk.fbx": "",
 }
+## What the clips of the made-up pack hold before their name: they differ from the
+## downloads of the same name.
+const PACKED: String = "pack:"
 
 
 func after_each() -> void:
@@ -64,31 +68,20 @@ func test_mixamo_files_are_never_tracked_by_git() -> void:
 
 
 func test_the_copy_command_puts_away_the_used_files() -> void:
-	DirAccess.make_dir_recursive_absolute(DOWNLOADS)
-	for download: String in DOWNLOADED:
-		_write(DOWNLOADS.path_join(download), download)
-	var packer: ZIPPacker = ZIPPacker.new()
-	assert_eq(packer.open(DOWNLOADS.path_join(PACK)), OK, "the pack is written")
-	for clip: String in PACK_CLIPS:
-		packer.start_file(clip)
-		packer.write_file(clip.to_utf8_buffer())
-		packer.close_file()
-	packer.close()
+	_make_the_downloads()
 
 	var output: Array = []
-	var arguments: PackedStringArray = [
-		_absolute("res://" + COPY_TOOL), _absolute(DOWNLOADS), "--into", _absolute(COPY)
-	]
-	var code: int = OS.execute(_venv_python(), arguments, output, true)
+	var code: int = _copy(_absolute(DOWNLOADS), output)
 	assert_eq(code, 0, "the copy command succeeds: %s" % [output])
 
+	# What each copied file holds: a download, or a clip of the pack.
 	var expected: Dictionary[String, String] = {}
 	for download: String in DOWNLOADED:
 		if not DOWNLOADED[download].is_empty():
 			expected[DOWNLOADED[download]] = download
 	for clip: String in PACK_CLIPS:
 		if not PACK_CLIPS[clip].is_empty():
-			expected[PACK_CLIPS[clip]] = clip
+			expected[PACK_CLIPS[clip]] = PACKED + clip
 	var copied: PackedStringArray = []
 	for file: String in DirAccess.get_files_at(COPY):
 		if file.get_extension() == "fbx":
@@ -99,9 +92,45 @@ func test_the_copy_command_puts_away_the_used_files() -> void:
 	assert_eq(copied, wanted, "the character, each animation used and pistol idle, nothing else")
 	for file: String in expected:
 		var content: String = FileAccess.get_file_as_string(COPY.path_join(file))
-		assert_eq(content, expected[file], "%s is a copy of %s" % [file, expected[file]])
+		assert_eq(content, expected[file], "%s holds %s" % [file, expected[file]])
 		var settings: String = COPY.path_join(file + ".import")
 		assert_true(FileAccess.file_exists(settings), "%s has its import settings" % file)
+
+
+func test_a_download_folder_ending_with_a_backslash_is_read_under_cmd() -> void:
+	_make_the_downloads()
+	# cmd.exe hands "C:\downloads\" over as C:\downloads" : the backslash escapes the
+	# closing quote. On Windows, Godot passes the argument as it is written, and the
+	# program reads \" as a quote; elsewhere the quote is given as it is.
+	var quote: String = '\\"' if OS.get_name() == "Windows" else '"'
+	var output: Array = []
+	var code: int = _copy(_absolute(DOWNLOADS) + quote, output)
+
+	assert_eq(code, 0, "the copy command succeeds: %s" % [output])
+	assert_true(FileAccess.file_exists(COPY.path_join("ch08_nonpbr.fbx")), "the files are copied")
+
+
+## A download folder: every file as mixamo.com names it, each holding its own name, and
+## the pistol pack, each of its clips holding PACKED and its name.
+func _make_the_downloads() -> void:
+	DirAccess.make_dir_recursive_absolute(DOWNLOADS)
+	for download: String in DOWNLOADED:
+		_write(DOWNLOADS.path_join(download), download)
+	var packer: ZIPPacker = ZIPPacker.new()
+	assert_eq(packer.open(DOWNLOADS.path_join(PACK)), OK, "the pack is written")
+	for clip: String in PACK_CLIPS:
+		packer.start_file(clip)
+		packer.write_file((PACKED + clip).to_utf8_buffer())
+		packer.close_file()
+	packer.close()
+
+
+## Runs the copy command on the download folder given as `folder`, into COPY.
+func _copy(folder: String, output: Array) -> int:
+	var arguments: PackedStringArray = [
+		_absolute("res://" + COPY_TOOL), folder, "--into", _absolute(COPY)
+	]
+	return OS.execute(_venv_python(), arguments, output, true)
 
 
 ## Where Godot finds `path`, on the disk.

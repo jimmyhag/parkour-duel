@@ -26,9 +26,7 @@ var _begun: bool = false
 ## Where the body is after one more fixed step, whether the runner acted at it, and the
 ## animation the body shows. Until it first acts, only the last frame is kept: the run
 ## begins where it waited.
-func record(
-	frame: Transform3D, acted: bool, animation: RunnerAnimation = RunnerAnimation.new()
-) -> void:
+func record(frame: Transform3D, acted: bool, animation: RunnerAnimation) -> void:
 	if is_finished():
 		return
 	if not _begun and not acted:

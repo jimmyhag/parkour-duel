@@ -49,13 +49,14 @@ everything works as before, the tests included.
 
 On [mixamo.com](https://www.mixamo.com) (free, with an Adobe account), download in one
 folder, as FBX Binary (.fbx), "With Skin", with the default settings (In Place or not:
-the game removes the movement of the root):
+the game removes the movement of the root), every animation with that same character
+selected: its bones are the ones the game moves (another character keeps the capsule):
 
 | File | What it is |
 | ---- | ---------- |
 | `Ch08_nonPBR.fbx` | the character (the only file whose mesh the game uses) |
 | `Idle.fbx`, `Running.fbx`, `Jump.fbx`, `Falling Idle.fbx`, `Landing.fbx`, `Hard Landing.fbx`, `Falling To Roll.fbx`, `Running Slide.fbx`, `Sprint To Wall Climb.fbx`, `Wall Run.fbx`, `Backflip.fbx` | the animations, on that character |
-| `Pistol_Handgun Locomotion Pack.zip` | the pistol pack (as one zip); only `pistol idle.fbx` is used |
+| `Pistol_Handgun Locomotion Pack.zip` | the pistol pack (as one zip), downloaded with `Ch08_nonPBR` selected as the character; only `pistol idle.fbx` is used |
 
 Then, from the repository root:
 
