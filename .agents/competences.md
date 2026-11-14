@@ -27,3 +27,5 @@ cell means not assessed yet.
 | An asset under a restrictive licence kept out of a public repository, with a fallback | `assets/`, first applied by `docs/specs/character-animations.md` | discovered | 2026-11-14 |
 | Separating the choice of an animation (testable logic) from its display | `game/player/`, first applied by `docs/specs/character-animations.md` | discovered | 2026-11-14 |
 | Blend space: blending clips on a continuous value, in phase | `game/core/`, `game/player/`, first applied by `docs/specs/locomotion-blend.md` | discovered | 2026-11-14 |
+| Animation at the display rate, simulation at a fixed step, interpolation between them | `game/player/`, first applied by `docs/specs/animation-polish.md` | discovered | 2026-11-14 |
+| A movement made of a loop and a procedural pose rather than a dedicated clip | `game/player/`, first applied by `docs/specs/animation-polish.md` | discovered | 2026-11-14 |
