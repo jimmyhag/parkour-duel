@@ -24,3 +24,5 @@ cell means not assessed yet.
 | Small object state machines driven by dated messages | `game/core/`, first applied by `docs/specs/sabotage.md` | discovered | 2026-11-14 |
 | A round state in `core` fed by dated messages, ready for the network | `game/core/`, first applied by `docs/specs/local-duel.md` | discovered | 2026-11-14 |
 | Separating a gesture (input presentation) from its recipe (logic) | `game/core/`, `game/player/`, first applied by `docs/specs/trick-gestures.md` | discovered | 2026-11-14 |
+| An asset under a restrictive licence kept out of a public repository, with a fallback | `assets/`, first applied by `docs/specs/character-animations.md` | discovered | 2026-11-14 |
+| Separating the choice of an animation (testable logic) from its display | `game/player/`, first applied by `docs/specs/character-animations.md` | discovered | 2026-11-14 |
