@@ -114,6 +114,14 @@ func way_forward(index: int) -> Vector3:
 	return -_checkpoints[index].global_basis.z
 
 
+## Where a runner of the section that the checkpoint `index` opens runs to: the next
+## checkpoint, or the finish line after the last one, in the world.
+func goal_after(index: int) -> Vector3:
+	if _checkpoints.has(index + 1):
+		return _checkpoints[index + 1].global_position
+	return _finish_line.global_position
+
+
 func target_blocks() -> Array[TargetBlock]:
 	return _blocks
 

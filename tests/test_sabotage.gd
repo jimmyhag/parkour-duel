@@ -302,12 +302,17 @@ func test_a_platform_waits_for_nobody_to_be_in_the_air_above_it() -> void:
 		assert_false(target.displaced, context + "in its place")
 		assert_eq(target.effects, 0, context + "no effect yet")
 
-		# The runner landed on it: nobody in the air above, the effect starts and hits it.
+		# The runner landed back on it: delayed, the effect now waits for its zone to be
+		# empty (amendment), then starts and hits nobody.
 		var standing: Array[int] = [RUNNER]
-		target.step(standing, false, NOBODY_IN_THE_AIR)
+		for step: int in extra:
+			target.step(standing, false, NOBODY_IN_THE_AIR)
+		assert_eq(target.state, WARNING, context + "it waits for the runner standing on it")
+		assert_eq(target.effects, 0, context + "still no effect")
+		target.step(NOBODY, true, NOBODY_IN_THE_AIR)
 
-		assert_eq(target.state, SABOTAGED, context + "then the effect starts")
-		assert_eq(target.hits, standing, context + "a runner standing on it is hit")
+		assert_eq(target.state, SABOTAGED, context + "the zone empty, the effect starts")
+		assert_true(target.hits.is_empty(), context + "and hits nobody")
 		for step: int in EFFECT_STEPS[kind] - 1:
 			target.step(NOBODY, true, NOBODY_IN_THE_AIR)
 		assert_eq(target.state, SABOTAGED, context + "for the duration of its type")

@@ -4,7 +4,8 @@ extends IntentSource
 ## is given, section after section, that does no trick. Given a point to aim at, it aims
 ## from its head for the aim time of the tuning, slowed on the ground like any runner that
 ## aims, then presses the shot: the shot goes if its weapon judges the target still ready
-## and shootable. What to aim at, and when, is decided for it.
+## and shootable. What to aim at, and when, is decided for it; it tells whether its pilot
+## sees a jump to make before an aim would end.
 
 const NOT_AIMING: int = -1
 
@@ -33,6 +34,15 @@ func aim_at(point: Vector3) -> void:
 
 func is_aiming() -> bool:
 	return _steps_aimed != NOT_AIMING
+
+
+## Whether the pilot sees a jump to make before an aim started now would end: within the
+## distance the runner covers meanwhile, at its speed or at the top speed of an aim.
+func sees_a_jump_before_an_aim_ends() -> bool:
+	var tuning: MovementTuning = _runner.tuning
+	var speed: float = Vector2(_runner.velocity.x, _runner.velocity.z).length()
+	speed = maxf(speed, _runner.motor.top_speed() * tuning.aim_speed_ratio)
+	return _pilot.sees_a_jump_within(speed * tuning.bot_aim_time)
 
 
 func next_intent() -> MoveIntent:

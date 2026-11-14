@@ -51,6 +51,9 @@ var _ghost: Ghost
 var _ghost_run: GhostRun
 ## The end of the round has been shown.
 var _over: bool = false
+## The bot's rule of sabotage, and its shots already counted, for the round.
+var _saboteur: BotSaboteur
+var _bot_shots_seen: int = 0
 
 @onready var _race_hud: RaceHud = $Hud/RaceHud as RaceHud
 @onready var _flow_hud: FlowHud = $Hud/FlowHud as FlowHud
@@ -151,6 +154,8 @@ func _begin_the_round() -> void:
 	_hold_the_runners(true)
 	if opponent == Opponent.BOT:
 		bot_source = BotIntentSource.new(opponent_lane.player, opponent_lane.way_forward(0))
+		_saboteur = BotSaboteur.new()
+		_bot_shots_seen = opponent_lane.shooter.shots
 		opponent_lane.player.intent_source = bot_source
 	else:
 		_ghost_run = session.best_run
@@ -208,15 +213,20 @@ func _follow_the_ghost() -> void:
 		round_state.receive(RoundMessage.finish(OPPONENT, frame, style))
 
 
-## The bot runs the way of the section it is in, and, unless it already aims, chooses a
-## target of the player's lane to sabotage (BotSaboteur), and aims at it.
+## The bot runs towards the next checkpoint (the finish line in the last section); the
+## rule of game/core (BotSaboteur) chooses a target of the player's lane for it to
+## sabotage, and it aims at it unless it already aims or its pilot sees a jump to make
+## before the aim would end.
 func _direct_the_bot() -> void:
 	if bot_source == null:
 		return
 	var bot: Player = opponent_lane.player
-	bot_source.run_towards(opponent_lane.way_forward(opponent_lane.race.last_checkpoint))
-	if bot_source.is_aiming():
-		return
+	var to_the_goal: Vector3 = opponent_lane.goal_after(opponent_lane.race.last_checkpoint)
+	bot_source.run_towards(to_the_goal - bot.global_position)
+	var shooter: Shooter = opponent_lane.shooter
+	if shooter.shots != _bot_shots_seen:
+		_bot_shots_seen = shooter.shots
+		_saboteur.sabotaged(shooter.last_message.target)
 	var tuning: MovementTuning = bot.tuning
 	var eyes: Vector3 = bot.global_position + Vector3.UP * tuning.camera_look_height
 	var player: Player = player_lane.player
@@ -231,8 +241,11 @@ func _direct_the_bot() -> void:
 			BotSaboteur.Candidate.new(block.target, eyes.distance_to(point), to_it.dot(forward))
 		)
 		blocks[block.target_id] = block
-	var chosen: int = BotSaboteur.choose(candidates, opponent_lane.flow.ammo, tuning)
-	if chosen != SabotageTarget.NO_TARGET:
+	# Asked at every step, aiming or not: the approach of the player is step to step.
+	var chosen: int = _saboteur.choose(candidates, opponent_lane.flow.ammo, tuning)
+	if chosen == SabotageTarget.NO_TARGET or bot_source.is_aiming():
+		return
+	if not bot_source.sees_a_jump_before_an_aim_ends():
 		bot_source.aim_at(blocks[chosen].aim_point())
 
 
@@ -243,6 +256,8 @@ func _style_score(runner: int) -> int:
 
 
 func _on_checkpoint_reached(index: int, runner: int) -> void:
+	if runner == PLAYER and _saboteur != null:
+		_saboteur.player_reached_a_checkpoint()
 	var lane: Lane = _lane(runner)
 	round_state.receive(
 		RoundMessage.checkpoint_reached(

@@ -156,7 +156,9 @@ the big drop (6 s: too high to jump over, jump at it and climb over it), a barri
 for its place to be free), rests for 3 s and glows again. A runner where the effect
 starts is sabotaged: its combo is broken and its gauge loses a tier, as on a hard
 landing. A platform or a bridge whose warning is over waits while a runner is in the air
-above it, and starts its effect once nobody is (a runner standing on it is hit). In solo
+above it; once delayed so, it also waits for its zone to be empty, so that a runner
+landing back on it and running off is not hit (a runner standing on it when a warning
+ends without delay is hit). In solo
 practice the runner shoots its own scenery, to practise; in a duel, only the
 opponent's.
 
@@ -167,9 +169,12 @@ at GO. The first over the finish line wins; at the same step, the higher style s
 the same score is a draw. After 3 minutes, if nobody finished, the farthest checkpoint
 wins, then the style score. The ghost, half transparent, replays the best solo run of
 the session step by step: it touches nothing and shoots nothing. The bot, orange, runs
-the course with the pilot the tests use, does no trick, and sabotages a target of your lane when
-it has the ammunition, the target is within its range and you are less than 25 m
-before it: it aims for 0.8 s, slowed like any runner that aims, then shoots. Only the
+the course with the pilot the tests use, towards the next checkpoint, does no trick,
+and sabotages a target of your lane when it has the ammunition, the target is within
+its range and you are less than 25 m before it and getting closer: it aims for 0.8 s,
+slowed like any runner that aims, then shoots. It never sabotages the same target twice
+before you reach a new checkpoint, and does not start an aim when a jump comes before
+the aim would end. Only the
 targets of the opposing lane can be shot, from as far as the section before them. Next
 to your timer, the gap with the opponent at your last common checkpoint (+1.24: you
 are behind). Restarting does not exist in a duel: the result screen offers REMATCH

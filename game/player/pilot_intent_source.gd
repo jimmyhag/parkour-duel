@@ -12,7 +12,11 @@ extends IntentSource
 ## across, and lets the jump carry it to that wall. It never jumps in the air or on a
 ## floor that goes on but off a wall, and never asks for the slide without one of its
 ## two reasons. It knows no course: only what it probes, the state of the runner and the
-## tuning, from which its look-ahead distances are worked out.
+## tuning, from which its look-ahead distances are worked out. Asked, it tells whether a
+## jump is to be made within a distance ahead.
+
+## The spacing of the probes of the floor when the pilot looks far ahead, in m.
+const PROBE_SPACING: float = 0.25
 
 var _runner: Player
 var _direction: Vector3
@@ -36,9 +40,12 @@ func _init(runner: Player, direction: Vector3, slides: bool = true) -> void:
 	_slides = slides
 
 
-## From now on, runs in `direction`, in the world; only its horizontal part counts.
+## From now on, runs in `direction`, in the world; only its horizontal part counts, and
+## a direction with none changes nothing.
 func run_towards(direction: Vector3) -> void:
-	_direction = Vector3(direction.x, 0.0, direction.z).normalized()
+	var flat: Vector3 = Vector3(direction.x, 0.0, direction.z)
+	if not flat.is_zero_approx():
+		_direction = flat.normalized()
 
 
 func next_intent() -> MoveIntent:
@@ -82,9 +89,28 @@ func next_intent() -> MoveIntent:
 ## is no ground down to a jump height below its feet, the deepest drop it could jump
 ## back from. Jumping now is jumping from the last step on the floor.
 func _floor_stops_ahead() -> bool:
-	var tuning: MovementTuning = _runner.tuning
 	var stride: float = _speed_ahead() * _runner.get_physics_process_delta_time()
-	var feet: Vector3 = _runner.global_position + _direction * stride
+	return _no_floor_at(_runner.global_position + _direction * stride)
+
+
+## Whether a jump is to be made within `distance` ahead, the way the pilot runs: the
+## floor stops there, or a step or a ledge that a jump clears stands there.
+func sees_a_jump_within(distance: float) -> bool:
+	var tuning: MovementTuning = _runner.tuning
+	if _clears_what_stops_it(distance, tuning.jump_height + tuning.mantle_max_height):
+		return true
+	var probes: int = maxi(ceili(distance / PROBE_SPACING), 1)
+	for index: int in range(1, probes + 1):
+		var along: float = distance * index / probes
+		if _no_floor_at(_runner.global_position + _direction * along):
+			return true
+	return false
+
+
+## No ground under `feet`, down to a jump height below them: the deepest drop the runner
+## could jump back from.
+func _no_floor_at(feet: Vector3) -> bool:
+	var tuning: MovementTuning = _runner.tuning
 	var ray: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
 		feet + Vector3.UP * tuning.capsule_height / 2.0,
 		feet + Vector3.DOWN * tuning.jump_height,

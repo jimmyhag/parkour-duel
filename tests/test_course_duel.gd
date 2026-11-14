@@ -13,6 +13,7 @@ const SOMEBODY_ELSE: int = 9
 ## Just before the finish line, on the last ledge, in a lane.
 const BEFORE_THE_FINISH: Vector3 = Vector3(0.0, 2.8, -242.0)
 const FINISH_STEPS: int = 60
+const TUNING: String = "res://game/core/movement_tuning.tres"
 
 
 func after_each() -> void:
@@ -225,28 +226,74 @@ func test_a_platform_does_not_act_under_a_runner_in_the_air() -> void:
 	await _wait_steps(warning - 20)
 	runner.intent_source = ScriptedIntentSource.new().hold(Vector3.ZERO, true, 20)
 	var waited_in_the_air: int = 0
-	var waited_on_the_floor: int = 0
-	var started: bool = false
-	var started_on_the_floor: bool = false
+	var started_in_the_air: bool = false
+	var was_in_the_air: bool = false
 	for step: int in 120:
 		await get_tree().physics_frame
 		var target: SabotageTarget = platform.target
+		var in_the_air: bool = not runner.is_on_floor()
 		if target.state == SabotageTarget.State.WARNING and target.time_left() == 0.0:
-			waited_in_the_air += int(not runner.is_on_floor())
-			waited_on_the_floor += int(runner.is_on_floor())
-		if target.state == SabotageTarget.State.SABOTAGED:
+			waited_in_the_air += int(in_the_air)
+		started_in_the_air = started_in_the_air or target.effects > 0
+		if was_in_the_air and not in_the_air:
+			break
+		was_in_the_air = in_the_air
+	assert_gt(waited_in_the_air, 0, "the warning over, the effect waits while it is in the air")
+	assert_false(started_in_the_air, "it never starts under the runner in the air")
+	# Landed back on it, the runner waits there a moment: the effect waits too
+	# (amendment); then the runner is gone, and the effect starts.
+	await _wait_steps(SETTLE_STEPS)
+	assert_eq(platform.target.effects, 0, "nor under the runner standing on it")
+	course.respawn()
+	var started: bool = false
+	for step: int in FINISH_STEPS:
+		await get_tree().physics_frame
+		if platform.target.state == SabotageTarget.State.SABOTAGED:
 			started = true
-			started_on_the_floor = runner.is_on_floor()
 			break
 
-	assert_gt(waited_in_the_air, 0, "the warning over, the effect waits while it is in the air")
-	assert_eq(waited_on_the_floor, 0, "and not a step longer")
 	assert_true(started, "then it starts")
-	assert_true(started_on_the_floor, "once the runner is no longer in the air above it")
-	assert_eq(course.flow.sabotages, 1, "a runner standing on it is hit as before")
+	assert_eq(course.flow.sabotages, 0, "and hits nobody")
 	assert_almost_eq(
 		platform.target.time_left(), effect / 60.0, 0.001, "its full time from its real start"
 	)
+
+
+func test_a_runner_who_lands_back_on_a_delayed_platform_is_not_hit() -> void:
+	# A warning of one step, so that the effect is due as the runner flies over the platform
+	# of the long jumps, before it lands on it.
+	var tuning: MovementTuning = (load(TUNING) as MovementTuning).duplicate() as MovementTuning
+	tuning.sabotage_warning = 1.0 / STEPS_PER_SECOND
+	tuning.resource_name = "a warning of one step"
+	var attempt: SectionRun = _section_run(LONG_JUMPS, tuning)
+	var course: Course = attempt.course
+	var runner: Player = course.player
+	var platform: TargetBlock = _block_of_kind(course, SabotageTarget.Kind.PLATFORM)
+	var delayed: Array[bool] = [false]
+	var landed_on_it: Array[bool] = [false]
+	var zone_at_the_start: Array[bool] = [true]
+	var effects: Array[int] = [0]
+	runner.stepped.connect(
+		func(_intent: MoveIntent) -> void:
+			var over: bool = platform.holds(runner)
+			if not delayed[0] and over and not runner.is_on_floor():
+				delayed[0] = course.targets.receive(
+					SabotageMessage.new(SOMEBODY_ELSE, platform.target_id, 0)
+				)
+			landed_on_it[0] = landed_on_it[0] or (delayed[0] and over and runner.is_on_floor())
+			if platform.target.effects > effects[0]:
+				effects[0] = platform.target.effects
+				zone_at_the_start[0] = over
+	)
+
+	await _play([attempt.run])
+
+	assert_true(delayed[0], "the platform hit as the runner flew over it")
+	assert_true(landed_on_it[0], "the runner landed back on it, its effect waiting")
+	assert_eq(course.flow.sabotages, 0, "it is not hit")
+	assert_eq(effects[0], 1, "the effect started")
+	assert_false(zone_at_the_start[0], "once its zone was empty")
+	_assert_cleared(attempt)
 
 
 ## What a lane is made of, relative to the lane, to the millimetre: its blocks (with their
