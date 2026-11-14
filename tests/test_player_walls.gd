@@ -41,6 +41,12 @@ const MADE_UP_RIGHT_FOOT: int = 1
 const MADE_UP_HEAD: int = 2
 ## How far the made-up clip reaches to its left, at its farthest.
 const MADE_UP_REACH: float = 0.6
+## A made-up pose the runner comes from and goes into, a fall, its bones as in the made-up
+## clip: its feet apart, its head upright, a hand out at its left, clear of a wall that
+## touches the capsule.
+const MADE_UP_FALL: PackedFloat32Array = [-0.15, 0.15, 0.0, -0.3]
+## The shares of Wall Run a blend goes through.
+const BLEND_SHARES: Array[float] = [0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0]
 
 
 ## One runner beside one wall, the wall at its left, or at its right.
@@ -117,7 +123,8 @@ class BesideAWall:
 ## What a test measures of the visible body of a runner along a wall: at each step, how
 ## far the body leans and moves across; and at each final pose of the character, its
 ## bones against the face of the wall, all along the wall run for the nearest bone, and
-## once the clip of the wall run has blended in for the others.
+## once the clip of the wall run has blended in for the others; after it, as the clip
+## blends out, then in the fall alone, the nearest bone.
 class BonesAlongTheWall:
 	## The character shown; null with the capsule.
 	var character: RunnerCharacter = null
@@ -134,6 +141,11 @@ class BonesAlongTheWall:
 	var nearest_bone: float = INF
 	var nearest_foot: float = INF
 	var head_not_farther: int = 0
+	## The poses measured as the clip of the wall run blends out, the nearest any bone came to
+	## the wall then, and the nearest one came to it in the fall that follows, the clip gone.
+	var leaving_poses: int = 0
+	var nearest_leaving: float = INF
+	var nearest_in_the_fall: float = INF
 	## The sums of the distances of the head, the hips and the nearest foot to the wall.
 	var _head: float = 0.0
 	var _hips: float = 0.0
@@ -173,14 +185,21 @@ class BonesAlongTheWall:
 		moved_across = maxf(moved_across, absf(visual.position.x))
 
 	func _on_skeleton_updated() -> void:
-		if _scene.runner.motor.state != WALL_RUNNING:
-			return
+		var nearest: float = INF
 		var foot: float = INF
 		for bone: int in _skeleton.get_bone_count():
 			var distance: float = _to_the_wall(bone)
-			nearest_bone = minf(nearest_bone, distance)
+			nearest = minf(nearest, distance)
 			if bone in _feet:
 				foot = minf(foot, distance)
+		if _scene.runner.motor.state != WALL_RUNNING:
+			if character.wall_run_weight() > 0.0:
+				leaving_poses += 1
+				nearest_leaving = minf(nearest_leaving, nearest)
+			elif _scene.did_run_along:
+				nearest_in_the_fall = minf(nearest_in_the_fall, nearest)
+			return
+		nearest_bone = minf(nearest_bone, nearest)
 		if _scene.wall_run_steps <= _blend_steps:
 			return
 		poses += 1
@@ -332,6 +351,19 @@ func test_in_a_wall_run_the_feet_are_at_the_wall_and_the_head_moves_away() -> vo
 		assert_eq(watch.head_not_farther, 0, context + ": the head farther than the feet")
 		assert_gt(watch.nearest_bone, -BEHIND_THE_WALL, context + ": no bone behind the wall")
 		assert_lt(watch.nearest_foot, FEW_CENTIMETRES, context + ": the feet a few cm from it")
+		# Out of the wall run, the character slides back from the wall with its clip: no bone
+		# behind it as the clip blends out, but where the fall that follows reaches by itself.
+		gut.p(
+			(
+				"%s: %d poses blending out, a bone %.3f m from the wall; in the fall, %.3f m"
+				% [context, watch.leaving_poses, watch.nearest_leaving, watch.nearest_in_the_fall]
+			)
+		)
+		assert_gt(watch.leaving_poses, 0, context + ": its clip measured as it blends out")
+		var fall: float = minf(watch.nearest_in_the_fall, 0.0)
+		assert_gt(
+			watch.nearest_leaving, fall - BEHIND_THE_WALL, context + ": no bone behind the wall"
+		)
 
 
 ## The rule of the pose, on two made-up clips: one whose feet go to the runner's left as
@@ -382,6 +414,43 @@ func _assert_the_pose_rule_on_made_up_clips() -> void:
 					var gap_left: float = WallRunPose.WALL_GAP
 					assert_almost_eq(nearest, gap_left, 0.001, context + ": the nearest bone")
 					assert_gt(to_the_wall[MADE_UP_HEAD], foot, context + ": the head farther")
+				_assert_the_blend_stays_clear(clip, wall_side, gap, tuning, frames)
+
+
+## The made-up clip `clip` (its bones across at each frame `frames`), shown along a wall at
+## `wall_side`, `gap` metres from the side of the capsule, blended in from the made-up
+## fall, then out into it: at every share of the blend, the character moved across by its
+## share of the offset (WallRunPose.shift_share), no bone goes behind the wall. Blends are
+## of the positions of the bones, as for a short blend between two poses.
+func _assert_the_blend_stays_clear(
+	clip: WallRunPose,
+	wall_side: RunnerAnimation.WallSide,
+	gap: float,
+	tuning: MovementTuning,
+	frames: Array[PackedFloat32Array],
+) -> void:
+	var clip_way: float = WallRunPose.way(clip.side)
+	var wall_way: float = WallRunPose.way(wall_side)
+	var mirror: float = -1.0 if clip.mirrors(wall_side) else 1.0
+	var offset: float = clip.offset(1.0, gap, tuning)
+	for along: bool in [true, false]:
+		var way: String = "in" if along else "out"
+		for share: float in BLEND_SHARES:
+			var moved: float = WallRunPose.shift_share(share, offset < 0.0, along) * offset
+			for index: int in frames.size():
+				var nearest: float = INF
+				for bone: int in MADE_UP_FALL.size():
+					var shown: float = (
+						(frames[index][bone] + clip_way * clip.shifts[index]) * mirror
+					)
+					var blended: float = lerpf(MADE_UP_FALL[bone], shown, share)
+					var across: float = blended + wall_way * moved
+					nearest = minf(nearest, tuning.capsule_radius + gap - wall_way * across)
+				var context: String = (
+					"clip %d, wall %d, %.2f m away, %d%% blended %s"
+					% [clip.side, wall_side, gap, share * 100, way]
+				)
+				assert_gt(nearest, -0.001, context + ": no bone behind the wall")
 
 
 ## The capsule, without the character: it leans towards the wall by its tuned angle and

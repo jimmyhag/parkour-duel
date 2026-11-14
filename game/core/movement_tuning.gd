@@ -288,13 +288,24 @@ extends Resource
 @export var turn_speed: float = 0.0
 
 @export_group("Animation")
-## How long the body takes to go from one animation to the next, in s; a hard landing (or
-## a crash) starts at once.
+## How long the body takes to go from one animation to the next, in s, when the table of
+## blend times has nothing for the pair; a hard landing (or a crash) starts at once,
+## whatever the table says.
 @export var animation_blend_time: float = 0.0
-## The horizontal speed at which Running plays at its own pace, in m/s: faster or slower,
-## it plays in proportion.
+## The blend time of a pair of animations, in s, by "from>to": the clips in lower case, as
+## RunnerAnimation names them ("running" for the whole locomotion: Idle, Walking, Running
+## and Sprint), "*" for any clip. The pair itself first, then "*>to", then "from>*".
+@export var animation_blend_times: Dictionary[String, float] = {}
+## The horizontal speed of the stride of Walking, of Running and of Sprint, measured from
+## their clips, in m/s: how fast the foot on the ground goes back when the clip plays at its
+## own pace. The locomotion plays its clips so that the feet keep up with the ground.
+## Walking plays alone at its own speed; Running alone at the top speed, Sprint alone at the
+## top speed of the last tier of the flow.
+@export var animation_walk_speed: float = 0.0
 @export var animation_run_speed: float = 0.0
-## Under this horizontal speed, a runner on its feet stands: Idle, in m/s.
+@export var animation_sprint_speed: float = 0.0
+## Under this horizontal speed, a runner on its feet stands: Idle alone, in m/s; from it to
+## the speed of Walking, Idle blends into Walking.
 @export var animation_still_speed: float = 0.0
 ## How long Landing plays after a landing that is neither hard nor rolled, in s; shorter
 ## than a hard landing.

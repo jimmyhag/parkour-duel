@@ -7,7 +7,8 @@ extends RefCounted
 ## one plane, the clip's own wall: a foot planted on it, most of the time. The clip is
 ## mirrored along a wall on the other side, and the character is moved across so that
 ## this plane stands a few centimetres from the real wall: no bone behind it, the feet
-## almost touching it. Only measures are given to it: it reads no file.
+## almost touching it, as much as its clip is blended in. Only measures are given to it: it
+## reads no file.
 
 ## How far the bone nearest the wall stays from its face, in m: the feet almost touch it.
 const WALL_GAP: float = 0.05
@@ -69,6 +70,17 @@ func offset(scale: float, wall_distance: float, tuning: MovementTuning) -> float
 		return 0.0
 	var gap: float = clampf(wall_distance, 0.0, tuning.wall_run_distance)
 	return tuning.capsule_radius + gap - WALL_GAP - reach * scale
+
+
+## The share of its move across (offset) the character makes, Wall Run being blended in by
+## `weight` (0 to 1): as much as its clip shows, in and out, so that the body slides to the
+## wall and back with the clip, and no bone of the clip blended goes behind the wall. A move
+## `away` from the wall is made at once while the runner runs `along` it: the pose it comes
+## from may already reach behind the wall (a fall beside a wall the capsule touches).
+static func shift_share(weight: float, away: bool, along: bool) -> float:
+	if away and along:
+		return 1.0
+	return clampf(weight, 0.0, 1.0)
 
 
 ## The way across of `towards`: 1 at the runner's right, -1 at its left.

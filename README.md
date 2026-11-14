@@ -48,15 +48,18 @@ is ignored by Git; each owner downloads the files and copies them there. Without
 everything works as before, the tests included.
 
 On [mixamo.com](https://www.mixamo.com) (free, with an Adobe account), download in one
-folder, as FBX Binary (.fbx), "With Skin", with the default settings (In Place or not:
-the game removes the movement of the root), every animation with that same character
-selected: its bones are the ones the game moves (another character keeps the capsule):
+folder, as FBX Binary (.fbx), "With Skin" (Walking and Sprint without it, as the table
+says), with the default settings (In Place or not: the game removes the movement of the
+root), every animation with that same character selected: its bones are the ones the
+game moves (another character keeps the capsule):
 
 | File | What it is |
 | ---- | ---------- |
 | `Ch08_nonPBR.fbx` | the character (the only file whose mesh the game uses) |
 | `Idle.fbx`, `Running.fbx`, `Jump.fbx`, `Falling Idle.fbx`, `Landing.fbx`, `Hard Landing.fbx`, `Falling To Roll.fbx`, `Running Slide.fbx`, `Sprint To Wall Climb.fbx`, `Wall Run.fbx`, `Backflip.fbx` | the animations, on that character |
 | `Pistol_Handgun Locomotion Pack.zip` | the pistol pack (as one zip), downloaded with `Ch08_nonPBR` selected as the character; only `pistol idle.fbx` is used |
+| `Walking.fbx` | Mixamo's "Standard Walk", with `Ch08_nonPBR` selected, "Without Skin", 30 frames per second, "In Place" checked |
+| `Sprint.fbx` | Mixamo's "Sprint" ("Standard Sprint"), downloaded the same way as `Walking.fbx` |
 
 Then, from the repository root:
 
@@ -70,14 +73,20 @@ character with its mesh; of every other file, only the skeleton and the animatio
 next start of Godot imports them (about a minute and a half, once). A missing file is
 named, and nothing is copied.
 
-Each state of the runner has its animation: Idle standing, Running (faster or slower
-with the speed), Jump rising, Falling Idle falling, Landing briefly after a small fall,
-Hard Landing, the roll of Falling To Roll, Running Slide, the hoist of Sprint To Wall
-Climb in a mantle, Wall Run (mirrored along a wall at the right); during a trick, a
-tucked pose taken from Backflip, the body turning as before; while aiming, the upper
-body holds Pistol Idle. The blend time, the speed at which Running plays at its own
-pace, the speed under which a runner stands still and how long Landing plays are in the
-tuning file (group Animation).
+Each state of the runner has its animation. On its feet, a blend of Idle, Walking,
+Running and Sprint on its speed (`docs/specs/locomotion-blend.md`): Idle standing,
+Walking at its own pace, Running at the top speed, Sprint at the top speed of the last
+tier of the flow, two neighbours blended in between, at the same phase of their stride
+and as fast as the feet keep up with the ground; back to the run (after a landing, a
+slide), the stride resumes where the legs already are. In the air and the other states:
+Jump rising, Falling Idle falling, Landing briefly after a small fall, Hard Landing, the
+roll of Falling To Roll, Running Slide, the hoist of Sprint To Wall Climb in a mantle,
+Wall Run (mirrored along a wall at the right, laid against it as it blends in and out);
+during a trick, a tucked pose taken from Backflip, the body turning as before; while
+aiming, the upper body holds Pistol Idle. The blend times (a table of pairs, "from>to",
+and a default), the speed of the stride of Walking, Running and Sprint (measured from
+their clips), the speed under which a runner stands still and how long Landing plays are
+in the tuning file (group Animation).
 
 ## Working on the project
 
@@ -289,4 +298,4 @@ Escape or Start back to the start screen.
 | 3 | Shooting and sabotage | built: aiming, shooting and the four sabotageable targets, on the runner's own course (`docs/specs/sabotage.md`); chained without validation on the owner's delegation, judged at stop point 3 |
 | 4 | Local duel (ghost, then bot) | built: two lanes side by side, the start screen, the ghost of the best solo run, the bot, the round, the result and the rematch (`docs/specs/local-duel.md`); chained without validation on the owner's delegation, judged at stop point 3 |
 | 5 | Online PVP | not started |
-| 6 | Art, audio, menus, release | in progress, brought forward before step 5 by the owner (2026-11-14): the animated Mixamo character (`docs/specs/character-animations.md`) |
+| 6 | Art, audio, menus, release | in progress, brought forward before step 5 by the owner (2026-11-14): the animated Mixamo character (`docs/specs/character-animations.md`), its locomotion blend (`docs/specs/locomotion-blend.md`) |

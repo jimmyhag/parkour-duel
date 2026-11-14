@@ -87,7 +87,21 @@ static func fixed_tuning() -> MovementTuning:
 	tuning.capsule_height = 1.8
 	tuning.capsule_radius = 0.35
 	tuning.animation_blend_time = 0.1
+	tuning.animation_blend_times = {
+		"running>jump": 0.05,
+		"jump>falling_idle": 0.15,
+		"falling_idle>landing": 0.05,
+		"landing>running": 0.15,
+		"running>running_slide": 0.08,
+		"running_slide>running": 0.2,
+		"running>wall_run": 0.1,
+		"wall_run>falling_idle": 0.15,
+		"*>tuck": 0.08,
+		"tuck>*": 0.12,
+	}
+	tuning.animation_walk_speed = 1.4
 	tuning.animation_run_speed = 6.0
+	tuning.animation_sprint_speed = 7.0
 	tuning.animation_still_speed = 0.5
 	tuning.animation_landing_time = 0.25
 	tuning.flow_points_jump = 50

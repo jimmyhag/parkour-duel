@@ -35,8 +35,7 @@ DESTINATION = ROOT / "assets" / "mixamo"
 
 # The character: the only file whose mesh is imported.
 CHARACTER = ("Ch08_nonPBR.fbx", "ch08_nonpbr.fbx")
-# The animations, as mixamo.com names them (with the character, "With Skin"), and the
-# name each one takes once copied.
+# The animations, as mixamo.com names them, and the name each one takes once copied.
 ANIMATIONS = {
     "Idle.fbx": "idle.fbx",
     "Running.fbx": "running.fbx",
@@ -49,6 +48,10 @@ ANIMATIONS = {
     "Sprint To Wall Climb.fbx": "sprint_to_wall_climb.fbx",
     "Wall Run.fbx": "wall_run.fbx",
     "Backflip.fbx": "backflip.fbx",
+    # The walk and the sprint of the locomotion (docs/specs/locomotion-blend.md),
+    # downloaded without the character ("Without Skin"): only their animation is used.
+    "Walking.fbx": "walking.fbx",
+    "Sprint.fbx": "sprint.fbx",
 }
 # The pistol pack, and the clips taken out of it (skeleton and animation only).
 PACK = "Pistol_Handgun Locomotion Pack.zip"
