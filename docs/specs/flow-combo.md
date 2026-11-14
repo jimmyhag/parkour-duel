@@ -420,6 +420,13 @@ Le code a tranché ces points là où la spec se taisait ; ils sont acceptés le
 - **La boucle saut et glissade parfaite sur le plat** reste plus rapide que courir :
   c'est le skill voulu (une fenêtre de 0,15 s à chaque réception), mais ses moves
   perdent leur valeur à la répétition. À juger manette en main.
+- **Un saut régulier sur le plat** garde une jauge pleine autour du palier 2 (+10 %) :
+  chaque combo s'ouvre par un saut à 50 points, puis 25, puis finit. C'est peu de style
+  (environ 1 800 points en 2 minutes, moins de 2 munitions) ; accepté, à juger manette en
+  main.
+- **La longueur de la fenêtre de répétition** est un réglage (`flow_repetition_window`, 4).
+- **Un move à 0 %** s'affiche quand même (« JUMP +0 »), pour que le joueur voie qu'il se
+  répète.
 
 ## Hors périmètre
 
