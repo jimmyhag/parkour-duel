@@ -1,6 +1,6 @@
 # Deux paliers de tests : la boucle rapide et la porte du commit
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-14, décidée par la session principale sur délégation de Jimmy
 (« enchaîne sur tout le reste »). Changement d'une porte : il passe par sa propre spec,
