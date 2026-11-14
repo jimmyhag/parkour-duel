@@ -207,7 +207,8 @@ func test_a_trick_pays_at_the_start_of_a_wall_run_without_a_press() -> void:
 	if body.motor.events.is_empty() or body.motor.events[0].trick == null:
 		return
 	assert_false(body.motor.events[0].trick.perfect, "no perfect along a wall")
-	assert_eq(flow.style_score, 200 + 150, "the trick pays, then the wall run")
+	# Half of its points: no press posed it (decision 23).
+	assert_eq(flow.style_score, 100 + 150, "the trick pays, then the wall run")
 
 
 func test_a_trick_pays_at_the_start_of_a_mantle() -> void:
@@ -229,7 +230,34 @@ func test_a_trick_pays_at_the_start_of_a_mantle() -> void:
 	if body.motor.events.is_empty() or body.motor.events[0].trick == null:
 		return
 	assert_false(body.motor.events[0].trick.perfect, "no perfect on a ledge")
-	assert_eq(flow.style_score, 200 + 100, "the trick pays, then the mantle")
+	# Half of its points: no press posed it (decision 23).
+	assert_eq(flow.style_score, 100 + 100, "the trick pays, then the mantle")
+
+
+func test_a_trick_paid_without_a_landing_is_worth_half() -> void:
+	# Decision 23 of docs/specs/trick-gestures.md: no press that poses it, no risk.
+	var along: MotorBody = _high()
+	var flow: FlowState = _flow()
+	_follow(along, flow, _release(_front_flip(), FORWARD))
+	along.set_wall(A_WALL, LEFT_WALL, CLOSE, TALL)
+	for step: int in TURN_STEPS:
+		_follow(along, flow, _push(FORWARD))
+	_assert_kinds(along, [TRICK, RunnerEvent.Kind.WALL_RUN])
+
+	var climbing: MotorBody = _high()
+	var climbing_flow: FlowState = _flow()
+	_follow(climbing, climbing_flow, _release(_front_flip(), FORWARD))
+	for step: int in TURN_STEPS:
+		climbing.put_ledge_ahead(_tuning.mantle_min_height * 1.5)
+		_follow(climbing, climbing_flow, _push(FORWARD))
+	_assert_kinds(climbing, [TRICK, RunnerEvent.Kind.MANTLE])
+
+	var half: int = roundi(_front_flip().points(_tuning) / 2.0)
+	for paid: FlowState in [flow, climbing_flow]:
+		var by: String = "a wall run" if paid == flow else "a mantle"
+		assert_eq(paid.step_moves[0].kind, TRICK, by + ": the trick is paid first")
+		assert_eq(paid.step_points[0], half, by + ": half of its points")
+		assert_eq(paid.step_moves[0].trick.points(_tuning), half, by + ": the trick says so")
 
 
 func test_a_fall_off_the_course_loses_the_tricks_of_the_jump() -> void:

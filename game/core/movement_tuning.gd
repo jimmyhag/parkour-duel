@@ -170,32 +170,56 @@ extends Resource
 @export var trick_triple_multiplier: float = 0.0
 ## Points each twist adds.
 @export var trick_points_per_twist: int = 0
+## How many of the last tricks a trick is judged against, whatever the moves between them
+## and the ends of the combos; once among them it is worth the second time share of the
+## flow, twice or more the later times share.
+@export var trick_repetition_window: int = 0
 ## Longest time between the slide press and the contact with the ground for a finished
 ## trick to be posed, and for it to be perfect, in s.
 @export var trick_landing_window: float = 0.0
 @export var trick_perfect_window: float = 0.0
 ## Share of its points a trick gains on a perfect landing.
 @export var trick_perfect_bonus: float = 0.0
+## Share of its points a trick is worth when a wall run or a mantle pays it, without the
+## press that poses it (0 to 1).
+@export_range(0.0, 1.0) var trick_unposed_share: float = 0.0
 ## Horizontal speed a perfect landing gains, in m/s.
 @export var trick_perfect_speed_gain: float = 0.0
-## The pad a trick is drawn on, while the trick button is held: how far one pixel of the
-## mouse moves it, and how fast the right stick fully pushed moves it, per second, in
-## units of the pad.
-@export var trick_pad_mouse_scale: float = 0.0
+## The pad a trick is drawn on, while the trick button is held: how far the mouse moves
+## it per radian the same motion turns the camera (camera_mouse_sensitivity: a player who
+## set the camera set the pad), and how fast the right stick fully pushed moves it, per
+## second, in units of the pad.
+@export var trick_pad_units_per_radian: float = 0.0
 @export var trick_pad_stick_speed: float = 0.0
 ## Least length of a stroke, and most the pad may move during a press that draws nothing
 ## (the trick of the context), in units of the pad.
 @export var trick_gesture_stroke_length: float = 0.0
 @export var trick_gesture_still_length: float = 0.0
 ## Least arc a curve must turn after a flip to be a twist, least arc of a whole circle
-## (a spin, or a turn more of it), and least arc of a curve after a flip to be two
-## twists, in degrees.
+## (a spin), and least arc of a curve after a flip to be two twists, in degrees.
 @export var trick_gesture_half_circle_angle: float = 0.0
 @export var trick_gesture_circle_angle: float = 0.0
 @export var trick_gesture_two_twists_angle: float = 0.0
+## The arc each twist beyond two adds to a curve, and each turn of a spin beyond the
+## first to a circle, in degrees.
+@export var trick_gesture_more_twists_angle: float = 0.0
+@export var trick_gesture_spin_turn_angle: float = 0.0
 ## How long the pad must stay still to end one element of the drawing, in s. The stick
 ## back in its dead zone ends it at once.
 @export var trick_gesture_pause: float = 0.0
+## How long the mouse must stay still between two strokes the same way for the second one
+## to be a turn more, in s: a shorter pause is a hesitation in one stroke.
+@export var trick_gesture_repeat_pause: float = 0.0
+## How far the stick must be pushed (0 to 1, past its dead zone) for a flick to be a
+## stroke, however short; and under which share of its strongest push a dip of the stick
+## ends an element.
+@export_range(0.0, 1.0) var trick_gesture_stick_flick: float = 0.0
+@export_range(0.0, 1.0) var trick_gesture_stick_dip: float = 0.0
+## How long a reading must stay the same for the trick to be validated, in s, and the
+## most the pad may move meanwhile, in units of the pad: the trick validated last is the
+## one that starts.
+@export var trick_gesture_settle: float = 0.0
+@export var trick_gesture_settle_length: float = 0.0
 ## Under this motion in one fixed step, in units of the pad, the pad stands still.
 @export var trick_gesture_noise: float = 0.0
 ## A change of direction sharper than this from one moving step to the next ends an

@@ -1,6 +1,6 @@
 # Figures par gestes, réception au bon moment, et le Trick Park
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-14, avec Jimmy, après qu'il a joué les figures de
 `docs/specs/air-tricks.md`. Cette spec **remplace le mécanisme de lancement et de
@@ -505,6 +505,26 @@ rouvrir chacun après avoir joué.
 - **Le Trick Park** : 120 m × 120 m, blocs de 1, 2, 3, 5 et 8 m (5 et 8 m par des marches
   de 2,5 m), deux murs face à face à 4 m, un mur à wall-run ; pas de réticule, et
   recommencer n'y fait rien.
+
+### Choix du troisième amendement et de la sortie de mur
+
+- **Une erreur garde la fenêtre des figures** (réception dure, crash, sabotage, arrêt) ;
+  seuls une chute et un recommencement la vident. Pour les autres moves, la règle du flow
+  ne change pas.
+- **Une figure est validée** quand sa recette est stable depuis `trick_gesture_settle`,
+  **0,05 s** (et non 0,1 s : Jimmy lâche vite après un coup).
+- **Les boucles mesurées** (points de style par minute) : ligne flow en sauts de figure
+  4 053 ; ligne flow au bouton de saut 5 466 la première minute puis 0 (accepté : un gain
+  unique) ; entre les murs, sortie au bouton de saut 4 364, sortie au bouton de figure
+  2 664 ; entre les murs en variant huit figures vrillées posées en roulade, avec des
+  crashs, 20 068 : accepté, c'est du jeu risqué (combo et vitesse perdus à chaque crash),
+  pas une boucle sans risque.
+- **La sortie de mur** n'annonce pas de wall-jump au flow : la figure est le move.
+- **Le pavé** montre la lecture en cours ; si on lâche bordure éteinte, c'est la dernière
+  recette validée qui part.
+- **Un cercle dans la foulée d'un coup** donne le salto et ses vrilles, pas un spin.
+- **La souris** est lue à l'échelle de la sensibilité de la caméra
+  (`trick_pad_units_per_radian`).
 
 ## Hors périmètre
 

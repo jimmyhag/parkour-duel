@@ -1,9 +1,10 @@
 extends ReplayTest
 ## The Trick Park (game/levels): its blocks of every height, each one climbed in the real
-## physics, its walls; and a twisted backflip drawn and posed there with the real inputs:
-## key, mouse, button and stick events go through the input map of project.godot to the
-## runner's own intent source, step by step. Faster than real time with the same fixed
-## step of 1/60 s (see ReplayTest).
+## physics, its walls, and what a riskless minute of tricks between its walls face to
+## face earns; a twisted backflip, and a backflip out of a wall run, drawn and posed
+## there with the real inputs: key, mouse, button and stick events go through the input
+## map of project.godot to the runner's own intent source, step by step. Faster than
+## real time with the same fixed step of 1/60 s (see ReplayTest).
 
 const PARK_SCENE: String = "res://game/levels/trick_park.tscn"
 ## The heights of the blocks, in m, and the block of each one.
@@ -31,18 +32,38 @@ const POSE_HEIGHT: float = 1.5
 const SETTLE_STEPS: int = 20
 const MOST_STEPS: int = 240
 ## What the fingers do while the runner runs on the block, keyed by the step: the run and
-## the trick button at once, a stroke down, a pause, then a half circle.
+## the trick button at once, a stroke down, a pause, then a half circle; drawn and at
+## rest long enough to be validated (0.1 s) by the step DRAWN_BY.
 const STROKE_FROM: int = 2
 const STROKE_STEPS: int = 6
 const ARC_FROM: int = 14
 const ARC_STEPS: int = 12
-const DRAWN_BY: int = 30
+const DRAWN_BY: int = 34
 ## Steps after the take-off at which the trick button is released.
 const RELEASE_AFTER: int = 2
 ## The mouse: pixels per step of the stroke, and of the chord of the half circle.
 const MOUSE_STROKE: float = 40.0
 const MOUSE_CHORD: float = 15.0
 const BACKFLIP_FULL: String = "BACKFLIP FULL"
+## Between the walls face to face: one minute of fixed steps, and the most style it may
+## earn (the threshold of the riskless loop on the flat, tests/test_runner_trick_risk.gd).
+const MINUTE: int = 3600
+const RISKLESS_STYLE_PER_MINUTE: int = 4800
+## How many times faster than real time that minute plays, and the most fixed steps a
+## frame may play for it.
+## What the minute crashing on purpose earned when an error forgot the last tricks, as the
+## second report on docs/specs/trick-gestures.md measured it: the error keeps them now.
+const CRASHING_WHEN_ERRORS_FORGOT: int = 26950
+const MINUTE_SPEED_UP: int = 100
+const MINUTE_STEPS_PER_FRAME: int = 16
+## The wall exit: the wall to run along, where the runner starts on the ground beside it
+## (x, z), how far into its stretch it jumps, the steps of the wall run before it draws,
+## and the steps it leaves the hand at rest before the release.
+const WALL_RUN_LANE: Vector2 = Vector2(39.55, -21.0)
+const WALL_RUN_START: float = -28.0
+const JUMP_INTO_THE_WALL: float = 0.8
+const DRAW_AFTER: int = 2
+const REST_STEPS: int = 9
 
 
 ## A runner that pushes one way and jumps whenever it stands: what climbs steps and
@@ -63,6 +84,99 @@ class Climber:
 		intent.jump_pressed = _runner.is_on_floor()
 		intent.jump_held = true
 		return intent
+
+
+## A runner that goes to and fro between the walls face to face, without a risk: along
+## the left wall into the corridor, a jump, a wall run, a wall jump, the next of its
+## recipes released at once, the wall run in front pays it, and so on; out of the
+## corridor, it presses the slide as the ground comes, turns round and goes again. With
+## `trick_exits`, the release of the trick button is its wall jump.
+class WallBot:
+	extends IntentSource
+
+	## The corridor between the faces of the walls: across (x), along (z), in m.
+	const LEFT_FACE: float = -42.0
+	const RIGHT_FACE: float = -38.0
+	const NEAR_END: float = -30.0
+	const FAR_END: float = -50.0
+	## The lane along the left wall, how far past an end the runner turns round, and how
+	## far before an end it jumps in.
+	const LANE: float = -41.4
+	const TURN_ROUND: float = 3.0
+	const JUMP_IN: float = 1.5
+	const WALL_RUN_STEPS: int = 4
+
+	var recipes: Array[TrickRecipe] = []
+	var released: int = 0
+
+	var _trick_exits: bool = false
+	var _runner: Player
+	var _way: float = -1.0
+	var _wall_run_steps: int = 0
+	var _since_wall_jump: int = -1
+	var _pressed: bool = false
+
+	func _init(runner: Player, tricks: Array[TrickRecipe], trick_exits: bool = false) -> void:
+		_runner = runner
+		recipes = tricks
+		_trick_exits = trick_exits
+
+	func next_intent() -> MoveIntent:
+		var intent: MoveIntent = MoveIntent.new()
+		var state: RunnerMotor.State = _runner.motor.state
+		var feet: Vector3 = _runner.global_position
+		var along: Vector3 = Vector3(0.0, 0.0, _way)
+		if state == RunnerMotor.State.WALL_RUNNING:
+			_wall_run_steps += 1
+			intent.direction = along
+			if _wall_run_steps >= WALL_RUN_STEPS and _trick_exits:
+				_release(intent)
+				_since_wall_jump = 0
+			elif _wall_run_steps >= WALL_RUN_STEPS:
+				intent.jump_pressed = true
+				intent.jump_held = true
+				_since_wall_jump = 0
+		elif state == RunnerMotor.State.RISING or state == RunnerMotor.State.FALLING:
+			_wall_run_steps = 0
+			intent.jump_held = state == RunnerMotor.State.RISING
+			var towards: float = -1.0
+			if _since_wall_jump >= 0:
+				_since_wall_jump += 1
+				towards = signf(_runner.velocity.x)
+			intent.direction = (along + Vector3.RIGHT * towards * 0.8).normalized()
+			if _since_wall_jump == 1 and not _trick_exits:
+				_release(intent)
+		else:
+			_on_the_ground(intent, feet)
+		var ground_soon: bool = feet.y + 2.0 * _runner.velocity.y / 60.0 <= 0.0
+		var falling: bool = _runner.velocity.y < 0.0 and not _runner.is_on_floor()
+		intent.slide_pressed = falling and ground_soon and not _pressed
+		_pressed = falling and (_pressed or intent.slide_pressed)
+		return intent
+
+	## The trick button released, its drawing reading the next of the recipes.
+	func _release(intent: MoveIntent) -> void:
+		intent.trick_released = true
+		intent.trick_recipe = recipes[released % recipes.size()]
+		released += 1
+
+	## On the ground: turns round past an end, keeps to the lane along the left wall, and
+	## jumps in fast enough for a wall run.
+	func _on_the_ground(intent: MoveIntent, feet: Vector3) -> void:
+		_since_wall_jump = -1
+		_wall_run_steps = 0
+		if _way < 0.0 and feet.z < FAR_END - TURN_ROUND:
+			_way = 1.0
+		elif _way > 0.0 and feet.z > NEAR_END + TURN_ROUND:
+			_way = -1.0
+		var lane: float = clampf(LANE - feet.x, -1.0, 1.0) * 0.5
+		intent.direction = Vector3(lane, 0.0, _way).normalized()
+		var entrance: float = NEAR_END if _way < 0.0 else FAR_END
+		var before: float = (feet.z - entrance) * -_way
+		var speed: float = Vector2(_runner.velocity.x, _runner.velocity.z).length()
+		var fast: bool = speed > _runner.tuning.wall_run_start_speed + 0.5
+		intent.jump_pressed = before > -JUMP_IN and before < 0.5 and fast
+		intent.jump_held = intent.jump_pressed
 
 
 ## The fingers of one hand on the keyboard and the mouse, or on the gamepad.
@@ -180,6 +294,96 @@ func test_no_wall_of_the_trick_park_is_made_of_several_blocks() -> void:
 	assert_gt(touching, 3, "blocks that touch were compared")
 
 
+func test_the_tricks_between_two_walls_earn_little_without_risk() -> void:
+	# Decision 23 of docs/specs/trick-gestures.md: a trick paid by a wall run is worth half
+	# of it; and a trick is judged against the last tricks (decision 22). The runner jumps
+	# off each wall with the jump button and releases its trick at once, then with the
+	# trick button, which jumps off the wall into the trick (decision 28). Then, with tricks
+	# too long to be over at the wall in front, crashes on purpose: an error does not make
+	# the tricks new again (decision 22).
+	var singles: Array[TrickRecipe] = [
+		TrickRecipe.drawn(TrickRecipe.Flip.FRONT_FLIP),
+		TrickRecipe.drawn(TrickRecipe.Flip.BACKFLIP),
+		TrickRecipe.drawn(TrickRecipe.Flip.SIDE_FLIP),
+		TrickRecipe.drawn(TrickRecipe.Flip.SPIN),
+	]
+	var crashing: Array[TrickRecipe] = singles.duplicate()
+	(
+		crashing
+		. append_array(
+			[
+				TrickRecipe.drawn(TrickRecipe.Flip.FRONT_FLIP, 1, 1),
+				TrickRecipe.drawn(TrickRecipe.Flip.BACKFLIP, 1, 1),
+				TrickRecipe.drawn(TrickRecipe.Flip.SIDE_FLIP, 2),
+				TrickRecipe.drawn(TrickRecipe.Flip.BACKFLIP, 2),
+			]
+		)
+	)
+	for loop: int in 3:
+		var trick_exits: bool = loop == 1
+		var crashes: bool = loop == 2
+		var how: String = "the trick button" if trick_exits else "the jump button"
+		if crashes:
+			how += ", crashing on purpose"
+		var park: TrickPark = _add_park()
+		var runner: Player = park.player
+		var start: Vector3 = Vector3(WallBot.LANE, 0.0, WallBot.NEAR_END + 8.0)
+		runner.teleport(Transform3D(Basis.IDENTITY, start))
+		var recipes: Array[TrickRecipe] = crashing if crashes else singles
+		var bot: WallBot = WallBot.new(runner, recipes, trick_exits)
+		runner.intent_source = bot
+		var watch: TrickWatch = TrickWatch.new(runner)
+		var wall_runs: int = 0
+		var paid_by_a_wall_run: int = 0
+		var started: int = Time.get_ticks_msec()
+		# A minute of fixed steps, each one still of 1/60 s, many to a frame: nothing but
+		# the physics runs here, and the same steps play sooner.
+		var steps_per_frame: int = Engine.max_physics_steps_per_frame
+		Engine.physics_ticks_per_second = STEPS_PER_SECOND * MINUTE_SPEED_UP
+		Engine.time_scale = MINUTE_SPEED_UP
+		Engine.max_physics_steps_per_frame = MINUTE_STEPS_PER_FRAME
+
+		for step: int in MINUTE:
+			await get_tree().physics_frame
+			for event: RunnerEvent in runner.motor.events:
+				wall_runs += int(event.kind == RunnerEvent.Kind.WALL_RUN)
+				paid_by_a_wall_run += int(event.trick != null and event.trick.unposed)
+		Engine.physics_ticks_per_second = STEPS_PER_SECOND * SPEED_UP
+		Engine.time_scale = SPEED_UP
+		Engine.max_physics_steps_per_frame = steps_per_frame
+
+		gut.p(
+			(
+				(
+					"between the walls, off them by %s: style %d, ammunition %d, tricks released"
+					+ " %d, paid %d (%d by a wall run), wall runs %d, crashes %d, %d ms"
+				)
+				% [
+					how,
+					park.flow.style_score,
+					park.flow.ammo,
+					bot.released,
+					watch.paid.size(),
+					paid_by_a_wall_run,
+					wall_runs,
+					watch.crashes,
+					Time.get_ticks_msec() - started
+				]
+			)
+		)
+		assert_gt(paid_by_a_wall_run, 10, how + ": the wall runs pay its tricks again and again")
+		if crashes:
+			assert_gt(watch.crashes, 3, how + ": crashes")
+			var style: int = park.flow.style_score
+			assert_lt(style, CRASHING_WHEN_ERRORS_FORGOT, how + ": the crashes earn less now")
+		else:
+			assert_eq(watch.crashes, 0, how + ": without a crash")
+			var style: int = park.flow.style_score
+			assert_lt(style, RISKLESS_STYLE_PER_MINUTE, how + ": under the threshold")
+		park.queue_free()
+		await get_tree().physics_frame
+
+
 func test_a_twisted_backflip_on_keyboard_and_mouse() -> void:
 	var fingers: Fingers = Fingers.new()
 	fingers.run = [_key(KEY_W, true)]
@@ -222,6 +426,105 @@ func test_a_twisted_backflip_on_the_gamepad() -> void:
 	]
 
 	await _assert_a_twisted_backflip_with(fingers)
+
+
+func test_a_wall_exit_with_the_real_inputs() -> void:
+	# Decision 28 of docs/specs/trick-gestures.md, along the wall of the park to run along:
+	# on the keyboard and the mouse, then on the gamepad.
+	var keyboard: Fingers = Fingers.new()
+	keyboard.run = [_key(KEY_W, true)]
+	keyboard.stop = [_key(KEY_W, false)]
+	keyboard.trick_press = _key(KEY_F, true)
+	keyboard.trick_release = _key(KEY_F, false)
+	keyboard.jump_press = _key(KEY_SPACE, true)
+	keyboard.jump_release = _key(KEY_SPACE, false)
+	keyboard.pose_press = _key(KEY_CTRL, true, KEY_LOCATION_LEFT)
+	keyboard.pose_release = _key(KEY_CTRL, false, KEY_LOCATION_LEFT)
+	for step: int in STROKE_STEPS:
+		keyboard.drawing[step] = [_mouse(Vector2(0.0, MOUSE_STROKE))]
+	var gamepad: Fingers = Fingers.new()
+	gamepad.run = [_stick(JOY_AXIS_LEFT_Y, -1.0)]
+	gamepad.stop = [_stick(JOY_AXIS_LEFT_Y, 0.0)]
+	gamepad.trick_press = _button(JOY_BUTTON_LEFT_SHOULDER, true)
+	gamepad.trick_release = _button(JOY_BUTTON_LEFT_SHOULDER, false)
+	gamepad.jump_press = _button(JOY_BUTTON_A, true)
+	gamepad.jump_release = _button(JOY_BUTTON_A, false)
+	gamepad.pose_press = _button(JOY_BUTTON_RIGHT_SHOULDER, true)
+	gamepad.pose_release = _button(JOY_BUTTON_RIGHT_SHOULDER, false)
+	gamepad.drawing[0] = [_stick(JOY_AXIS_RIGHT_Y, 1.0)]
+	gamepad.drawing[STROKE_STEPS] = [_stick(JOY_AXIS_RIGHT_Y, 0.0)]
+
+	for fingers: Fingers in [keyboard, gamepad]:
+		var device: String = "keyboard and mouse" if fingers == keyboard else "gamepad"
+		await _assert_a_wall_exit_with(fingers, device)
+		after_each()
+
+
+## In a fresh park, the runner on the ground beside the wall to run along, led by its own
+## inputs: it runs along it, jumps into a wall run, draws a backflip there and releases
+## the trick button; the release jumps off the wall into the backflip, and the slide
+## pressed as the ground comes poses it.
+func _assert_a_wall_exit_with(fingers: Fingers, device: String) -> void:
+	var park: TrickPark = _add_park()
+	var runner: Player = park.player
+	var start: Vector3 = Vector3(WALL_RUN_LANE.x, 0.0, WALL_RUN_LANE.y)
+	runner.teleport(Transform3D(Basis.IDENTITY, start))
+	await _wait_steps(SETTLE_STEPS)
+	var watch: TrickWatch = TrickWatch.new(runner)
+	var wall_run_from: int = -1
+	var released_at: int = -1
+	var jumped: bool = false
+	var wall_jumped: bool = false
+	var rose: bool = false
+	var posed: bool = false
+	var landed: bool = false
+
+	_send_all(fingers.run)
+	for step: int in MOST_STEPS:
+		await get_tree().physics_frame
+		var state: RunnerMotor.State = runner.motor.state
+		if released_at >= 0 and step <= released_at + 2 and runner.motor.is_in_a_trick():
+			rose = state == RunnerMotor.State.RISING
+		if not jumped and runner.global_position.z <= WALL_RUN_START - JUMP_INTO_THE_WALL:
+			_send(fingers.jump_press)
+			jumped = true
+		if wall_run_from < 0 and state == RunnerMotor.State.WALL_RUNNING:
+			wall_run_from = step
+			_send(fingers.jump_release)
+		if wall_run_from < 0 or released_at >= 0 and landed:
+			continue
+		var drawing: int = step - wall_run_from - DRAW_AFTER
+		if drawing == -1:
+			_send(fingers.trick_press)
+		if fingers.drawing.has(drawing):
+			_send_all(fingers.drawing[drawing])
+		if released_at < 0 and drawing == STROKE_STEPS + REST_STEPS:
+			assert_eq(state, RunnerMotor.State.WALL_RUNNING, device + ": still along the wall")
+			_send(fingers.trick_release)
+			released_at = step
+		for event: RunnerEvent in runner.motor.events:
+			wall_jumped = wall_jumped or event.kind == RunnerEvent.Kind.WALL_JUMP
+		var falling: bool = runner.velocity.y < 0.0 and released_at >= 0
+		if falling and not posed and runner.global_position.y < POSE_HEIGHT:
+			_send(fingers.pose_press)
+			posed = true
+		if posed and runner.is_on_floor() and not landed:
+			_send(fingers.pose_release)
+			_send_all(fingers.stop)
+			landed = true
+
+	assert_gt(wall_run_from, -1, device + ": a wall run")
+	assert_gt(released_at, -1, device + ": the trick button released along the wall")
+	assert_true(rose, device + ": the release jumps off the wall into the trick")
+	assert_false(wall_jumped, device + ": the jump button never jumped off the wall")
+	assert_true(landed, device + ": the runner landed")
+	assert_eq(watch.crashes, 0, device + ": no crash")
+	assert_eq(watch.paid.size(), 1, device + ": the landing paid one trick")
+	if watch.paid.size() == 1:
+		assert_eq(watch.paid[0].name(), "BACKFLIP", device + ": the backflip drawn")
+		assert_false(watch.paid[0].unposed, device + ": posed")
+	park.queue_free()
+	await _wait_steps(1)
 
 
 ## In a fresh park, the runner at rest on the block of 2 m, led by its own inputs: it runs

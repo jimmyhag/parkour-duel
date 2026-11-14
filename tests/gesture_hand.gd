@@ -2,7 +2,8 @@ class_name GestureHand
 extends RefCounted
 ## A hand on the pad of a trick, for the tests of the drawing (game/core): the motions of a
 ## mouse or of a right stick, step by step, brought to the scale of the pad the way the
-## player layer brings them (InputIntentSource): pixels times the mouse scale; the stick
+## player layer brings them (InputIntentSource): pixels at the scale of the sensitivity of
+## the camera (a share of the one of the tuning, for a player who set it); the stick
 ## past its dead zone, as Input.get_vector gives it, times the stick speed, the stick back
 ## in its dead zone letting go of the pad. Motions are in the axes of the screen: x to the
 ## right, y down.
@@ -10,10 +11,16 @@ extends RefCounted
 const STEP: float = 1.0 / 60.0
 
 
-## The mouse moves by each of `pixels`, one per fixed step.
-static func mouse(gesture: TrickGesture, pixels: Array) -> void:
+## The mouse moves by each of `pixels`, one per fixed step, the camera at `sensitivity`
+## times the mouse sensitivity of the tuning.
+static func mouse(gesture: TrickGesture, pixels: Array, sensitivity: float = 1.0) -> void:
 	for motion: Vector2 in pixels:
-		gesture.step(motion * gesture.tuning.trick_pad_mouse_scale, STEP)
+		gesture.step(motion * pad_units_per_pixel(gesture.tuning) * sensitivity, STEP)
+
+
+## Units of the pad one pixel of the mouse moves it, with `tuning`.
+static func pad_units_per_pixel(tuning: MovementTuning) -> float:
+	return tuning.camera_mouse_sensitivity * tuning.trick_pad_units_per_radian
 
 
 ## The right stick is pushed to each of `deflections`, one per fixed step.
@@ -26,7 +33,7 @@ static func stick(gesture: TrickGesture, deflections: Array) -> void:
 			var strength: float = inverse_lerp(tuning.stick_deadzone, 1.0, raw.length())
 			pushed = raw.normalized() * clampf(strength, 0.0, 1.0)
 		var let_go: bool = pushed.is_zero_approx() and not before.is_zero_approx()
-		gesture.step(pushed * tuning.trick_pad_stick_speed * STEP, STEP, let_go)
+		gesture.step(pushed * tuning.trick_pad_stick_speed * STEP, STEP, let_go, pushed.length())
 		before = pushed
 
 

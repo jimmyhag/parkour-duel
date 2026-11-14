@@ -13,6 +13,10 @@ const PERFECT_LANDINGS: int = 10
 ## docs/specs/trick-gestures.md): measured 3 790 with a repetition window of 10 and a
 ## twist of 0.3 s, rounded up to the next thousand, plus 20 %.
 const RISKLESS_STYLE_PER_MINUTE: int = 4800
+## The steps of slide of the flow line before the next trick jump: a short slide, and a
+## longer one (decision 22 of docs/specs/trick-gestures.md).
+const FLOW_LINE_SHORT_SLIDE: int = 2
+const FLOW_LINE_LONG_SLIDE: int = 6
 
 
 ## What a minute of jumps earned.
@@ -28,6 +32,9 @@ class Minute:
 	var top_speed: float = 0.0
 	var mean_speed: float = 0.0
 	var combos_ended: int = 0
+	var perfect_slides: int = 0
+	## The style at the end of each minute, when it lasts several.
+	var styles: Array[int] = []
 
 
 # --- Durations ---
@@ -87,22 +94,6 @@ func test_a_double_does_not_fit_in_a_jump_on_the_flat() -> void:
 		assert_eq(body.motor.state, RunnerMotor.State.HARD_LANDING, recipe.name())
 
 
-func test_a_twisted_trick_does_not_fit_in_a_jump_on_the_flat() -> void:
-	# Decision 7: a twist asks for a small drop. Measured against the held jump on the flat
-	# of the project's tuning, even released with the jump itself, the earliest it can be.
-	var tuning: MovementTuning = _project_tuning()
-	var flight: int = _steps_to_land(tuning)
-	var turn: int = roundi(tuning.trick_turn_duration * STEPS_PER_SECOND)
-	var twist: int = roundi(tuning.trick_twist_duration * STEPS_PER_SECOND)
-	assert_gt(turn + twist, flight, "a single with a twist lasts longer than a flat jump")
-	for recipe: TrickRecipe in [_backflip(1, 1), TrickRecipe.drawn(FRONT_FLIP, 1, 1)]:
-		var body: MotorBody = MotorBody.running(tuning, FORWARD, tuning.top_speed)
-
-		var events: Array[RunnerEvent] = _hop(body, null, recipe, 0)
-
-		_assert_events(events, [CRASH])
-
-
 func test_a_twist_makes_the_trick_longer() -> void:
 	var plain: MotorBody = _high()
 	var twisted: MotorBody = _high()
@@ -120,6 +111,21 @@ func test_a_twist_makes_the_trick_longer() -> void:
 	var later: int = twisted_trick.finished_at - plain_trick.finished_at
 	assert_eq(later, TWIST_STEPS, "the twisted one ends a twist later")
 
+	# So much later that it asks for a small drop (decision 7): measured against the held
+	# jump on the flat of the project's tuning, even released with the jump itself, the
+	# earliest it can be, a single with a twist does not fit.
+	var tuning: MovementTuning = _project_tuning()
+	var flight: int = _steps_to_land(tuning)
+	var turn: int = roundi(tuning.trick_turn_duration * STEPS_PER_SECOND)
+	var twist: int = roundi(tuning.trick_twist_duration * STEPS_PER_SECOND)
+	assert_gt(turn + twist, flight, "a single with a twist lasts longer than a flat jump")
+	for recipe: TrickRecipe in [_backflip(1, 1), TrickRecipe.drawn(FRONT_FLIP, 1, 1)]:
+		var body: MotorBody = MotorBody.running(tuning, FORWARD, tuning.top_speed)
+
+		var events: Array[RunnerEvent] = _hop(body, null, recipe, 0)
+
+		_assert_events(events, [CRASH])
+
 
 # --- The loop without risk ---
 
@@ -128,7 +134,7 @@ func test_a_riskless_loop_on_the_flat_earns_little() -> void:
 	var tuning: MovementTuning = _project_tuning()
 	var plain: Minute = _hop_for_a_minute(tuning, [])
 	# Every recipe that fits in a jump on the flat (the singles without a twist: see
-	# test_a_twisted_trick_does_not_fit_in_a_jump_on_the_flat), released at the first step
+	# test_a_twist_makes_the_trick_longer), released at the first step
 	# in the air, one after the other: the most varied loop.
 	var fitting: Array[TrickRecipe] = [
 		_front_flip(),
@@ -168,6 +174,39 @@ func test_the_repetition_of_tricks_survives_the_end_of_a_combo() -> void:
 	assert_eq(pausing.crashes, 0, "and never crashes")
 	assert_gt(pausing.combos_ended, 0, "its combo ends by its delay")
 	assert_lt(pausing.style, RISKLESS_STYLE_PER_MINUTE, "under the threshold of the flat loop")
+
+
+func test_the_flow_line_on_the_flat_earns_little() -> void:
+	var tuning: MovementTuning = _project_tuning()
+	# Decision 22 of docs/specs/trick-gestures.md: the jump of a trick, the trick posed
+	# perfect and the press held into a perfect slide, then the jump of a trick again out
+	# of the slide, after a short slide and a longer one; every single that fits in a jump
+	# on the flat, one after the other.
+	var singles: Array[TrickRecipe] = [
+		_front_flip(),
+		_backflip(),
+		TrickRecipe.drawn(SIDE_FLIP),
+		TrickRecipe.drawn(SPIN),
+	]
+	for slide_steps: int in [FLOW_LINE_SHORT_SLIDE, FLOW_LINE_LONG_SLIDE]:
+		var context: String = "the flow line, %d steps of slide" % slide_steps
+		var minute: Minute = _ride_the_flow_line(tuning, singles, slide_steps, false)
+		gut.p(_report(context, minute))
+
+		assert_gt(minute.tricks_paid, 60, context + ": a trick posed at every jump")
+		assert_gt(minute.perfect_slides, 60, context + ": held into a perfect slide")
+		assert_eq(minute.crashes, 0, context + ": never a crash")
+		assert_lt(minute.style, RISKLESS_STYLE_PER_MINUTE, context + ": under the threshold")
+
+	# The jump button out of the slide and the trick released at once, the loop of the
+	# inspection: what it earns, it earns at its start; then nothing, minute after minute.
+	var jumping: Minute = _ride_the_flow_line(tuning, singles, FLOW_LINE_SHORT_SLIDE, true, 3)
+	gut.p(_report("the flow line with the jump button, three minutes", jumping))
+	gut.p("  style at the end of each minute: %s" % str(jumping.styles))
+	assert_gt(jumping.tricks_paid, 180, "the jump button: a trick posed at every jump")
+	assert_eq(jumping.crashes, 0, "the jump button: never a crash")
+	assert_eq(jumping.styles[2], jumping.styles[0], "nothing more after the first minute")
+	assert_lt(jumping.style / 3.0, RISKLESS_STYLE_PER_MINUTE, "under the threshold per minute")
 
 
 func test_perfect_landings_in_a_row_do_not_raise_the_speed_without_end() -> void:
@@ -302,6 +341,68 @@ func _hop_for_a_minute(
 			minute.jumps += int(event.kind == RunnerEvent.Kind.JUMP)
 	minute.style = flow.style_score
 	minute.mean_speed = speeds / MINUTE
+	return minute
+
+
+## `minutes` of the flow line on the flat: from the ground, a jump, the slide pressed as
+## the ground comes and held into a slide, and after `slide_steps` steps of slide a jump
+## again out of it. The jump is the release of the next of `recipes` (the jump of a
+## trick), or with `jump_button` the jump pressed, then the next recipe released at the
+## first step in the air.
+func _ride_the_flow_line(
+	tuning: MovementTuning,
+	recipes: Array[TrickRecipe],
+	slide_steps: int,
+	jump_button: bool,
+	minutes: int = 1
+) -> Minute:
+	var body: MotorBody = MotorBody.running(tuning, FORWARD, tuning.top_speed)
+	var flow: FlowState = FlowState.new(tuning, STEPS_PER_SECOND)
+	var minute: Minute = Minute.new()
+	var sliding: int = 0
+	var since_take_off: int = -1
+	var pressed: bool = false
+	var ammo_before: int = 0
+	for step: int in MINUTE * minutes:
+		var state: RunnerMotor.State = body.motor.state
+		var recipe: TrickRecipe = recipes[minute.take_offs % recipes.size()]
+		var intent: MoveIntent = _push(FORWARD)
+		intent.jump_held = state == RunnerMotor.State.RISING
+		sliding = sliding + 1 if state == RunnerMotor.State.SLIDING else 0
+		since_take_off = since_take_off + 1 if since_take_off >= 0 else -1
+		if state == RunnerMotor.State.GROUNDED or sliding > slide_steps:
+			if jump_button:
+				intent.jump_pressed = true
+				intent.jump_held = true
+				since_take_off = 0
+			else:
+				intent = _release(recipe, FORWARD)
+				minute.take_offs += 1
+			pressed = false
+		elif since_take_off == 1:
+			intent = _release(recipe, FORWARD)
+			intent.jump_held = true
+			minute.take_offs += 1
+			since_take_off = -1
+		var ground_soon: bool = body.position.y + 2.0 * body.velocity.y * MotorBody.STEP <= 0.0
+		var pressing: bool = not pressed and body.velocity.y < 0.0 and ground_soon
+		intent.slide_pressed = pressing
+		pressed = pressed or pressing
+		intent.slide_held = pressed
+		_follow(body, flow, intent)
+		minute.mean_speed += body.horizontal_speed()
+		minute.top_speed = maxf(minute.top_speed, body.horizontal_speed())
+		minute.ammo += maxi(flow.ammo - ammo_before, 0)
+		ammo_before = flow.ammo
+		for event: RunnerEvent in body.motor.events:
+			minute.tricks_paid += int(event.kind == TRICK)
+			minute.crashes += int(event.kind == CRASH)
+			minute.jumps += int(event.kind == RunnerEvent.Kind.JUMP)
+			minute.perfect_slides += int(event.kind == RunnerEvent.Kind.PERFECT_SLIDE)
+		if (step + 1) % MINUTE == 0:
+			minute.styles.append(flow.style_score)
+	minute.style = flow.style_score
+	minute.mean_speed /= MINUTE * minutes
 	return minute
 
 

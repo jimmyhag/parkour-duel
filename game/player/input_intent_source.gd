@@ -3,8 +3,9 @@ extends IntentSource
 ## The default intent source: reads the actions of the input map and turns the stick
 ## or the keys into a direction in the world, relative to where the camera looks. While
 ## the trick button is held, the mouse and the right stick draw on the pad of the trick
-## (TrickGesture), brought to its one scale: a pixel of the mouse, and the right stick as
-## a speed, as the tuning says; the stick back in its dead zone lets go of the pad. The
+## (TrickGesture), brought to its one scale: the mouse at the scale of the sensitivity of
+## the camera, and the right stick as a speed, as the tuning says, with how far it is
+## pushed; the stick back in its dead zone lets go of the pad. The
 ## drawing starts afresh at each press of the button; the pad on the screen reads it
 ## (drawing).
 
@@ -70,10 +71,12 @@ func _draw(intent: MoveIntent) -> void:
 	var stick: Vector2 = Input.get_vector(
 		LOOK_LEFT, LOOK_RIGHT, LOOK_UP, LOOK_DOWN, tuning.stick_deadzone
 	)
-	var pad: Vector2 = mouse * tuning.trick_pad_mouse_scale
+	var radians: float = tuning.camera_mouse_sensitivity * tuning.trick_pad_units_per_radian
+	var pad: Vector2 = mouse * radians
 	pad += stick * tuning.trick_pad_stick_speed * delta
 	var let_go: bool = _stick_pushed and stick.is_zero_approx()
 	_stick_pushed = not stick.is_zero_approx()
 	drawing.tuning = tuning
-	drawing.step(pad, delta, let_go)
-	intent.trick_recipe = drawing.recipe()
+	drawing.step(pad, delta, let_go, stick.length())
+	# Held, what the drawing reads; released, the trick validated last.
+	intent.trick_recipe = drawing.validated_recipe() if intent.trick_released else drawing.recipe()

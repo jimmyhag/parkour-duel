@@ -161,6 +161,9 @@ func test_a_stick_flick_that_comes_back_fast_is_read() -> void:
 		"pushed down and let go in 0.1 s":
 		[Vector2.DOWN * 0.5] + GestureHand.hold(Vector2.DOWN, 4) + [Vector2.DOWN * 0.5],
 		"pushed at 60 % for 0.1 s": GestureHand.hold(Vector2.DOWN * 0.6, 6),
+		# Decision 24: read by how far it is pushed, not by how long.
+		"pushed fully for two steps": GestureHand.hold(Vector2.DOWN, 2),
+		"pushed at 60 % for four steps": GestureHand.hold(Vector2.DOWN * 0.6, 4),
 	}
 	for what: String in flicks:
 		var gesture: TrickGesture = TrickGesture.new(tuning)

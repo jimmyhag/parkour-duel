@@ -50,6 +50,9 @@ var _combo_moves: int = 0
 ## The last moves of the combo that were worth something, the oldest first, each one by
 ## what tells it apart from the others: what a move is judged against.
 var _last_moves: Array[String] = []
+## The last tricks that were worth something, the oldest first, each one by its recipe:
+## what a trick is judged against, whatever the moves between them.
+var _last_tricks: Array[String] = []
 ## No move has been counted yet at the step under way.
 var _fresh_step: bool = false
 ## Steps spent on the ground since the last move of the combo that was worth something.
@@ -66,9 +69,9 @@ func _init(movement_tuning: MovementTuning, steps_per_second: int) -> void:
 ## One fixed step of the runner: the messages its motor sent at this step, its
 ## real horizontal speed (m/s), and whether it is on its feet on the ground. On the
 ## ground the delay of the combo runs, and its end keeps the last moves that the
-## repetition judges against; the moves are counted; a runner that stays still has
-## stopped. The gauge drops at a step spent out
-## of a combo from its start to its end.
+## repetition judges against (the last tricks, only a fall and a restart forget); the
+## moves are counted; a runner that stays still has stopped. The gauge drops at a step
+## spent out of a combo from its start to its end.
 func step(events: Array[RunnerEvent], horizontal_speed: float, on_foot: bool) -> void:
 	if frozen:
 		return
@@ -92,12 +95,14 @@ func follow(motor: RunnerMotor) -> void:
 	motor.top_speed_bonus = speed_bonus()
 
 
-## The runner fell off the course or asked for its last checkpoint: the gauge empties and
-## the combo is broken; the ammunition and the style score stay.
+## The runner fell off the course or asked for its last checkpoint: the gauge empties, the
+## combo is broken and the last tricks are forgotten; the ammunition and the style score
+## stay.
 func respawn() -> void:
 	if frozen:
 		return
 	_break_the_combo()
+	_last_tricks.clear()
 	gauge = 0.0
 	_steps_stopped = 0
 
@@ -110,6 +115,7 @@ func restart() -> void:
 	ammo_progress = 0
 	style_score = 0
 	_end_the_combo()
+	_last_tricks.clear()
 	_steps_stopped = 0
 
 
@@ -188,7 +194,8 @@ func max_gauge() -> float:
 
 
 ## A move earns its points, worth less for each time it is among the last moves of the
-## combo, multiplied by the multiplier the combo had before it. A move worth nothing earns
+## combo (a trick: among the last tricks), multiplied by the multiplier the combo had
+## before it. A move worth nothing earns
 ## nothing, does not go on with the combo and does not count for the multiplier. A jump
 ## without enough speed is no move at all. A hard landing and a crash are errors, and
 ## cost one tier.
@@ -203,7 +210,8 @@ func _count(event: RunnerEvent, horizontal_speed: float) -> void:
 	if kind == RunnerEvent.Kind.JUMP and horizontal_speed < least_speed:
 		return
 	var move: String = _identity(event)
-	var times: int = _last_moves.count(move)
+	var judged: Array[String] = _last_moves if event.trick == null else _last_tricks
+	var times: int = judged.count(move)
 	repeated_move = kind
 	repeat_count = times + 1
 	var points: int = roundi(_points(event) * _repetition_share(times)) * multiplier()
@@ -218,6 +226,10 @@ func _count(event: RunnerEvent, horizontal_speed: float) -> void:
 	_last_moves.append(move)
 	while _last_moves.size() > tuning.flow_repetition_window:
 		_last_moves.pop_front()
+	if event.trick != null:
+		_last_tricks.append(move)
+		while _last_tricks.size() > tuning.trick_repetition_window:
+			_last_tricks.pop_front()
 	style_score += points
 	_earn_ammo(points)
 	_fill(points)
@@ -311,8 +323,9 @@ func _break_the_combo() -> void:
 	_end_the_combo()
 
 
-## The combo is over: its multiplier back to x1; its last moves forgotten, unless it
-## ended by its delay (`forget` false): the repetition goes on across combos.
+## The combo is over: its multiplier back to x1; its last moves forgotten, unless it ended
+## by its delay (`forget` false): the repetition goes on across combos. The last tricks
+## are kept either way: only a fall and a restart forget them.
 func _end_the_combo(forget: bool = true) -> void:
 	_combo_moves = 0
 	_steps_on_the_ground = 0

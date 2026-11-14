@@ -1,9 +1,10 @@
-extends GutTest
+extends ReplayTest
 ## The drawing of a trick in the player layer, with the real inputs: while the trick
 ## button is held, the mouse and the right stick draw instead of turning the camera, and
 ## what they draw reaches the motor in the intent; released on the ground, the button
 ## jumps into the trick drawn. Key, mouse, button and stick events go through the input
-## map of project.godot, as a device would send them.
+## map of project.godot, as a device would send them. Faster than real time with the same
+## fixed step of 1/60 s (see ReplayTest).
 
 const PLAYER_SCENE: PackedScene = preload("res://game/player/player.tscn")
 const WORLD_LAYER: int = 1
@@ -20,6 +21,8 @@ const STROKE_STEPS: int = 6
 const ROLL_STEPS: int = 24
 const FLIGHT_STEPS: int = 60
 const SETTLE_STEPS: int = 30
+## Steps of a hand at rest that validate a reading (0.1 s), and a little more.
+const VALIDATE_STEPS: int = 8
 const POSE_HEIGHT: float = 0.6
 ## How close to the height of the tuning a full jump tops, and how high above the floor
 ## a runner is dropped to land hard.
@@ -78,12 +81,12 @@ func test_holding_the_trick_button_freezes_the_camera() -> void:
 	assert_ne(rig.rotation.y, turned, "and so does the mouse")
 
 
-func test_a_spin_drawn_with_the_right_stick() -> void:
+func test_a_circle_alone_is_a_spin() -> void:
 	_add_box(Vector3(20.0, 1.0, 20.0), Vector3(0.0, -0.5, 0.0))
 	var player: Player = _add_player()
 	await _wait_steps(FEW_STEPS)
 
-	# LB held, the right stick rolled once round its rim, then let go.
+	# On the gamepad: LB held, the right stick rolled once round its rim, then let go.
 	_send(_button(JOY_BUTTON_LEFT_SHOULDER, true))
 	await _wait_steps(1)
 	for deflection: Vector2 in GestureHand.roll(Vector2.RIGHT, 360.0, ROLL_STEPS):
@@ -92,17 +95,18 @@ func test_a_spin_drawn_with_the_right_stick() -> void:
 		await _wait_steps(1)
 	_send(_stick(JOY_AXIS_RIGHT_X, 0.0))
 	_send(_stick(JOY_AXIS_RIGHT_Y, 0.0))
-	await _wait_steps(2)
+	await _wait_steps(VALIDATE_STEPS)
 
 	var drawn: TrickRecipe = _intents[-1].trick_recipe
 	assert_true(_intents[-1].trick_held, "LB held")
 	assert_not_null(drawn, "the stick drew something")
 	if drawn != null:
 		assert_eq(drawn.name(), "360", "a spin")
-	assert_true(player.drawing().is_complete(), "complete, the trick that will start")
+	assert_true(player.drawing().is_validated(), "validated, the trick that will start")
 
 
-func test_the_trick_of_the_context_with_lb_posed_with_b() -> void:
+func test_without_a_gesture_the_trick_of_the_context_starts() -> void:
+	# With the real inputs of the gamepad: LB pressed and released in the air, posed with B.
 	_add_box(Vector3(20.0, 1.0, 20.0), Vector3(0.0, -0.5, 0.0))
 	var player: Player = _add_player()
 	var paid: Array[AirTrick] = []
@@ -234,6 +238,96 @@ func test_releasing_the_button_where_no_jump_is_allowed_starts_nothing() -> void
 		assert_eq(trick.name(), "BACKFLIP", "at a stop: a backflip")
 
 
+func test_the_pad_follows_the_sensitivity_of_the_camera() -> void:
+	# Decision 26 of docs/specs/trick-gestures.md: the same stroke, drawn with half the
+	# pixels under a sensitivity twice as high, is read the same; and the same pixels under
+	# it draw twice as far.
+	var traces: Array[PackedVector2Array] = []
+	var reads: Array[String] = []
+	var sensitivities: Array[float] = [1.0, 2.0, 2.0]
+	var pixels: Array[float] = [1.0, 0.5, 1.0]
+	for attempt: int in sensitivities.size():
+		var player: Player = _add_player(sensitivities[attempt])
+		await _wait_steps(FEW_STEPS)
+		_send(_key(KEY_F, true))
+		await _wait_steps(1)
+		for step: int in STROKE_STEPS:
+			_send(_mouse(MOUSE_STROKE * pixels[attempt]))
+			await _wait_steps(1)
+		await _wait_steps(FEW_STEPS)
+		traces.append(player.drawing().trace().duplicate())
+		reads.append(GestureHand.read(player.drawing()))
+		_send(_key(KEY_F, false))
+		await _wait_steps(1)
+		player.queue_free()
+		await _wait_steps(1)
+
+	assert_eq(reads[0], "BACKFLIP", "a stroke down")
+	assert_eq(reads[1], reads[0], "half the pixels under twice the sensitivity: the same")
+	assert_eq(traces[1].size(), traces[0].size(), "the same trace")
+	for index: int in traces[0].size():
+		assert_almost_eq(traces[1][index], traces[0][index], Vector2.ONE * TOLERANCE)
+	var far: Vector2 = traces[2][-1]
+	assert_almost_eq(far, 2.0 * traces[0][-1], Vector2.ONE * TOLERANCE, "the same pixels: twice")
+
+
+func test_a_recipe_read_in_passing_does_not_start() -> void:
+	# Decision 25 of docs/specs/trick-gestures.md.
+	_add_box(Vector3(20.0, 1.0, 20.0), Vector3(0.0, -0.5, 0.0))
+	var player: Player = _add_player()
+	await _wait_steps(FEW_STEPS)
+	# A backflip drawn with the mouse, the hand at rest long enough to validate it.
+	_send(_key(KEY_F, true))
+	for step: int in STROKE_STEPS:
+		_send(_mouse(MOUSE_STROKE))
+		await _wait_steps(1)
+	await _wait_steps(VALIDATE_STEPS)
+	assert_eq(player.drawing().validated_recipe().name(), "BACKFLIP", "a backflip validated")
+
+	# A twist started downwards: the reading goes through a double for a moment.
+	var passing: String = ""
+	for motion: Vector2 in GestureHand.arc(Vector2.DOWN, 180.0, 60.0, 10):
+		_send(_mouse(motion))
+		await _wait_steps(1)
+		passing = GestureHand.read(player.drawing())
+		if passing == "DOUBLE BACKFLIP":
+			break
+	assert_eq(passing, "DOUBLE BACKFLIP", "read in passing")
+	_send(_key(KEY_F, false))
+	await _wait_steps(2)
+	assert_true(_intents[-1].trick_released, "F released")
+	assert_eq(GestureHand.read(player.drawing()), "DOUBLE BACKFLIP", "still read so")
+
+	var trick: AirTrick = player.motor.current_trick()
+	assert_not_null(trick, "the release starts a trick")
+	if trick != null:
+		assert_eq(trick.name(), "BACKFLIP", "the last one validated")
+
+
+func test_an_unreadable_drawing_starts_nothing_even_in_the_air() -> void:
+	# Decision 27 of docs/specs/trick-gestures.md.
+	_add_box(Vector3(20.0, 1.0, 20.0), Vector3(0.0, -0.5, 0.0))
+	var player: Player = _add_player()
+	await _wait_steps(FEW_STEPS)
+	_send(_key(KEY_SPACE, true))
+	await _wait_steps(1)
+	_send(_key(KEY_F, true))
+	# A half circle alone: no flip; then the hand at rest, long enough to settle.
+	for motion: Vector2 in GestureHand.arc(Vector2.RIGHT, 180.0, 60.0, 10):
+		_send(_mouse(motion))
+		await _wait_steps(1)
+	await _wait_steps(VALIDATE_STEPS)
+	assert_false(player.is_on_floor(), "a runner in the air")
+	assert_eq(GestureHand.read(player.drawing()), "NOTHING", "a drawing that does not read")
+
+	_send(_key(KEY_F, false))
+	await _wait_steps(2)
+
+	assert_true(_intents[-1].trick_released, "F released")
+	assert_null(player.motor.current_trick(), "no trick starts")
+	_send(_key(KEY_SPACE, false))
+
+
 ## The runner jumped at the release, and the backflip drawn started with it.
 func _assert_a_trick_jump(player: Player, context: String) -> void:
 	assert_eq(player.motor.state, RunnerMotor.State.RISING, context + ": it jumps")
@@ -255,8 +349,13 @@ func _apex_of_the_flight(player: Player) -> float:
 	return apex
 
 
-func _add_player() -> Player:
+## A runner of the tuning of the project, its camera at `sensitivity` times the mouse
+## sensitivity of the project.
+func _add_player(sensitivity: float = 1.0) -> Player:
 	var player: Player = PLAYER_SCENE.instantiate() as Player
+	var tuning: MovementTuning = player.tuning.duplicate() as MovementTuning
+	tuning.camera_mouse_sensitivity *= sensitivity
+	player.tuning = tuning
 	add_child_autofree(player)
 	player.stepped.connect(_on_stepped)
 	return player
