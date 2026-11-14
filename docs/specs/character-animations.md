@@ -1,6 +1,6 @@
 # Le personnage animé : Mixamo, gardé hors du dépôt
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-14, avec Jimmy. Première partie de l'étape 6 de la feuille de route
 (« Art, audio, menus »), avancée avant l'étape 5 par décision de Jimmy : « je pense
