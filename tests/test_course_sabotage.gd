@@ -425,6 +425,10 @@ func test_the_reticle_shows_a_shootable_target() -> void:
 	assert_eq(course.flow.ammo, 0, "its cost spent")
 	assert_eq(platform.target.state, SabotageTarget.State.WARNING, "the platform warns")
 	assert_false(platform.focused, "no longer shootable")
+	# The reticle follows the frames, not the fixed steps: a few steps can pass within one
+	# frame on a busy machine. Once a whole frame has gone by, it shows the shot.
+	await get_tree().process_frame
+	await get_tree().process_frame
 	assert_eq(crosshair.look, Crosshair.Look.NEUTRAL, "nor is the reticle on a target")
 
 
