@@ -20,3 +20,6 @@ cell means not assessed yet.
 | State crossings: what each move becomes in the air, under a ceiling, after another | `game/core/`, first reviewed by `docs/specs/movement-walls.md` | discovered | 2026-11-13 |
 | Combo economy: guards against repetition, risk against reward | `game/core/`, first applied by `docs/specs/flow-combo.md` | discovered | 2026-11-14 |
 | Dated events produced by the simulation and counted by another state | `game/core/`, first applied by `docs/specs/flow-combo.md` | discovered | 2026-11-14 |
+| Composing tricks from building blocks rather than a fixed list | `game/core/`, first applied by `docs/specs/air-tricks.md` | discovered | 2026-11-14 |
+| Small object state machines driven by dated messages | `game/core/`, first applied by `docs/specs/sabotage.md` | discovered | 2026-11-14 |
+| A round state in `core` fed by dated messages, ready for the network | `game/core/`, first applied by `docs/specs/local-duel.md` | discovered | 2026-11-14 |

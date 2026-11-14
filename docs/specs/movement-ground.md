@@ -61,7 +61,7 @@ nombre calé sur le parcours ou les réglages dans le pilote et les tests de sec
 | 17 | Retour au checkpoint | Il fonctionne depuis chaque nouvel état et rend un coureur debout, capsule à sa hauteur normale. | Critère du plan : aucun blocage. |
 | 18 | Affichage de debug | Il nomme les trois nouveaux états et montre la fenêtre de roulade restante et la durée restante de roulade ou de réception lourde. | Suite de la décision 18 de la base. |
 | 19 | README | La section « Controls » décrit la glissade et la roulade. | Règle du plan. |
-| 20 | Durée des tests | `just preflight` reste sous 30 secondes sur la machine de Jimmy. Le développeur donne les nouveaux temps. | Six sections au lieu de quatre dans les rejeux. |
+| 20 | Durée des tests | `just preflight` reste sous 30 secondes sur la machine de Jimmy. Le développeur donne les nouveaux temps. *Note du 2026-11-14 : vraie au sens de `docs/specs/test-tiers.md` (décisions 1 et 3) : `just preflight` ne lance plus les rejeux du parcours (`test_course*`), que `just check` lance avec tous les autres tests.* | Six sections au lieu de quatre dans les rejeux. |
 
 ### Valeurs de départ ajoutées à la ressource de réglage
 

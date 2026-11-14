@@ -43,8 +43,9 @@ the AI assistants work (spec, developer, inspector) is in
 ```sh
 just setup            # once per checkout: tooling and Godot import cache
 just fetch-templates  # once per machine: export templates for the builds (about 1 GB)
-just preflight        # after every change: types, lint, tests, boundaries
-just check            # before every commit: preflight and the release builds
+just preflight        # after every change: types, lint, tests but the course replays, boundaries
+just test-course      # the course replays alone
+just check            # before every commit: every test, course replays included, and the release builds
 ```
 
 ## Controls

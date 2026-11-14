@@ -14,6 +14,13 @@ SOURCE_DIRS = ("game", "tests")
 # Never scanned: caches, tooling, vendored add-ons, build output, agent worktrees.
 SKIPPED_DIRS = {".git", ".godot", ".venv", ".claude", "addons", "build", "__pycache__"}
 
+# The test scripts: the scripts of tests/ whose file name starts with TEST_PREFIX (the
+# prefix of .gutconfig.json). Among them, the course replays start with
+# COURSE_REPLAY_PREFIX: `just check` runs them, `just preflight` does not.
+TESTS_DIR = "tests"
+TEST_PREFIX = "test_"
+COURSE_REPLAY_PREFIX = "test_course"
+
 
 def iter_files(*suffixes: str, dirs: tuple[str, ...] = SOURCE_DIRS) -> Iterator[Path]:
     """Yield the project files with one of the suffixes, sorted, as absolute paths."""
@@ -28,6 +35,14 @@ def iter_files(*suffixes: str, dirs: tuple[str, ...] = SOURCE_DIRS) -> Iterator[
                 if name.endswith(suffixes):
                     found.append(Path(current) / name)
     yield from sorted(found)
+
+
+def is_test_script(path: Path) -> bool:
+    return path.name.startswith(TEST_PREFIX) and path.name.endswith(".gd")
+
+
+def is_course_replay(path: Path) -> bool:
+    return path.name.startswith(COURSE_REPLAY_PREFIX) and is_test_script(path)
 
 
 def rel(path: Path) -> str:
