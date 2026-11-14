@@ -1,6 +1,6 @@
 # Duel local : deux couloirs, un fantôme, un bot, une manche
 
-**Statut : 🟢 Implémenté**
+**Statut : 🟡 Prêt pour le dev**
 
 Session du 2026-11-14. Étape 4 de la feuille de route, la dernière avant le point
 d'arrêt n° 3. Jimmy a délégué toute la conception (« enchaîne sur tout le reste […]
@@ -8,6 +8,12 @@ fais tout jusqu'à ce que tu puisses plus faire ») : chaque décision ci-dessou
 recommandation de l'assistant, prise à sa place, et Jimmy peut rouvrir chacune après
 avoir joué. Son développement commence quand l'étape 3 (`docs/specs/sabotage.md`) est
 fusionnée.
+
+Amendée le 2026-11-14 après le premier développement : la décision 17 ne rendait pas
+la touche évitable pour un coureur qui retombe sur la plateforme ; le bot tombait à
+chaque course dans la dernière section, tirait deux fois la même cible sur un joueur
+arrêté, et pouvait viser juste avant un saut long. Les décisions 7, 8 et 17 sont
+amendées, des scénarios ajoutés (marqués « amendement »), les choix du code listés.
 
 ## Contexte
 
@@ -39,8 +45,8 @@ d'`AGENTS.md` ; le mode solo d'entraînement de l'étape 3 ; la limite de 30 s d
 | 4 | Se voir | Chaque coureur voit l'autre : l'adversaire est une capsule d'une autre couleur (orange), avec sa visière. Le fantôme est la même capsule, à moitié transparente. | « Chacun voit l'autre ». |
 | 5 | Choisir son adversaire | Un écran de départ minimal, au clavier et à la manette, propose **« SOLO PRACTICE »**, **« DUEL VS GHOST »** et **« DUEL VS BOT »**. Le duel contre le fantôme est grisé, avec la raison « FINISH A SOLO RUN FIRST », tant qu'aucune course solo n'est finie dans la session. | Il faut choisir entre fantôme et bot ; les vrais menus sont l'étape 6. |
 | 6 | Le fantôme | Le fantôme rejoue la **meilleure course solo de la session**, pas à pas : la position et l'orientation du corps visible enregistrées à chaque pas fixe. Il n'a pas de collision, pas de flow, ne sabote pas et n'est pas saboté. Il est dans le couloir adverse. Rien n'est enregistré sur le disque. | Le plan : « fantôme enregistré ». Rejouer des positions est exact ; rejouer des intentions dépendrait du déterminisme de la physique. |
-| 7 | Le bot | Un coureur complet dans le couloir adverse : même moteur, même réglage, même flow, mêmes munitions, mêmes règles. Il est mené par le pilote, déplacé de `tests/` vers `game/player/` puisqu'il a désormais un consommateur dans le jeu (les tests le gardent). Section après section, le bot court dans la direction du checkpoint de la section où il est. Il ne fait pas de figure. | Le plan : « bot simple qui court et sabote ». Le pilote franchit déjà chaque section. |
-| 8 | Le bot sabote | Quand le bot a assez de munitions, qu'une cible prête du couloir du joueur est à sa portée et que le **joueur** est à moins de `bot_sabotage_lead` (25 m) avant cette cible, il vise pendant `bot_aim_time` (0,8 s), ralenti comme un joueur qui vise, puis tire si la cible est toujours prête et tirable. Sa ligne de tir part de sa tête. Il préfère la cible la moins chère. | Un bot qui sabote au bon moment donne du sens à l'alerte (`docs/specs/sabotage.md`, décision 8). Il paie le ralenti de la visée comme le joueur. |
+| 7 | Le bot | Un coureur complet dans le couloir adverse : même moteur, même réglage, même flow, mêmes munitions, mêmes règles. Il est mené par le pilote, déplacé de `tests/` vers `game/player/` puisqu'il a désormais un consommateur dans le jeu (les tests le gardent). Section après section, le bot court dans la direction du checkpoint de la section où il est. **Amendement** : il court vers le checkpoint suivant (vers l'arrivée dans la dernière section), pour ne pas sortir de la ligne du parcours. Il ne fait pas de figure. | Le plan : « bot simple qui court et sabote ». Le pilote franchit déjà chaque section. |
+| 8 | Le bot sabote | Quand le bot a assez de munitions, qu'une cible prête du couloir du joueur est à sa portée et que le **joueur** est à moins de `bot_sabotage_lead` (25 m) avant cette cible, il vise pendant `bot_aim_time` (0,8 s), ralenti comme un joueur qui vise, puis tire si la cible est toujours prête et tirable. Sa ligne de tir part de sa tête. Il préfère la cible la moins chère. **Amendement** : le joueur doit **s'approcher** de la cible (sa distance a diminué depuis le pas d'avant) ; le bot ne sabote pas deux fois la même cible tant que le joueur n'a pas atteint un nouveau checkpoint ; et il ne commence pas à viser quand son pilote voit un saut à faire avant la fin de la visée. | Un bot qui sabote au bon moment donne du sens à l'alerte (`docs/specs/sabotage.md`, décision 8). Il paie le ralenti de la visée comme le joueur. |
 | 9 | La manche | **Compte à rebours** « 3 », « 2 », « 1 », « GO » d'une seconde chacun, coureurs immobiles à leur départ ; la course démarre pour les deux au même pas. Le **premier qui franchit l'arrivée** gagne. Arrivés au même pas : le plus haut score de style gagne ; même score : égalité. Limite de **3 minutes** : si personne n'a fini, celui qui a atteint le checkpoint le plus loin gagne, puis le score de style, puis égalité. Contre le fantôme, le joueur gagne s'il arrive avant la fin de la course du fantôme. | Le plan : premier arrivé, le style départage, manches de 1 à 3 minutes. |
 | 10 | Pendant la manche | Retour au checkpoint et chute fonctionnent comme en solo, le chrono ne s'arrête pas. **Recommencer** (Backspace / Back) n'existe pas en duel : il est remplacé par la revanche, à l'écran de résultat. | On ne recommence pas seul une manche à deux. |
 | 11 | L'écran de résultat | À la fin de la manche : **« YOU WIN »**, **« YOU LOSE »** ou **« DRAW »** ; le temps et le score de style de chacun (« DNF » pour qui n'a pas fini) ; deux choix : **« REMATCH »** (même adversaire, même couloir) et **« MENU »** (l'écran de départ). Saut (Espace / A) choisit, la direction change de choix. | Le plan : « écran de résultat, revanche ». |
@@ -49,7 +55,7 @@ d'`AGENTS.md` ; le mode solo d'entraînement de l'étape 3 ; la limite de 30 s d
 | 14 | Le HUD en duel | En haut, le chrono ; à côté, l'écart avec l'adversaire au dernier checkpoint commun (« +1.24 » ou « -0.80 », en secondes). Le HUD du flow est celui du joueur. Le flow et les munitions du bot ne s'affichent pas, sauf dans l'affichage de debug. | Savoir si on est devant, sans encombrer. |
 | 15 | Les réglages | Les valeurs de cette spec (compte à rebours, limite de manche, durées et distances du bot) vivent dans la ressource de réglage unique, groupe « Duel ». | Règle d'`AGENTS.md`. |
 | 16 | La durée des tests | Les rejeux du parcours entier (le bot, le fantôme, les deux couloirs) vivent dans des scripts `test_course*` : `just preflight` les saute, `just check` et la CI les lancent (`docs/specs/test-tiers.md`, fusionnée depuis). `just check` reste sous 90 s ; si un rejeu le menace, le développeur s'arrête et le dit. | La boucle rapide reste rapide ; la porte du commit garde tout. |
-| 17 | Une alerte qui laisse toujours une chance | En duel, la touche doit toujours pouvoir s'éviter. La seconde inspection du sabotage a mesuré qu'une alerte de plateforme lancée entre 0,4 s avant l'appel d'un saut long et 0,25 s après rend la chute inévitable. Règle : une plateforme ou un pont en alerte **ne commence pas son effet tant qu'un coureur est en l'air au-dessus de lui** ; l'effet commence au premier pas où personne n'y est en l'air (un coureur posé dessus est touché comme avant). La durée de l'effet compte depuis son vrai début. | Le plan : être touché casse le combo, mais une touche impossible à éviter n'est que de la malchance. |
+| 17 | Une alerte qui laisse toujours une chance | En duel, la touche doit toujours pouvoir s'éviter. La seconde inspection du sabotage a mesuré qu'une alerte de plateforme lancée entre 0,4 s avant l'appel d'un saut long et 0,25 s après rend la chute inévitable. Règle : une plateforme ou un pont en alerte **ne commence pas son effet tant qu'un coureur est en l'air au-dessus de lui** ; l'effet commence au premier pas où personne n'y est en l'air (un coureur posé dessus est touché comme avant). **Amendement** : un effet retardé ainsi attend ensuite que plus aucun coureur ne soit dans sa zone ; le coureur qui retombe sur la plateforme et en repart n'est pas touché, le tir mal placé est perdu. Ceci vaut en solo comme en duel : l'automate des cibles est commun. La durée de l'effet compte depuis son vrai début. | Le plan : être touché casse le combo, mais une touche impossible à éviter n'est que de la malchance. |
 
 ### Valeurs de départ ajoutées à la ressource de réglage
 
@@ -159,6 +165,30 @@ Fonctionnalité: Duel local
     Quand il court au sol
     Alors sa vitesse de pointe est celle de la visée
 
+  Scénario: Un coureur qui retombe sur une plateforme retardée n'est pas touché
+    # amendement
+    Soit une plateforme dont l'effet attend un coureur en l'air au-dessus d'elle
+    Quand le coureur retombe dessus puis la quitte en courant
+    Alors il n'est pas touché, et l'effet commence une fois la zone vide
+
+  Scénario: Le bot finit le parcours sans tomber
+    # amendement
+    Soit un duel contre le bot, sans joueur qui le gêne
+    Quand la manche se déroule
+    Alors le bot franchit l'arrivée sans être revenu une seule fois à un checkpoint
+
+  Scénario: Le bot ne sabote pas un joueur arrêté deux fois
+    # amendement
+    Soit le bot avec des munitions, et le joueur arrêté près d'une cible prête de son couloir
+    Quand des pas s'écoulent, la cible revenant prête après un premier sabotage
+    Alors le bot ne la sabote pas une seconde fois tant que le joueur n'a pas atteint un nouveau checkpoint, et ne sabote pas sans que le joueur s'approche
+
+  Scénario: Le bot ne vise pas avant un saut
+    # amendement
+    Soit le bot qui court vers un vide qu'il doit sauter, une occasion de sabotage ouverte
+    Quand le saut arrive avant la fin d'une visée
+    Alors il ne commence pas à viser
+
   Scénario: Le bot ne tire pas sans munitions
     Soit le bot sans munition, et le joueur près d'une cible prête
     Quand des pas s'écoulent
@@ -208,6 +238,30 @@ Fonctionnalité: Duel local
 - **Libellés** (en anglais) : « SOLO PRACTICE », « DUEL VS GHOST », « DUEL VS BOT »,
   « FINISH A SOLO RUN FIRST », « 3 », « 2 », « 1 », « GO », « YOU WIN », « YOU LOSE »,
   « DRAW », « YOU », « GHOST », « BOT », « DNF », « STYLE », « REMATCH », « MENU ».
+
+## Choix acceptés après le développement
+
+Le code a tranché ces points là où la spec se taisait ; ils sont acceptés le 2026-11-14
+et Jimmy peut rouvrir chacun après avoir joué.
+
+- **La portée du tir passe à 60 m** (solo compris) : il faut 59,6 m pour tirer
+  l'obstacle adverse depuis tout le passage bas, 50,3 m pour la plateforme.
+- **GO démarre la course en duel**, pas la ligne de départ.
+- **Le fantôme** : enregistré du pas avant la première action du coureur jusqu'à
+  l'arrivée ; la meilleure course est celle du meilleur temps ; il porte son score de
+  style ; ses checkpoints comptent pour l'écart ; il ne s'accroupit pas en glissade.
+- **Contre le fantôme**, les cibles de son couloir restent tirables ; il les ignore.
+- **Menus** : Échap ou Start ramène au menu depuis le solo et un duel ; haut et bas par
+  les flèches, W et S, la croix, le stick ; le choix grisé est sauté ; un écran ignore
+  les entrées de l'image où il s'ouvre ; Retour arrière ou Back revient au menu depuis
+  le résultat.
+- **L'écart** est la différence des chronos affichés, à partir du checkpoint 1.
+- **En duel, le HUD cache BEST et le style**, que l'écran de résultat montre.
+- **Le couloir adverse est à droite**, à 28 m.
+- **La visée du bot ne fait pas briller la cible** : seule celle du joueur le fait.
+- **La session garde BEST et BEST STYLE du solo** d'une visite du menu à l'autre.
+- **Le test de la scène principale** : la scène principale est l'écran de départ ;
+  le test du parcours garde ses assertions sur le parcours lui-même.
 
 ## Hors périmètre
 
