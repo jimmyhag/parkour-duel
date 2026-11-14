@@ -115,9 +115,12 @@ Tricks: in the air, after a jump, a wall jump or a fall from a ledge, press the 
 button. The direction pushed at that moment, measured against where the runner is
 going, chooses the flip: ahead a front flip, behind a backflip, to a side a side flip,
 no push a flat spin. One turn takes about two thirds of a second, longer than a jump on
-the flat: a trick asks for height (a drop of a metre or more, a wall jump, a big fall).
-While the button is held when a turn ends, another one starts, and once it is released the body finishes
-the turn under way. During a front flip or a backflip, each press of jump adds a twist
+the flat: a trick asks for height (a wall jump, a big fall, or a drop to a lower floor).
+With a held jump off a block, measured with the tuning file: a trick pressed together
+with the jump is just over at the landing from a drop of 0.6 m, one fixed step before
+it from 0.9 m, two steps from 1.1 m; pressed two steps after the jump, it needs 1.1 m.
+While the button is held when a turn ends, another one starts, and once it is released
+the body finishes the turn under way. During a front flip or a backflip, each press of jump adds a twist
 (two at most per turn); during a trick, jump never makes the runner jump. A trick
 changes nothing to the flight, but no wall run and no mantle starts before it is over.
 Another press after a trick starts another one in the same jump, worth more. The tricks

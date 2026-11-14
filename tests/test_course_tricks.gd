@@ -32,6 +32,13 @@ const ROLL_HEIGHT: float = 1.5
 ## Steps after which a run that did not take off, or a flight, is over.
 const MOST_STEPS: int = 240
 const FLIGHT_STEPS: int = 80
+## Held past the end of its first turn (39 steps after it started), the trick is
+## released this many steps after the take-off; the turns are counted at the step
+## before, the runner still in the air above the drop. A second course for it stands
+## this far aside.
+const TWO_TURNS_RELEASE: int = 50
+const TWO_TURNS_CHECK: int = 47
+const ASIDE: float = 60.0
 const BACKFLIP_FULL: String = "BACKFLIP FULL"
 ## The left stick, along its vertical axis: -1 pushes forward, 1 pulls back.
 const STICK: JoyAxis = JOY_AXIS_LEFT_Y
@@ -86,6 +93,7 @@ func test_a_backflip_on_the_keyboard_in_the_real_physics() -> void:
 	}
 
 	await _assert_a_backflip_full_with(fingers)
+	await _assert_two_turns_with(fingers)
 
 
 func test_a_backflip_on_the_gamepad_in_the_real_physics() -> void:
@@ -103,6 +111,7 @@ func test_a_backflip_on_the_gamepad_in_the_real_physics() -> void:
 	}
 
 	await _assert_a_backflip_full_with(fingers)
+	await _assert_two_turns_with(fingers)
 
 
 ## On a fresh course, the runner at rest at the checkpoint of the big drop, led by its
@@ -160,6 +169,40 @@ func _assert_a_backflip_full_with(fingers: Dictionary[int, Array]) -> void:
 	assert_eq(course.flow.tricks_landed, 1, "counted by the flow")
 	assert_true(runner.is_on_floor(), "the runner stands on the course")
 	assert_almost_eq(runner.global_position.y, below, NEAR, "on the floor below")
+
+
+## On a second course, the same fingers but the trick held past the end of its first
+## turn: a second turn has started while the runner is still in the air.
+func _assert_two_turns_with(fingers: Dictionary[int, Array]) -> void:
+	var held: Dictionary[int, Array] = fingers.duplicate()
+	held[TWO_TURNS_RELEASE] = fingers[TRICK_RELEASE]
+	held.erase(TRICK_RELEASE)
+	var course: Course = _add_course(ASIDE)
+	_start_at(course, BIG_DROP)
+	await _wait_steps(SETTLE_STEPS)
+	var runner: Player = course.player
+	var edge: float = _bounds_of(course.get_node(TAKE_OFF_BLOCK)).position.z
+	var take_off: int = -1
+	var turns: int = 0
+	var in_the_air: bool = false
+	for step: int in MOST_STEPS:
+		await get_tree().physics_frame
+		if step == 0:
+			_send_all(held[RUN])
+		if take_off < 0 and runner.global_position.z <= edge + BEFORE_THE_EDGE:
+			take_off = step
+		if take_off < 0:
+			continue
+		if held.has(step - take_off):
+			_send_all(held[step - take_off])
+		if step - take_off == TWO_TURNS_CHECK:
+			var trick: AirTrick = runner.motor.current_trick()
+			turns = 0 if trick == null else trick.turns
+			in_the_air = not runner.is_on_floor() and runner.motor.is_in_a_trick()
+			break
+
+	assert_true(in_the_air, "held: still in the trick, in the air")
+	assert_eq(turns, 2, "held past the end of the first turn: a second one started")
 
 
 func _send_all(events: Array) -> void:
