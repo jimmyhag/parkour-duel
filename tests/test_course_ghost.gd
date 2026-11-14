@@ -161,9 +161,9 @@ func test_the_ghost_duel_ends_at_its_finish() -> void:
 func _session_with_a_run(frames: Array[Transform3D]) -> Session:
 	var run: GhostRun = GhostRun.new()
 	for frame: Transform3D in frames:
-		run.record(frame, true)
+		run.record(frame, true, RunnerAnimation.new())
 	if frames.is_empty():
-		run.record(Transform3D.IDENTITY, true)
+		run.record(Transform3D.IDENTITY, true, RunnerAnimation.new())
 	run.finish(10000, 0)
 	var session: Session = Session.new()
 	session.offer(run)

@@ -1,6 +1,6 @@
 # Le personnage animé : Mixamo, gardé hors du dépôt
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-14, avec Jimmy. Première partie de l'étape 6 de la feuille de route
 (« Art, audio, menus »), avancée avant l'étape 5 par décision de Jimmy : « je pense
@@ -45,7 +45,7 @@ aucun asset sans licence vérifiée.
 | 3 | Le jeu avec les fichiers | Le personnage remplace la capsule dans `Visual` ; il est mis à la hauteur de la capsule debout (1,8 m), les pieds au sol. Une seule copie du maillage est gardée (celle de `Ch08_nonPBR.fbx`) ; des autres fichiers, seule l'animation est importée. | Presentation only ; une seule copie du maillage dans le jeu. |
 | 4 | Quelle animation pour quel état | Debout et lent : `Idle` ; au sol en mouvement : `Running`, sa vitesse de lecture suivant la vitesse horizontale ; `RISING` : `Jump` ; `FALLING` : `Falling Idle` ; atterrissage simple : `Landing`, brève ; `HARD_LANDING` : `Hard Landing` ; `ROLLING` : `Falling To Roll` (sa partie roulade) ; `SLIDING` : `Running Slide` ; `MANTLING` : `Sprint To Wall Climb` (sa partie où il se hisse) ; `WALL_RUNNING` : `Wall Run`, en miroir pour un mur de l'autre côté ; en visée : `pistol idle` sur le haut du corps, les jambes gardant leur animation. | Chaque état du moteur a son mouvement. |
 | 5 | Les figures | Le corps entier tourne comme aujourd'hui (salto, vrilles, spin) ; pendant la figure, le personnage prend une **pose groupée**, extraite de `Backflip` (ou `Running Forward Flip`), puis se déplie à la fin. Une seule pose pour toutes les recettes. | Les figures sont composées : une animation par figure est impossible, une pose suffit (décision prise avec Jimmy). |
-| 6 | Le mouvement racine | Les animations jouent **sur place** : toute translation de l'os racine est retirée (les fichiers sans « In Place », comme `Wall Run` ou `Sprint To Wall Climb`, compris). Seul le moteur déplace le coureur. | Le moteur décide du mouvement ; l'animation le montre. |
+| 6 | Le mouvement racine | Les animations jouent **sur place** : toute translation de l'os racine est retirée (les fichiers sans « In Place », comme `Wall Run` ou `Sprint To Wall Climb`, compris). **Amendement** : la translation horizontale est retirée partout ; la hauteur des hanches est gardée là où c'est une posture (glissade, roulade, réceptions, Idle, course) et ramenée à la hauteur de repos là où le moteur fait déjà le mouvement (`Jump`, `Wall Run`, `Sprint To Wall Climb`) : sinon les jambes passeraient sous le sol. Seul le moteur déplace le coureur. | Le moteur décide du mouvement ; l'animation le montre. |
 | 7 | Les fondus | Entre deux animations, un fondu court (`animation_blend_time`, 0,1 s, ressource de réglage) ; les entrées brusques (crash, réception dure) sans fondu. | Fluidité, sans retard sur l'état. |
 | 8 | La logique testable | Le choix de l'animation à partir de l'état du moteur (nom, vitesse de lecture, miroir, haut du corps en visée, pose de figure) est une fonction pure testée sans les fichiers. Le branchement sur un `AnimationPlayer` ou `AnimationTree` est de la présentation. | Les tests tournent dans la CI sans Mixamo. |
 | 9 | Le bot et le fantôme | Ils prennent le même personnage, teinté (orange pour le bot ; orange transparent pour le fantôme), si les fichiers sont là ; sinon leur capsule. Le fantôme rejoue aussi l'état enregistré pour son animation. | Lisibles comme aujourd'hui, avec le vrai corps. |
@@ -90,6 +90,18 @@ Fonctionnalité: Le personnage animé
     Quand on choisit son animation pendant les premiers pas au sol
     Alors c'est Landing, puis la course ou Idle
 
+  Scénario: Une entrée brusque se fait sans fondu
+    # amendement
+    Soit un coureur qui court
+    Quand il fait une réception dure, puis un crash
+    Alors l'animation change sans fondu
+
+  Scénario: Le fantôme rejoue l'animation enregistrée
+    # amendement
+    Soit une course enregistrée avec l'animation de chaque pas
+    Quand le fantôme la rejoue
+    Alors à chaque pas il montre l'animation enregistrée à ce pas
+
   # --- Sans les fichiers ---
 
   Scénario: Sans les fichiers, la capsule reste
@@ -115,6 +127,28 @@ groupée, le miroir, le haut du corps) ne peut pas être prouvée par la CI : le
 développeur la vérifie sur cette machine, où les fichiers sont présents (import Godot
 sans erreur, scène qui charge, captures d'écran ou relevés d'os à l'appui), et Jimmy la
 juge en jouant.
+
+## Choix acceptés après le développement
+
+Acceptés le 2026-11-14 ; Jimmy peut rouvrir chacun après avoir joué.
+
+- **Les parties de clips gardées** (roulade, mantle, réceptions, glissade, saut,
+  wall-run) sont choisies d'après les données des fichiers ; les états à durée fixe
+  étirent leur clip.
+- **Trois réglages en plus** (groupe Animation) : la vitesse où `Running` joue à son
+  rythme (6 m/s), la vitesse sous laquelle c'est `Idle` (0,5 m/s), la durée de
+  `Landing` (0,25 s).
+- **Le moteur** expose `steps_since_landing` en lecture et écriture publique : la limite
+  de 20 méthodes publiques de gdlint empêchait une méthode de plus ; acceptée par
+  précédent (`trick_ready`). La prochaine fois, une vue en lecture seule du moteur.
+- **Tout ou rien** : le personnage n'apparaît que si lui et ses 12 clips sont présents.
+- **Le clip `Wall Run`** a son mur à gauche : il est mis en miroir le long d'un mur à
+  droite.
+- **La visée** : un modificateur de squelette redresse le buste de `pistol idle`.
+- **Les teintes** : le bot garde ses textures sous un voile orange ; le fantôme prend le
+  matériau transparent de sa capsule.
+- **Les builds de release** contiennent le personnage quand les fichiers sont présents
+  sur la machine qui construit (environ 88 Mo de plus) : c'est l'usage qu'autorise la FAQ.
 
 ## Hors périmètre
 

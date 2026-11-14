@@ -1,8 +1,11 @@
 extends GutTest
 ## The player layer: inputs turned into intents, the capsule that follows the state of
-## the runner, and the third-person camera.
+## the runner, the third-person camera, and the visible body without the Mixamo files.
 
 const PLAYER_SCENE: PackedScene = preload("res://game/player/player.tscn")
+const GHOST_SCENE: PackedScene = preload("res://game/player/ghost.tscn")
+## Where no character is: a project without the Mixamo files.
+const NO_CHARACTER: String = "res://assets/mixamo/no_character_here.fbx"
 const MOVE_FORWARD: StringName = &"move_forward"
 const SLIDE: StringName = &"slide"
 const FORWARD: Vector3 = Vector3.FORWARD
@@ -126,6 +129,52 @@ func test_the_camera_moves_closer_when_a_wall_passes_behind_the_runner() -> void
 	var radius: float = player.tuning.camera_collision_radius
 	assert_almost_eq(clearance, radius, 0.01, "at the radius of its sphere from the wall")
 	assert_gt(camera.global_position.z, player.global_position.z, "and stays behind the runner")
+
+
+func test_without_the_files_the_capsule_stays() -> void:
+	var player: Player = PLAYER_SCENE.instantiate() as Player
+	player.character_model = NO_CHARACTER
+	add_child_autofree(player)
+	var ghost: Ghost = GHOST_SCENE.instantiate() as Ghost
+	ghost.character_model = NO_CHARACTER
+	add_child_autofree(ghost)
+	await wait_physics_frames(FEW_STEPS)
+
+	var visual: Node3D = player.get_node("Visual") as Node3D
+	var body: MeshInstance3D = visual.get_node("Body") as MeshInstance3D
+	var visor: MeshInstance3D = visual.get_node("Visor") as MeshInstance3D
+	assert_eq(visual.get_child_count(), 2, "the visible body: the capsule and its visor")
+	assert_true(body.is_visible_in_tree(), "the capsule is seen")
+	assert_true(visor.is_visible_in_tree(), "its visor is seen")
+	assert_almost_eq(_mesh_height(player), player.tuning.capsule_height, TOLERANCE, "standing")
+	var capsule: CapsuleMesh = body.mesh as CapsuleMesh
+	assert_almost_eq(capsule.radius, player.tuning.capsule_radius, TOLERANCE, "of its radius")
+	assert_eq(ghost.get_child_count(), 2, "the ghost: the capsule and its visor")
+	for part: String in ["Body", "Visor"]:
+		var seen: MeshInstance3D = ghost.get_node(part) as MeshInstance3D
+		assert_true(seen.is_visible_in_tree(), "the ghost's %s is seen" % part)
+
+
+func test_a_character_of_another_rig_keeps_the_capsule() -> void:
+	var rig: Array[String] = [RunnerCharacter.HIPS, RunnerCharacter.SPINE, RunnerCharacter.KNEE]
+	assert_true(RunnerCharacter.fits(_model_with_bones(rig)), "the bones of Ch08: it fits")
+	var other: Array[String] = []
+	for bone: String in rig:
+		other.append(bone.replace("mixamorig7_", "mixamorig1_"))
+	assert_false(RunnerCharacter.fits(_model_with_bones(other)), "another prefix: the capsule")
+	assert_false(RunnerCharacter.fits(Node3D.new()), "no skeleton: the capsule")
+
+
+## A model as an imported character is: a skeleton with these bones, under its root.
+func _model_with_bones(bones: Array[String]) -> Node3D:
+	var model: Node3D = Node3D.new()
+	var skeleton: Skeleton3D = Skeleton3D.new()
+	skeleton.name = RunnerCharacter.SKELETON
+	for bone: String in bones:
+		skeleton.add_bone(bone)
+	model.add_child(skeleton)
+	autofree(model)
+	return model
 
 
 func _add_player() -> Player:

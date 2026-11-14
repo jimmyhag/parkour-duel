@@ -222,7 +222,8 @@ func _follow_the_ghost() -> void:
 	var frame: int = 0
 	if round_state.phase == RoundState.Phase.RUNNING:
 		frame = clock.race_steps() + 1
-	_ghost.show_at(opponent_lane.global_transform * _ghost_run.frame(frame))
+	var where: Transform3D = opponent_lane.global_transform * _ghost_run.frame(frame)
+	_ghost.show_at(where, _ghost_run.animation(frame))
 	if frame == 0:
 		return
 	var style: int = _ghost_run.style_score

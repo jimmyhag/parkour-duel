@@ -52,13 +52,15 @@ func _ready() -> void:
 	finished.connect(_on_finished)
 
 
-## Where the visible body is after this step, in the lane, until the finish line.
+## Where the visible body is after this step, in the lane, and what it shows, until the
+## finish line.
 func _record(intent: MoveIntent) -> void:
 	if race.phase == RaceState.Phase.FINISHED:
 		return
 	var acted: bool = not intent.direction.is_zero_approx()
 	acted = acted or intent.jump_pressed or intent.slide_pressed
-	_run.record(global_transform.affine_inverse() * player.visual_transform(), acted)
+	var where: Transform3D = global_transform.affine_inverse() * player.visual_transform()
+	_run.record(where, acted, player.animation)
 
 
 func _on_checkpoint_reached_by_the_run(index: int) -> void:
