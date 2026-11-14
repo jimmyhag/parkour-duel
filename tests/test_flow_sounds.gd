@@ -4,7 +4,9 @@ extends GutTest
 
 const SOUNDS_SCENE: PackedScene = preload("res://game/ui/flow_sounds.tscn")
 const STEPS_PER_SECOND: int = 60
-const TURN_STEPS: int = 39
+## The turn (0.35 s) and the twist (0.15 s) of the fixed tuning in fixed steps.
+const TURN_STEPS: int = 21
+const TWIST_STEPS: int = 9
 ## The players of the scene, and the sound each one plays.
 const SOUNDS: Dictionary[String, String] = {
 	"TrickLanded": "res://assets/sounds/confirmation_001.ogg",
@@ -68,7 +70,8 @@ func _step(flow: FlowState, events: Array[RunnerEvent]) -> void:
 
 
 func _trick(perfect: bool) -> RunnerEvent:
-	var trick: AirTrick = AirTrick.new(Vector3.BACK, Vector3.FORWARD, TURN_STEPS, 1)
+	var recipe: TrickRecipe = TrickRecipe.drawn(TrickRecipe.Flip.BACKFLIP)
+	var trick: AirTrick = AirTrick.new(recipe, Vector3.FORWARD, TURN_STEPS, TWIST_STEPS)
 	trick.finished = true
 	trick.perfect = perfect
 	return RunnerEvent.new(RunnerEvent.Kind.TRICK, 0, trick)

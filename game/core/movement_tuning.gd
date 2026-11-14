@@ -152,22 +152,46 @@ extends Resource
 @export var flow_stop_duration: float = 0.0
 
 @export_group("Tricks")
-## How long one turn of a trick lasts, in s.
+## How long one turn of a trick lasts, in s: a spin lasts one turn.
 @export var trick_turn_duration: float = 0.0
-## Most twists a front flip or a backflip takes during one of its turns.
+## How long each twist adds to a trick, in s.
+@export var trick_twist_duration: float = 0.0
+## Most turns of a trick.
+@export var trick_max_turns: int = 0
+## Most twists a front flip or a backflip takes for each of its turns.
 @export var trick_max_twists_per_turn: int = 0
-## Points of a trick for each of its turns, and for each of its twists.
-@export var trick_points_per_turn: int = 0
+## Points of a front flip or a backflip, of a side flip or a spin, and of the trick of
+## the context (nothing drawn), each of one turn.
+@export var trick_points_flip: int = 0
+@export var trick_points_side_flip: int = 0
+@export var trick_points_context: int = 0
+## What the points of the flip are multiplied by for a double, and for a triple.
+@export var trick_double_multiplier: float = 0.0
+@export var trick_triple_multiplier: float = 0.0
+## Points each twist adds.
 @export var trick_points_per_twist: int = 0
-## Share of its points a trick gains for each trick already done in the same jump.
-@export var trick_air_chain_bonus: float = 0.0
-## Longest time between the end of the last trick of a jump and the contact with the
-## ground for the landing to be perfect, in s.
+## Longest time between the slide press and the contact with the ground for a finished
+## trick to be posed, and for it to be perfect, in s.
+@export var trick_landing_window: float = 0.0
 @export var trick_perfect_window: float = 0.0
-## Share of its points the last trick gains on a perfect landing.
+## Share of its points a trick gains on a perfect landing.
 @export var trick_perfect_bonus: float = 0.0
 ## Horizontal speed a perfect landing gains, in m/s.
 @export var trick_perfect_speed_gain: float = 0.0
+## The pad a trick is drawn on, while the trick button is held: how far one pixel of the
+## mouse moves it, and how fast the right stick fully pushed moves it, per second, in
+## units of the pad.
+@export var trick_pad_mouse_scale: float = 0.0
+@export var trick_pad_stick_speed: float = 0.0
+## Least length of a stroke, and most the pad may move during a press that draws nothing
+## (the trick of the context), in units of the pad.
+@export var trick_gesture_stroke_length: float = 0.0
+@export var trick_gesture_still_length: float = 0.0
+## Least angle a curve must turn to be a half circle, and a whole circle, in degrees.
+@export var trick_gesture_half_circle_angle: float = 0.0
+@export var trick_gesture_circle_angle: float = 0.0
+## How long the pad must stay still to end one element of the drawing, in s.
+@export var trick_gesture_pause: float = 0.0
 
 @export_group("Sabotage")
 ## Share of its top speed a runner keeps on the ground while it aims (0 to 1); in the

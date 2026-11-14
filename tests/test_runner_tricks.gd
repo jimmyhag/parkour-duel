@@ -1,72 +1,126 @@
 extends TrickTest
-## The aerial tricks of the runner's motor (game/core) in the air: a flip chosen by the
-## push, turns as long as the button is held, twists tapped on the jump, what a trick
-## forbids meanwhile, and their names.
+## The aerial tricks of the runner's motor (game/core) in the air: the trick drawn starts
+## as the button is released in the air, the trick of the context when nothing was
+## drawn, one trick per jump, what a trick forbids meanwhile, and their names.
 
-# --- Starting a trick ---
+# --- Drawing and releasing ---
 
 
-func test_the_pushed_direction_chooses_the_flip() -> void:
-	# The four ways and none; the keyboard diagonals, ahead and behind, on the edge of a
-	# quarter; a push 40 degrees off ahead, and 50 degrees off ahead, to the left.
-	var pushes: Array[Vector3] = [
-		FORWARD,
-		BACK,
-		Vector3.LEFT,
-		Vector3.RIGHT,
-		Vector3.ZERO,
-		(FORWARD + Vector3.LEFT).normalized(),
-		(BACK + Vector3.RIGHT).normalized(),
-		FORWARD.rotated(Vector3.UP, deg_to_rad(-40.0)),
-		FORWARD.rotated(Vector3.UP, deg_to_rad(50.0)),
-	]
-	var flips: Array[AirTrick.Flip] = [
-		FRONT_FLIP,
-		BACKFLIP,
-		SIDE_FLIP,
-		SIDE_FLIP,
-		SPIN,
-		FRONT_FLIP,
-		BACKFLIP,
-		FRONT_FLIP,
-		SIDE_FLIP
-	]
-	var sides: Array[int] = [1, 1, -1, 1, 1, 1, 1, 1, -1]
-	for index: int in pushes.size():
-		var context: String = "push %s" % pushes[index]
-		var body: MotorBody = _launched()
-		body.step(_push(FORWARD))
-		assert_null(body.motor.current_trick(), context + ": no trick before the press")
+func test_the_trick_starts_when_the_button_is_released_in_the_air() -> void:
+	var body: MotorBody = MotorBody.running(_tuning, FORWARD, _tuning.top_speed)
+	# A backflip drawn on the ground, the pad going down, then a jump, the button held.
+	var gesture: TrickGesture = TrickGesture.new(_tuning)
+	for step: int in 6:
+		gesture.step(Vector2.DOWN * 0.2, MotorBody.STEP)
+		body.step(_drawing(gesture.recipe(), FORWARD))
+	var jump: MoveIntent = _drawing(gesture.recipe(), FORWARD)
+	jump.jump_pressed = true
+	jump.jump_held = true
+	body.step(jump)
+	for step: int in 3:
+		var holding: MoveIntent = _drawing(gesture.recipe(), FORWARD)
+		holding.jump_held = true
+		body.step(holding)
+	assert_eq(body.motor.state, RunnerMotor.State.RISING, "a runner in the air")
+	assert_null(body.motor.current_trick(), "nothing started while the button is held")
 
-		body.step(_trick(pushes[index]))
+	var release: MoveIntent = _release(gesture.recipe(), FORWARD)
+	release.jump_held = true
+	body.step(release)
 
-		var trick: AirTrick = body.motor.current_trick()
-		assert_not_null(trick, context + ": a trick starts")
-		if trick == null:
-			continue
-		assert_eq(trick.flip, flips[index], context + ": its flip")
-		if flips[index] == SIDE_FLIP:
-			assert_eq(trick.side, sides[index], context + ": to the side pushed")
-		assert_false(trick.finished, context + ": under way")
+	var trick: AirTrick = body.motor.current_trick()
+	assert_not_null(trick, "a trick starts at the step of the release")
+	if trick == null:
+		return
+	assert_eq(trick.name(), "BACKFLIP", "the backflip drawn")
+	assert_false(trick.recipe.context, "not the trick of the context")
+	assert_true(body.motor.is_in_a_trick(), "under way")
 
-	# Measured against the speed, not the world: a runner flying to the right that pushes
-	# to the right does a front flip; one almost still takes its push for the front.
-	var aside: MotorBody = _launched()
-	aside.velocity = Vector3.RIGHT * _tuning.top_speed + Vector3.UP * LAUNCH
-	aside.step(_trick(Vector3.RIGHT))
-	assert_eq(_flip_of(aside), FRONT_FLIP, "along its speed: a front flip")
-	var still: MotorBody = _launched(0.0)
-	still.step(_trick(Vector3.LEFT))
-	assert_eq(_flip_of(still), FRONT_FLIP, "almost still: its push is the front")
+
+func test_without_a_gesture_the_trick_of_the_context_starts() -> void:
+	var nothing_drawn: TrickRecipe = TrickRecipe.of_the_context()
+
+	# Running forward: a front flip.
+	var running: MotorBody = MotorBody.running(_tuning, FORWARD, _tuning.top_speed)
+	var jump: MoveIntent = _push(FORWARD)
+	jump.jump_pressed = true
+	jump.jump_held = true
+	running.step(jump)
+	running.step(_release(nothing_drawn, FORWARD))
+	_assert_context_trick(running, FRONT_FLIP, "running forward")
+
+	# Just after a wall jump: a backflip.
+	var wall_jumping: MotorBody = _beside_a_wall()
+	wall_jumping.step(_push(FORWARD))
+	assert_eq(wall_jumping.motor.state, RunnerMotor.State.WALL_RUNNING, "a wall run")
+	var off_the_wall: MoveIntent = _push(FORWARD)
+	off_the_wall.jump_pressed = true
+	off_the_wall.jump_held = true
+	wall_jumping.step(off_the_wall)
+	assert_eq(wall_jumping.motor.state, RunnerMotor.State.RISING, "then a wall jump")
+	wall_jumping.step(_release(nothing_drawn, FORWARD))
+	_assert_context_trick(wall_jumping, BACKFLIP, "just after a wall jump")
+
+	# Leaving a wall run at its left: a side flip to the right, away from the wall.
+	var leaving: MotorBody = _beside_a_wall()
+	leaving.step(_push(FORWARD))
+	leaving.step(_release(nothing_drawn, LEFT_WALL))
+	assert_eq(leaving.motor.state, RunnerMotor.State.FALLING, "a runner off its wall run")
+	_assert_context_trick(leaving, SIDE_FLIP, "leaving a wall run")
+	if leaving.motor.current_trick() != null:
+		assert_eq(leaving.motor.current_trick().recipe.side, 1, "to the right, away from it")
+
+	# At a stop: a backflip.
+	var still: MotorBody = MotorBody.new(_tuning)
+	still.step(_push(Vector3.ZERO))
+	var hop: MoveIntent = _push(Vector3.ZERO)
+	hop.jump_pressed = true
+	hop.jump_held = true
+	still.step(hop)
+	still.step(_release(nothing_drawn))
+	_assert_context_trick(still, BACKFLIP, "at a stop")
+
+	# Worth half a front flip.
+	var front_flip: int = TrickRecipe.drawn(FRONT_FLIP).points(_tuning)
+	assert_eq(TrickRecipe.of_the_context(FRONT_FLIP).points(_tuning), front_flip / 2)
+
+
+func test_one_trick_per_jump() -> void:
+	var flow: FlowState = _flow()
+	var body: MotorBody = _launched()
+	var landing: int = _landing_step(_launched)
+	var second: int = TURN_STEPS + 3
+	for step: int in landing + 1:
+		var intent: MoveIntent = _push(Vector3.ZERO)
+		if step == 0:
+			intent = _release(_backflip())
+		elif step > TURN_STEPS and step < second:
+			intent = _drawing(_front_flip())
+		elif step == second:
+			intent = _release(_front_flip())
+		intent.slide_pressed = step == landing - 2
+		_follow(body, flow, intent)
+		if step == TURN_STEPS:
+			assert_true(body.motor.current_trick().finished, "a runner that finished a trick")
+		if step == second:
+			var trick: AirTrick = body.motor.current_trick()
+			assert_eq(trick.name(), "BACKFLIP", "no second trick starts")
+			assert_false(body.motor.is_in_a_trick(), "nothing under way")
+
+	_assert_kinds(body, [TRICK])
+	assert_eq(flow.tricks_landed, 1, "one trick paid")
+
+
+# --- Where a trick starts ---
 
 
 func test_a_trick_does_not_start_on_the_ground() -> void:
 	var body: MotorBody = MotorBody.running(_tuning, FORWARD, _tuning.top_speed)
 	assert_eq(body.motor.state, RunnerMotor.State.GROUNDED, "a runner on the ground")
 
-	for push: Vector3 in [FORWARD, BACK, Vector3.ZERO]:
-		body.step(_trick(push))
-		assert_null(body.motor.current_trick(), "nothing starts, push %s" % push)
+	for recipe: TrickRecipe in [_backflip(), _front_flip(), TrickRecipe.of_the_context()]:
+		body.step(_release(recipe, FORWARD))
+		assert_null(body.motor.current_trick(), "nothing starts: %s" % recipe.name())
 		body.step(_push(FORWARD))
 
 	assert_eq(body.motor.state, RunnerMotor.State.GROUNDED, "it stays on the ground")
@@ -83,9 +137,9 @@ func test_a_trick_does_not_start_in_a_wall_run_or_a_mantle() -> void:
 
 	for body: MotorBody in [along, climbing]:
 		var state: String = RunnerMotor.State.keys()[body.motor.state]
-		for push: Vector3 in [FORWARD, BACK, Vector3.ZERO]:
-			body.step(_trick(push))
-			assert_null(body.motor.current_trick(), "%s: nothing starts, push %s" % [state, push])
+		for recipe: TrickRecipe in [_backflip(), TrickRecipe.of_the_context()]:
+			body.step(_release(recipe, FORWARD))
+			assert_null(body.motor.current_trick(), "%s: nothing starts" % state)
 
 
 func test_a_trick_does_not_change_the_trajectory() -> void:
@@ -95,11 +149,12 @@ func test_a_trick_does_not_change_the_trajectory() -> void:
 	var steps: int = 0
 
 	while not plain.on_floor and steps < MANY_STEPS:
-		# The same push for both, changing along the flight; one presses the trick, again
-		# and again, and holds it.
+		# The same push for both, changing along the flight; one draws, releases a double
+		# backflip, then draws again.
 		var push: Vector3 = BACK.rotated(Vector3.UP, 0.5 * sin(steps * 0.2))
-		var intent: MoveIntent = _holding(push)
-		intent.trick_pressed = steps % 20 == 1
+		var intent: MoveIntent = _drawing(_backflip(2), push)
+		if steps == 3:
+			intent = _release(_backflip(2), push)
 		tricking.step(intent)
 		plain.step(_push(push))
 		tricks_seen += int(tricking.motor.is_in_a_trick())
@@ -107,160 +162,33 @@ func test_a_trick_does_not_change_the_trajectory() -> void:
 		assert_almost_eq(tricking.position, plain.position, Vector3.ONE * TOLERANCE, context)
 		steps += 1
 
-	assert_gt(tricks_seen, TURN_STEPS, "one runner was in a trick for most of the flight")
+	assert_eq(tricks_seen, 2 * TURN_STEPS, "one runner was in a double for part of the flight")
 	assert_true(tricking.on_floor, "both land")
 	assert_eq(tricking.position, plain.position, "at the same place")
-	assert_eq(tricking.velocity, plain.velocity, "at the same velocity")
 
 
-# --- Turns ---
-
-
-func test_releasing_the_button_finishes_the_current_turn() -> void:
-	var body: MotorBody = _high()
-	body.step(_trick(BACK))
-	var trick: AirTrick = body.motor.current_trick()
-	assert_eq(_flip_of(body), BACKFLIP, "a runner that just started a backflip")
-
-	# Released in the middle of the first turn, pressed and released again: the turn goes
-	# on to its end.
-	for step: int in range(1, TURN_STEPS):
-		var intent: MoveIntent = _holding(BACK) if step < TURN_STEPS / 2 else _push(BACK)
-		intent.trick_pressed = step == TURN_STEPS - 5
-		intent.trick_held = intent.trick_held or intent.trick_pressed
-		body.step(intent)
-		assert_true(body.motor.is_in_a_trick(), "step %d of the turn: under way" % step)
-	assert_same(body.motor.current_trick(), trick, "the same trick all along")
-	body.step(_push(BACK))
-
-	assert_false(body.motor.is_in_a_trick(), "the backflip is over at the end of the turn")
-	assert_true(trick.finished)
-	assert_eq(trick.turns, 1, "with one turn")
-	assert_eq(trick.finished_at, body.motor.steps, "dated by this step")
-
-
-func test_holding_the_button_chains_the_turns() -> void:
-	var body: MotorBody = _high()
-	body.step(_trick(BACK))
-	var trick: AirTrick = body.motor.current_trick()
-
-	# Held up to the middle of the second turn, then released.
-	var middle_of_the_second: int = TURN_STEPS + TURN_STEPS / 2
-	for step: int in range(1, 2 * TURN_STEPS):
-		body.step(_holding(BACK) if step < middle_of_the_second else _push(BACK))
-		assert_true(body.motor.is_in_a_trick(), "step %d: under way" % step)
-		if step == TURN_STEPS:
-			assert_eq(trick.turns, 2, "held as the first turn ends: a second one starts")
-	body.step(_push(BACK))
-
-	assert_false(body.motor.is_in_a_trick(), "over at the end of the second turn")
-	assert_eq(trick.turns, 2, "with two turns")
-	assert_eq(trick.name(), "DOUBLE BACKFLIP")
-
-
-# --- Twists ---
-
-
-func test_a_jump_press_during_a_flip_adds_a_twist() -> void:
-	var twisting: MotorBody = _high()
-	var plain: MotorBody = _high()
-	for body: MotorBody in [twisting, plain]:
-		body.step(_trick(BACK))
-	var trick: AirTrick = twisting.motor.current_trick()
-	assert_eq(_flip_of(twisting), BACKFLIP, "a runner in a backflip")
-
-	var twist_step: int = 5
-	var steps: int = 0
-	while plain.motor.is_in_a_trick() and steps < MANY_STEPS:
-		steps += 1
-		var intent: MoveIntent = _push(BACK)
-		intent.jump_pressed = steps == twist_step
-		intent.jump_held = steps >= twist_step and steps < twist_step + 3
-		twisting.step(intent)
-		plain.step(_push(BACK))
-		if steps == twist_step:
-			assert_eq(trick.twists, 1, "the jump pressed: the backflip gains a twist")
-		assert_eq(twisting.motor.is_in_a_trick(), plain.motor.is_in_a_trick(), "step %d" % steps)
-
-	assert_eq(steps, TURN_STEPS, "the twist did not make the trick last longer")
-	assert_true(trick.finished, "it ends with the one without a twist")
-	assert_eq(trick.twists, 1, "with its twist")
-	assert_eq(trick.name(), "BACKFLIP FULL")
-
-	# The twist turns the way pushed as it is pressed, to the right without a push: seen
-	# from above, to the left is the positive way around the body.
-	var ways: Dictionary[Vector3, float] = {
-		Vector3.LEFT: 1.0, Vector3.ZERO: -1.0, Vector3.RIGHT: -1.0
-	}
-	for push: Vector3 in ways:
-		var body: MotorBody = _high()
-		body.step(_trick(BACK))
-		var twist: MoveIntent = _push(push)
-		twist.jump_pressed = true
-		body.step(twist)
-		for step: int in 5:
-			body.step(_push(Vector3.ZERO))
-		var angle: float = body.motor.current_trick().twist_angle()
-		assert_eq(signf(angle), ways[push], "push %s: the way of the twist" % push)
-
-
-func test_twists_do_not_exceed_their_maximum_per_turn() -> void:
-	var body: MotorBody = _high()
-	body.step(_trick(BACK))
-	var trick: AirTrick = body.motor.current_trick()
-
-	# Three presses in the first turn, held on to a second turn.
-	for step: int in range(1, TURN_STEPS):
-		var intent: MoveIntent = _holding(BACK)
-		intent.jump_pressed = step in [3, 8, 13]
-		body.step(intent)
-
-	assert_eq(trick.twists, 2, "two twists in the turn, not three")
-	# The next turn takes twists of its own.
-	for step: int in range(TURN_STEPS, TURN_STEPS + 5):
-		var intent: MoveIntent = _holding(BACK)
-		intent.jump_pressed = step == TURN_STEPS + 2
-		body.step(intent)
-	assert_eq(trick.turns, 2, "a second turn")
-	assert_eq(trick.twists, 3, "with a twist of its own")
-
-
-func test_no_twist_on_a_side_flip_or_a_spin() -> void:
-	for push: Vector3 in [Vector3.LEFT, Vector3.ZERO]:
-		var body: MotorBody = _high()
-		body.step(_trick(push))
-		var trick: AirTrick = body.motor.current_trick()
-		var context: String = AirTrick.Flip.keys()[trick.flip]
-		assert_true(trick.flip == SIDE_FLIP or trick.flip == SPIN, context)
-
-		for step: int in range(1, 10):
-			var intent: MoveIntent = _holding(push)
-			intent.jump_pressed = step % 3 == 0
-			body.step(intent)
-
-		assert_eq(trick.twists, 0, context + ": no twist")
-		assert_eq(body.motor.state, RunnerMotor.State.FALLING, context + ": and no jump")
+# --- What a trick forbids ---
 
 
 func test_a_twist_near_the_ground_does_not_start_a_jump() -> void:
 	var landing: int = _landing_step(_launched, BACK)
 	# The backflip ends two steps before the ground; the jump is pressed during it, within
-	# the jump buffer of the landing (0.12 s, 7 steps).
+	# the jump buffer of the landing (0.12 s, 7 steps). The slide poses the trick.
 	var start: int = landing - TURN_STEPS - 2
 	var press: int = landing - 5
 	var tricking: MotorBody = _launched()
 	var plain: MotorBody = _launched()
 
 	for step: int in landing + 3:
-		var intent: MoveIntent = _push(BACK)
-		intent.trick_pressed = step == start
-		intent.trick_held = intent.trick_pressed
+		var intent: MoveIntent = _release(_backflip(), BACK) if step == start else _push(BACK)
 		intent.jump_pressed = step == press
 		intent.jump_held = step == press
+		intent.slide_pressed = step == landing - 4
 		tricking.step(intent)
 		var same_without_a_trick: MoveIntent = _push(BACK)
 		same_without_a_trick.jump_pressed = intent.jump_pressed
 		same_without_a_trick.jump_held = intent.jump_held
+		same_without_a_trick.slide_pressed = intent.slide_pressed
 		plain.step(same_without_a_trick)
 		if step == press:
 			assert_true(tricking.motor.is_in_a_trick(), "the jump is pressed during the trick")
@@ -268,8 +196,7 @@ func test_a_twist_near_the_ground_does_not_start_a_jump() -> void:
 		if step == landing:
 			assert_eq(plain.motor.state, RunnerMotor.State.RISING, "without a trick: a jump")
 			assert_eq(tricking.motor.state, RunnerMotor.State.GROUNDED, "with one: it lands")
-			var trick: AirTrick = tricking.motor.current_trick()
-			assert_true(trick == null or trick.finished, "the trick was over")
+			_assert_kinds(tricking, [TRICK])
 		if step >= landing:
 			assert_true(tricking.on_floor, "step %d: it does not jump" % step)
 
@@ -282,7 +209,7 @@ func test_during_a_trick_the_jump_does_not_start_a_wall_jump() -> void:
 		body.step(_push(FORWARD))
 		assert_eq(body.motor.state, RunnerMotor.State.WALL_RUNNING, "a runner in a wall run")
 	# It leaves the wall, and one of them starts a trick as it does.
-	tricking.step(_trick(away))
+	tricking.step(_release(_backflip(), away))
 	plain.step(_push(away))
 	assert_true(tricking.motor.is_in_a_trick(), "in a trick, just off the wall run")
 	assert_gt(tricking.motor.wall_jump_time_left(), 0.0, "while a jump is still a wall jump")
@@ -300,51 +227,11 @@ func test_during_a_trick_the_jump_does_not_start_a_wall_jump() -> void:
 	assert_eq(tricking.motor.state, RunnerMotor.State.FALLING, "not even a step later")
 
 
-# --- Chaining in the air ---
-
-
-func test_a_second_trick_in_the_same_jump_is_worth_more() -> void:
-	var body: MotorBody = _high()
-	var landing: int = _landing_step(_high, Vector3.ZERO)
-	var flow: FlowState = _flow()
-	# A backflip, then a front flip pressed as soon as the first is over: two different
-	# tricks, so that the variety of the flow does not mix with the bonus.
-	var second: int = TURN_STEPS + 1
-	for step: int in landing:
-		var push: Vector3 = Vector3.ZERO
-		if step == 0:
-			push = BACK
-		elif step == second:
-			push = FORWARD
-		var intent: MoveIntent = _push(push)
-		intent.trick_pressed = step == 0 or step == second
-		intent.trick_held = intent.trick_pressed
-		_follow(body, flow, intent)
-		if step == TURN_STEPS:
-			assert_true(body.motor.current_trick().finished, "a runner that finished a trick")
-		if step == second:
-			assert_eq(body.motor.current_trick().rank, 2, "a second one starts in the same jump")
-	var slide: MoveIntent = _push(Vector3.ZERO)
-	slide.slide_pressed = true
-	slide.slide_held = true
-	_follow(body, flow, slide)
-
-	_assert_kinds(body, [TRICK, TRICK, RunnerEvent.Kind.ROLL])
-	if body.motor.events.size() < 2:
-		return
-	var first: AirTrick = body.motor.events[0].trick
-	var then: AirTrick = body.motor.events[1].trick
-	assert_eq([first.name(), then.name()], ["BACKFLIP", "FRONT FLIP"], "two different tricks")
-	assert_false(first.perfect or then.perfect, "neither perfect")
-	var points: Array[int] = [200, 300, 100]
-	assert_eq(flow.step_points, points, "counted by the flow: the second with the bonus on top")
-
-
 func test_no_wall_run_or_mantle_during_a_trick() -> void:
 	# Along a wall, from the step after the trick started.
 	var tricking: MotorBody = _high()
 	var plain: MotorBody = _high()
-	tricking.step(_trick(FORWARD))
+	tricking.step(_release(_front_flip(), FORWARD))
 	plain.step(_push(FORWARD))
 	for body: MotorBody in [tricking, plain]:
 		body.set_wall(A_WALL, LEFT_WALL, CLOSE, TALL)
@@ -366,7 +253,7 @@ func test_no_wall_run_or_mantle_during_a_trick() -> void:
 	# top a mantle's height above the feet, kept so all along the flight.
 	var climbing: MotorBody = _high()
 	var twin: MotorBody = _high()
-	climbing.step(_trick(FORWARD))
+	climbing.step(_release(_front_flip(), FORWARD))
 	twin.step(_push(FORWARD))
 	var reach: float = _tuning.mantle_min_height * 1.5
 	for step: int in range(1, TURN_STEPS + 1):
@@ -390,7 +277,7 @@ func test_no_wall_run_or_mantle_during_a_trick() -> void:
 
 
 func test_the_name_of_a_trick_is_composed_of_its_bricks() -> void:
-	var pushes: Array[Vector3] = [BACK, BACK, Vector3.LEFT, FORWARD, BACK, Vector3.ZERO]
+	var flips: Array[TrickRecipe.Flip] = [BACKFLIP, BACKFLIP, SIDE_FLIP, FRONT_FLIP, BACKFLIP, SPIN]
 	var turns: Array[int] = [1, 2, 3, 1, 4, 2]
 	var twists: Array[int] = [0, 1, 0, 2, 0, 0]
 	var names: Array[String] = [
@@ -402,16 +289,25 @@ func test_the_name_of_a_trick_is_composed_of_its_bricks() -> void:
 		"720",
 	]
 	for index: int in names.size():
-		var trick: AirTrick = AirTrick.new(pushes[index], FORWARD, TURN_STEPS, 1)
-		trick.turns = turns[index]
-		trick.twists = twists[index]
+		var trick: AirTrick = AirTrick.new(
+			TrickRecipe.drawn(flips[index], turns[index], twists[index]),
+			FORWARD,
+			TURN_STEPS,
+			TWIST_STEPS
+		)
 		assert_eq(trick.name(), names[index])
 
 	# The names that go on: more turns, more twists, more degrees.
-	var many: AirTrick = AirTrick.new(BACK, FORWARD, TURN_STEPS, 1)
-	many.turns = 5
-	many.twists = 4
-	assert_eq(many.name(), "5X BACKFLIP 4X FULL")
-	var spin: AirTrick = AirTrick.new(Vector3.ZERO, FORWARD, TURN_STEPS, 1)
-	spin.turns = 3
-	assert_eq(spin.name(), "1080")
+	assert_eq(TrickRecipe.drawn(BACKFLIP, 5, 4).name(), "5X BACKFLIP 4X FULL")
+	assert_eq(TrickRecipe.drawn(SPIN, 3).name(), "1080")
+
+
+func _assert_context_trick(body: MotorBody, flip: TrickRecipe.Flip, context: String) -> void:
+	var trick: AirTrick = body.motor.current_trick()
+	assert_not_null(trick, context + ": a trick starts")
+	if trick == null:
+		return
+	assert_true(trick.recipe.context, context + ": the trick of the context")
+	assert_eq(trick.recipe.flip, flip, context + ": its flip")
+	assert_eq(trick.recipe.turns, 1, context + ": one turn")
+	assert_eq(trick.points(_tuning), _tuning.trick_points_context, context + ": its points")

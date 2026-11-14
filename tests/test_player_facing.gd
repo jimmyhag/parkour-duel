@@ -436,9 +436,12 @@ func test_the_visible_body_makes_the_turn_of_the_trick() -> void:
 	var turn_steps: int = roundi((load(TUNING) as MovementTuning).trick_turn_duration * 60.0)
 	var track: Track = _track(0)
 	var flight: Vector3 = FORWARD * track.runner.tuning.top_speed
-	# A backflip of one turn, released early; the push goes elsewhere during it.
+	# A backflip of one turn, drawn along the flight and released at the step `start`; the
+	# push goes elsewhere during it.
+	var start: int = 4
 	var intents: ScriptedIntentSource = ScriptedIntentSource.new()
-	intents.trick(Vector3.BACK, 5).hold(Vector3.RIGHT, false, turn_steps + 5)
+	var backflip: TrickRecipe = TrickRecipe.drawn(TrickRecipe.Flip.BACKFLIP)
+	intents.trick(backflip, FORWARD, start).hold(Vector3.RIGHT, false, turn_steps + 5)
 	track.start(Vector3.UP * TALL * 3.0, intents, flight)
 
 	await _steps(intents.length())
@@ -447,26 +450,28 @@ func test_the_visible_body_makes_the_turn_of_the_trick() -> void:
 	assert_not_null(trick, "a runner that launched a backflip")
 	if trick == null:
 		return
-	assert_eq(trick.flip, AirTrick.Flip.BACKFLIP)
+	assert_eq(trick.recipe.flip, TrickRecipe.Flip.BACKFLIP)
 	assert_true(trick.finished, "over in the air")
 	var axis: Vector3 = trick.axis
 	assert_almost_eq(axis, Vector3.RIGHT, Vector3.ONE * 0.001, "around the axis across the flight")
-	# From the first step, where it started, to the step its turn is over.
+	# From the step where it started to the step its turn is over.
 	var turned: float = 0.0
 	var upside_down: bool = false
-	for k: int in range(1, turn_steps + 1):
+	var end: int = start + turn_steps
+	for k: int in range(start + 1, end + 1):
 		var before: Moment = track.moments[k - 1]
 		var now: Moment = track.moments[k]
 		turned += before.up.signed_angle_to(now.up, axis)
-		upside_down = upside_down or now.up.dot(Vector3.UP) < -0.99
-		if k < turn_steps:
+		# Within half a step of upside down: as close as fixed steps of a turn come to it.
+		upside_down = upside_down or now.up.dot(Vector3.UP) <= -cos(PI / turn_steps) + 0.0001
+		if k < end:
 			var aside: float = absf(now.front.dot(axis))
 			assert_lt(aside, 0.01, "step %d: not turned towards the push" % k)
 	assert_almost_eq(rad_to_deg(turned), 360.0, ANGLE_TOLERANCE, "a whole turn, head backwards")
 	assert_true(upside_down, "through upside down")
-	var last: Moment = track.moments[turn_steps]
+	var last: Moment = track.moments[end]
 	assert_lt(rad_to_deg(last.up.angle_to(Vector3.UP)), 0.01, "upright as the turn ends")
-	for moment: Moment in track.moments.slice(turn_steps):
+	for moment: Moment in track.moments.slice(end):
 		assert_lt(rad_to_deg(moment.up.angle_to(Vector3.UP)), 0.01, "and upright after it")
 
 

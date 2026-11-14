@@ -10,9 +10,10 @@ const ROLL: RunnerEvent.Kind = RunnerEvent.Kind.ROLL
 const MANTLE: RunnerEvent.Kind = RunnerEvent.Kind.MANTLE
 const WALL_RUN: RunnerEvent.Kind = RunnerEvent.Kind.WALL_RUN
 const HARD_LANDING: RunnerEvent.Kind = RunnerEvent.Kind.HARD_LANDING
-## The turn of the fixed tuning (0.65 s) in fixed steps, and a height a flight lasts long
-## from.
-const TURN_STEPS: int = 39
+## The turn (0.35 s) and the twist (0.15 s) of the fixed tuning in fixed steps, and a
+## height a flight lasts long from.
+const TURN_STEPS: int = 21
+const TWIST_STEPS: int = 9
 const HIGH: float = 40.0
 
 var _tuning: MovementTuning
@@ -96,26 +97,64 @@ func test_the_hud_shows_the_trick_under_way() -> void:
 	hud.refresh()
 	assert_eq(_shown(hud, "%TrickLabel"), "", "no trick: no name")
 	var backflip: MoveIntent = MoveIntent.new()
-	backflip.direction = Vector3.BACK
-	backflip.trick_pressed = true
-	backflip.trick_held = true
+	backflip.trick_released = true
+	backflip.trick_recipe = TrickRecipe.drawn(TrickRecipe.Flip.BACKFLIP, 1, 1)
 	body.step(backflip)
-	hud.refresh()
-	assert_eq(_shown(hud, "%TrickLabel"), "BACKFLIP", "a runner in a backflip")
+	assert_true(body.motor.is_in_a_trick(), "a runner in a backflip with a twist")
 
-	var twist: MoveIntent = MoveIntent.new()
-	twist.jump_pressed = true
-	body.step(twist)
 	hud.refresh()
 
 	assert_eq(_shown(hud, "%TrickLabel"), "BACKFLIP FULL")
+
+
+func test_the_hud_shows_the_recipe_being_drawn() -> void:
+	var flow: FlowState = _flow()
+	var hud: FlowHud = _add_hud(flow)
+	var body: MotorBody = MotorBody.running(_tuning, Vector3.FORWARD, _tuning.top_speed)
+	hud.motor = body.motor
+	var gesture: TrickGesture = TrickGesture.new(_tuning)
+	var shown: Array[String] = []
+	# The button held: nothing drawn yet, a stroke down, then a half circle.
+	var motions: Array[Vector2] = []
+	for step: int in 3:
+		motions.append(Vector2.ZERO)
+	for step: int in 6:
+		motions.append(Vector2.DOWN * 0.2)
+	for step: int in 6:
+		motions.append(Vector2.ZERO)
+	for step: int in 12:
+		motions.append(Vector2.RIGHT.rotated(PI * (step + 0.5) / 12.0) * 0.13)
+	for motion: Vector2 in motions:
+		gesture.step(motion, 1.0 / STEPS_PER_SECOND)
+		var drawing: MoveIntent = MoveIntent.new()
+		drawing.direction = Vector3.FORWARD
+		drawing.trick_held = true
+		drawing.trick_recipe = gesture.recipe()
+		body.step(drawing)
+		hud.refresh()
+		var text: String = _shown(hud, "%TrickLabel")
+		if shown.is_empty() or shown[-1] != text:
+			shown.append(text)
+
+	assert_eq(
+		shown, ["?", "BACKFLIP", "BACKFLIP FULL"] as Array[String], "what it reads, as it goes"
+	)
+
+	# Released on the ground: nothing is drawn any more.
+	var released: MoveIntent = MoveIntent.new()
+	released.trick_released = true
+	released.trick_recipe = gesture.recipe()
+	body.step(released)
+	hud.refresh()
+	assert_eq(_shown(hud, "%TrickLabel"), "", "nothing shown")
 
 
 func test_the_hud_shows_the_landing() -> void:
 	var flow: FlowState = _flow()
 	var hud: FlowHud = _add_hud(flow)
 	hud.refresh()
-	var trick: AirTrick = AirTrick.new(Vector3.BACK, Vector3.FORWARD, TURN_STEPS, 1)
+	var recipe: TrickRecipe = TrickRecipe.drawn(TrickRecipe.Flip.BACKFLIP)
+	var trick: AirTrick = AirTrick.new(recipe, Vector3.FORWARD, TURN_STEPS, TWIST_STEPS)
 	trick.finished = true
 	trick.perfect = true
 

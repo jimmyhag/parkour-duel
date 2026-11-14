@@ -1,25 +1,30 @@
 class_name TrickTest
 extends GutTest
 ## Base of the test scripts of the aerial tricks of the runner's motor (game/core): the
-## runners they throw in the air, the intents they give them, and the flow that follows
-## them as the course does. The tuning is the fixed one of MotorBody; the runners go
-## along -Z.
+## runners they throw in the air, the intents they give them (the trick button released
+## with a recipe, the slide pressed to pose it), and the flow that follows them as the
+## course does. The tuning is the fixed one of MotorBody; the runners go along -Z.
 
 const STEPS_PER_SECOND: int = 60
 const PROJECT_TUNING: String = "res://game/core/movement_tuning.tres"
 const FORWARD: Vector3 = Vector3.FORWARD
 const BACK: Vector3 = Vector3.BACK
 const TOLERANCE: float = 0.001
-const FRONT_FLIP: AirTrick.Flip = AirTrick.Flip.FRONT_FLIP
-const BACKFLIP: AirTrick.Flip = AirTrick.Flip.BACKFLIP
-const SIDE_FLIP: AirTrick.Flip = AirTrick.Flip.SIDE_FLIP
-const SPIN: AirTrick.Flip = AirTrick.Flip.SPIN
+const FRONT_FLIP: TrickRecipe.Flip = TrickRecipe.Flip.FRONT_FLIP
+const BACKFLIP: TrickRecipe.Flip = TrickRecipe.Flip.BACKFLIP
+const SIDE_FLIP: TrickRecipe.Flip = TrickRecipe.Flip.SIDE_FLIP
+const SPIN: TrickRecipe.Flip = TrickRecipe.Flip.SPIN
 const TRICK: RunnerEvent.Kind = RunnerEvent.Kind.TRICK
-## The turn of the fixed tuning (0.65 s), and the perfect window (0.15 s), in fixed steps
-## at 60 steps per second. Written out on purpose, not computed.
-const TURN_STEPS: int = 39
-const PERFECT_STEPS: int = 9
-## The upward speed of a launched runner: its fall stays under the height of a roll.
+const CRASH: RunnerEvent.Kind = RunnerEvent.Kind.CRASH
+## The turn (0.35 s) and the twist (0.15 s) of the fixed tuning, its landing window
+## (0.25 s) and its perfect window (0.1 s), in fixed steps at 60 steps per second.
+## Written out on purpose, not computed.
+const TURN_STEPS: int = 21
+const TWIST_STEPS: int = 9
+const LANDING_STEPS: int = 15
+const PERFECT_STEPS: int = 6
+## The upward speed of a launched runner: its flight leaves time for a double, and its
+## fall stays under the height of a roll.
 const LAUNCH: float = 15.5
 ## High enough above the floor for a flight of many turns.
 const HIGH: float = 40.0
@@ -52,6 +57,14 @@ func _follow(body: MotorBody, flow: FlowState, intent: MoveIntent) -> void:
 	flow.follow(body.motor)
 
 
+## One step of the body, followed by the flow if there is one.
+func _play(body: MotorBody, flow: FlowState, intent: MoveIntent) -> void:
+	if flow == null:
+		body.step(intent)
+	else:
+		_follow(body, flow, intent)
+
+
 ## One step at which the motor announced `kind`, the runner in the air at the top speed.
 func _count(flow: FlowState, kind: RunnerEvent.Kind) -> void:
 	var events: Array[RunnerEvent] = [RunnerEvent.new(kind, 0)]
@@ -61,8 +74,12 @@ func _count(flow: FlowState, kind: RunnerEvent.Kind) -> void:
 ## The motor of `body` announced these kinds at the step it just played, in this order,
 ## and nothing else.
 func _assert_kinds(body: MotorBody, kinds: Array[RunnerEvent.Kind]) -> void:
+	_assert_events(body.motor.events, kinds)
+
+
+func _assert_events(events: Array[RunnerEvent], kinds: Array[RunnerEvent.Kind]) -> void:
 	var announced: Array[RunnerEvent.Kind] = []
-	for event: RunnerEvent in body.motor.events:
+	for event: RunnerEvent in events:
 		announced.append(event.kind)
 		if event.kind == TRICK:
 			assert_not_null(event.trick, "a trick message carries its trick")
@@ -75,70 +92,8 @@ func _project_tuning() -> MovementTuning:
 	return load(PROJECT_TUNING) as MovementTuning
 
 
-## The drop, in m, under the floor a runner jumps from, that a trick of one turn pressed
-## with a held jump needs to be over before the ground, computed from `tuning`: the fall
-## from the top of the jump lasts what the turn lasts beyond the rise, plus two fixed
-## steps (a body seen on the floor one step after it reached it, and a step of margin).
-func _drop_for_a_turn(tuning: MovementTuning) -> float:
-	var rise: float = sqrt(2.0 * tuning.jump_height / tuning.rise_gravity)
-	var fall: float = tuning.trick_turn_duration + 2.0 / STEPS_PER_SECOND - rise
-	return maxf(0.5 * tuning.fall_gravity * fall * fall - tuning.jump_height, 0.0)
-
-
-## From the ground, a held jump with a trick pressed `press_after` steps after the
-## take-off (0: with the jump) pushing `push`, over a floor `drop` lower than the one it
-## leaves, `twists` jump presses once the top of the jump is passed, then the landing,
-## the flow following if there is one: returns the trick, if one started.
-func _jump_with_a_trick(
-	body: MotorBody,
-	flow: FlowState,
-	drop: float,
-	push: Vector3,
-	twists: int = 0,
-	press_after: int = 0
-) -> AirTrick:
-	var take_off: MoveIntent = _trick(push) if press_after == 0 else _push(FORWARD)
-	take_off.jump_pressed = true
-	take_off.jump_held = true
-	_play(body, flow, take_off)
-	body.floor_height -= drop
-	var steps: int = 0
-	var presses: int = 0
-	while not body.on_floor and steps < MANY_STEPS:
-		steps += 1
-		var intent: MoveIntent = _trick(push) if steps == press_after else _push(FORWARD)
-		intent.jump_held = body.motor.state == RunnerMotor.State.RISING
-		if body.motor.state == RunnerMotor.State.FALLING and presses < twists:
-			intent.jump_pressed = true
-			presses += 1
-		_play(body, flow, intent)
-	var trick: AirTrick = body.motor.current_trick()
-	_play(body, flow, _push(FORWARD))
-	for event: RunnerEvent in body.motor.events:
-		if event.trick != null:
-			trick = event.trick
-	return trick
-
-
-## From the ground, a run, then a jump off a block with a backflip pressed at the
-## take-off and `twists` jump presses once the top of the jump is passed, then the
-## landing: returns the trick.
-func _jump_with_a_backflip(body: MotorBody, flow: FlowState, twists: int) -> AirTrick:
-	for step: int in 12:
-		_follow(body, flow, _push(FORWARD))
-	return _jump_with_a_trick(body, flow, _drop_for_a_turn(_tuning), BACK, twists)
-
-
-## One step of the body, followed by the flow if there is one.
-func _play(body: MotorBody, flow: FlowState, intent: MoveIntent) -> void:
-	if flow == null:
-		body.step(intent)
-	else:
-		_follow(body, flow, intent)
-
-
 ## A body just above the floor, thrown up at LAUNCH and forward at `speed`: its flight
-## leaves time for a turn, and its fall stays under the height of a roll.
+## leaves time for a double, and its fall stays under the height of a roll.
 func _launched(speed: float = -1.0) -> MotorBody:
 	if speed < 0.0:
 		speed = _tuning.top_speed
@@ -165,7 +120,7 @@ func _high() -> MotorBody:
 
 ## The index of the step at which the motor of a body made by `make` sees the floor, the
 ## runner pushing `push` all along.
-func _landing_step(make: Callable, push: Vector3) -> int:
+func _landing_step(make: Callable, push: Vector3 = Vector3.ZERO) -> int:
 	var body: MotorBody = make.call()
 	var steps: int = 0
 	while not body.on_floor and steps < MANY_STEPS:
@@ -174,9 +129,30 @@ func _landing_step(make: Callable, push: Vector3) -> int:
 	return steps
 
 
+## A flight of a body made by `make`, followed by the flow if there is one: `recipe`
+## released at the step `release`, the slide pressed at the step `press` (and held from
+## it if `hold`), up to the step of the landing, played: what the motor announced there.
+func _fly(
+	make: Callable,
+	flow: FlowState,
+	recipe: TrickRecipe,
+	release: int,
+	press: int = -1,
+	hold: bool = false
+) -> MotorBody:
+	var body: MotorBody = make.call()
+	var landing: int = _landing_step(make)
+	for step: int in landing + 1:
+		var intent: MoveIntent = _release(recipe) if step == release else _push(Vector3.ZERO)
+		intent.slide_pressed = step == press
+		intent.slide_held = step == press or (hold and press >= 0 and step >= press)
+		_play(body, flow, intent)
+	return body
+
+
 func _flip_of(body: MotorBody) -> int:
 	var trick: AirTrick = body.motor.current_trick()
-	return -1 if trick == null else trick.flip
+	return -1 if trick == null else trick.recipe.flip
 
 
 func _push(direction: Vector3) -> MoveIntent:
@@ -185,16 +161,33 @@ func _push(direction: Vector3) -> MoveIntent:
 	return intent
 
 
-## The trick pressed at this step, and held.
-func _trick(direction: Vector3) -> MoveIntent:
+## The trick button held at this step, its drawing reading `recipe`.
+func _drawing(recipe: TrickRecipe, direction: Vector3 = Vector3.ZERO) -> MoveIntent:
 	var intent: MoveIntent = _push(direction)
-	intent.trick_pressed = true
 	intent.trick_held = true
+	intent.trick_recipe = recipe
 	return intent
 
 
-## The trick held, not pressed.
-func _holding(direction: Vector3) -> MoveIntent:
+## The trick button released at this step, its drawing reading `recipe`.
+func _release(recipe: TrickRecipe, direction: Vector3 = Vector3.ZERO) -> MoveIntent:
 	var intent: MoveIntent = _push(direction)
-	intent.trick_held = true
+	intent.trick_released = true
+	intent.trick_recipe = recipe
 	return intent
+
+
+## The slide pressed at this step, and held.
+func _slide(direction: Vector3 = Vector3.ZERO) -> MoveIntent:
+	var intent: MoveIntent = _push(direction)
+	intent.slide_pressed = true
+	intent.slide_held = true
+	return intent
+
+
+func _backflip(turns: int = 1, twists: int = 0) -> TrickRecipe:
+	return TrickRecipe.drawn(BACKFLIP, turns, twists)
+
+
+func _front_flip() -> TrickRecipe:
+	return TrickRecipe.drawn(FRONT_FLIP)

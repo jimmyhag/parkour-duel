@@ -1,12 +1,13 @@
 class_name Main
 extends Node
-## The game: the start screen (game/ui), then the mode chosen there, solo practice (Course)
-## or a duel against the ghost or the bot (Duel), until the mode asks to go back to the
-## start screen. It keeps the session from one mode to the next: the best solo run, which
-## opens the duel against the ghost.
+## The game: the start screen (game/ui), then the mode chosen there, solo practice (Course),
+## a duel against the ghost or the bot (Duel) or the trick park (TrickPark), until the
+## mode asks to go back to the start screen. It keeps the session from one mode to the
+## next: the best solo run, which opens the duel against the ghost.
 
 const COURSE_SCENE: PackedScene = preload("res://game/levels/test_course.tscn")
 const DUEL_SCENE: PackedScene = preload("res://game/levels/duel.tscn")
+const TRICK_PARK_SCENE: PackedScene = preload("res://game/levels/trick_park.tscn")
 
 var session: Session = Session.new()
 ## The mode under way; null on the start screen.
@@ -33,6 +34,10 @@ func _on_mode_chosen(choice: StartScreen.Choice) -> void:
 		course.session = session
 		course.menu_requested.connect(_on_menu_requested)
 		mode = course
+	elif choice == StartScreen.Choice.TRICK_PARK:
+		var park: TrickPark = TRICK_PARK_SCENE.instantiate() as TrickPark
+		park.menu_requested.connect(_on_menu_requested)
+		mode = park
 	else:
 		var duel: Duel = DUEL_SCENE.instantiate() as Duel
 		duel.session = session
