@@ -163,7 +163,7 @@ func test_returning_to_the_checkpoint_on_request_empties_the_gauge() -> void:
 	assert_true(flow.in_combo(), "a runner with gauge, in a combo")
 	assert_gt(flow.gauge, 0.0)
 
-	await _replay(course, ScriptedIntentSource.new().request_respawn(), 0)
+	await _replay(course, ScriptedIntentSource.new().request_respawn(), 1)
 
 	assert_eq(flow.gauge, 0.0, "the gauge is at zero")
 	assert_false(flow.in_combo(), "the combo is broken")
@@ -179,7 +179,7 @@ func test_restarting_resets_everything() -> void:
 	_count(flow, WALL_JUMP_MOVE)
 	flow.finish()
 	assert_eq(flow.best_style_score, 300, "a first run, finished")
-	await _replay(course, ScriptedIntentSource.new().request_restart(), 0)
+	await _replay(course, ScriptedIntentSource.new().request_restart(), 1)
 	assert_false(flow.frozen, "a new run")
 	_start_at(course, SHORT_JUMPS)
 	# 300 points at x1, then 300 + 300 + a jump again (50) and a wall run again (150) at
@@ -208,7 +208,7 @@ func test_restarting_resets_everything() -> void:
 	assert_eq(flow.ammo_progress, style - per_ammo, "points towards the next one")
 	assert_eq(flow.style_score, style, "and a style score")
 
-	await _replay(course, ScriptedIntentSource.new().request_restart(), 0)
+	await _replay(course, ScriptedIntentSource.new().request_restart(), 1)
 
 	assert_eq(course.race.phase, RaceState.Phase.NOT_STARTED, "the course restarted")
 	assert_eq(flow.gauge, 0.0, "the gauge is at zero")
