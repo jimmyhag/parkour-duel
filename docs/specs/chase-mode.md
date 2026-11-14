@@ -1,6 +1,6 @@
 # Le mode Chase : un chat, une souris, une arène d'obstacles
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-14, avec Jimmy (« oui pour tout, je te fais confiance »). Jimmy a vu
 les vraies compétitions de poursuite en arène (« des vraies compètes de chat et souris
