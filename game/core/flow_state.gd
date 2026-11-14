@@ -36,6 +36,9 @@ var _combo_moves: int = 0
 var _steps_on_the_ground: int = 0
 ## Steps the runner has stood still on the ground, in a row.
 var _steps_stopped: int = 0
+## Points earned beyond a full gauge since it is full, and not turned into ammunition
+## yet.
+var _beyond_full: float = 0.0
 
 
 func _init(movement_tuning: MovementTuning, steps_per_second: int) -> void:
@@ -44,9 +47,11 @@ func _init(movement_tuning: MovementTuning, steps_per_second: int) -> void:
 
 
 ## One fixed step of the runner: the messages its motor sent at this step, its
-## horizontal speed (m/s), and whether it is on its feet on the ground. On the ground the
-## delay of the combo runs; the moves are counted; a runner that stays still has
-## stopped. The gauge drops at a step spent out of a combo from its start to its end.
+## real horizontal speed (m/s), and whether it is on its feet on the ground. On the
+## ground the delay of the combo runs, and its end resets the repetition; the moves are
+## counted; a runner that stays still has stopped. The gauge drops at a step spent out
+## of a combo from its start to its end. What was earned beyond a full gauge only counts
+## while it stays full.
 func step(events: Array[RunnerEvent], horizontal_speed: float, on_foot: bool) -> void:
 	if frozen:
 		return
@@ -55,17 +60,20 @@ func step(events: Array[RunnerEvent], horizontal_speed: float, on_foot: bool) ->
 		_steps_on_the_ground += 1
 		if _steps_on_the_ground >= _steps(tuning.flow_chain_delay):
 			_combo_moves = 0
+			repeat_count = 0
 	for event: RunnerEvent in events:
 		_count(event.kind, horizontal_speed)
 	_watch_for_a_stop(horizontal_speed, on_foot)
 	if not was_in_combo and not in_combo():
 		gauge = maxf(gauge - tuning.flow_decay / _steps_per_second, 0.0)
+	if gauge < max_gauge():
+		_beyond_full = 0.0
 
 
 ## Counts the fixed step the motor just played, then gives the motor the speed bonus of
 ## the gauge: what the course does at every step.
 func follow(motor: RunnerMotor) -> void:
-	step(motor.events, motor.horizontal_speed(), motor.is_on_foot())
+	step(motor.events, motor.real_speed(), motor.is_on_foot())
 	motor.top_speed_bonus = speed_bonus()
 
 
@@ -76,6 +84,7 @@ func respawn() -> void:
 		return
 	_break_the_combo()
 	gauge = 0.0
+	_beyond_full = 0.0
 	_steps_stopped = 0
 
 
@@ -88,6 +97,7 @@ func restart() -> void:
 	_combo_moves = 0
 	_steps_on_the_ground = 0
 	_steps_stopped = 0
+	_beyond_full = 0.0
 	repeat_count = 0
 
 
@@ -193,15 +203,24 @@ func _points(kind: RunnerEvent.Kind) -> int:
 
 
 ## The gauge gains `points`, up to its maximum; every tier it crosses upwards gives one
-## ammunition, up to the most the runner may hold.
+## ammunition, up to the most the runner may hold. Full, it keeps what goes beyond: each
+## time that reaches the value of a tier, one more ammunition, and the count goes on
+## with what is left over.
 func _fill(points: int) -> void:
 	var before: int = tier()
+	var room: float = max_gauge() - gauge
 	gauge = minf(gauge + points, max_gauge())
 	var after: int = tier()
 	if after > before:
 		ammo = mini(ammo + after - before, tuning.flow_max_ammo)
 		tiers_crossed += 1
 		last_tier_crossed = after
+	if points <= room or tuning.flow_tier_value <= 0.0:
+		return
+	_beyond_full += points - room
+	while _beyond_full >= tuning.flow_tier_value:
+		_beyond_full -= tuning.flow_tier_value
+		ammo = mini(ammo + 1, tuning.flow_max_ammo)
 
 
 ## A runner on its feet slower than the stop speed for the stop duration has stopped: an

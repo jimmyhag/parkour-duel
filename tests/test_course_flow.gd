@@ -8,6 +8,16 @@ const WALL_RUN_MOVE: RunnerEvent.Kind = RunnerEvent.Kind.WALL_RUN
 const WALL_JUMP_MOVE: RunnerEvent.Kind = RunnerEvent.Kind.WALL_JUMP
 ## The sections a faster runner could overshoot.
 const FAST_SECTIONS: Array[int] = [LONG_JUMPS, WALL_RUN, ZIGZAG, FINAL]
+const TUNING: String = "res://game/core/movement_tuning.tres"
+const FORWARD: Vector3 = Vector3.FORWARD
+## The first step of the steps section: a block 5 m deep, whose face stands across the
+## way of a runner coming from the checkpoint of the section.
+const FIRST_STEP: String = "Blocks/Step1"
+## Steps a runner from the checkpoint of the steps section takes to reach that face and
+## stay against it.
+const TO_THE_FIRST_STEP: int = 150
+## The stop duration of the tuning of the project (1 s), in fixed steps at 60 per second.
+const STOP_STEPS: int = 60
 
 
 ## What a test sees of the flow of a runner, step by step: the highest its gauge went,
@@ -50,6 +60,60 @@ class FullSpeed:
 		_runner.motor.top_speed_bonus = _bonus
 		var speed: float = Vector2(_runner.velocity.x, _runner.velocity.z).length()
 		fastest = maxf(fastest, speed)
+
+
+func test_crossing_the_finish_line_freezes_the_flow() -> void:
+	var attempt: SectionRun = _section_run(FINAL)
+	var watch: FlowWatch = FlowWatch.new(attempt.course)
+
+	await _play([attempt.run])
+
+	_assert_cleared(attempt)
+	var flow: FlowState = attempt.course.flow
+	assert_gt(watch.highest_gauge, 0.0, "the runner earned flow on the way")
+	assert_gt(flow.style_score, 0, "and a style score")
+	assert_true(flow.frozen, "past the real finish line, the flow is frozen")
+	assert_eq(flow.best_style_score, flow.style_score, "its style score is the best of the session")
+
+
+func test_a_runner_pushing_against_a_wall_is_stopped() -> void:
+	# With the tuning of the project, and with an acceleration that asks, at every step,
+	# for more than the stop speed: what counts is the speed the physics leaves.
+	var hard_push: MovementTuning = (load(TUNING) as MovementTuning).duplicate() as MovementTuning
+	hard_push.ground_acceleration = 4.0 * hard_push.ground_acceleration
+	var push_per_step: float = hard_push.ground_acceleration / STEPS_PER_SECOND
+	assert_gt(push_per_step, hard_push.flow_stop_speed, "a push stronger than the stop speed")
+	var courses: Array[Course] = []
+	var spacing: float = 0.0
+	for variant: MovementTuning in [null, hard_push]:
+		var course: Course = _add_course(courses.size() * spacing)
+		spacing = 2.0 * PilotedRun.bounds_of_the_blocks(course).size.x
+		if variant != null:
+			course.player.apply_tuning(variant)
+		_start_at(course, STEPS)
+		var straight_ahead: ScriptedIntentSource = ScriptedIntentSource.new()
+		course.player.intent_source = straight_ahead.hold(FORWARD, false, 1000)
+		courses.append(course)
+	await _wait_steps(TO_THE_FIRST_STEP)
+	for course: Course in courses:
+		var runner: Player = course.player
+		var face: float = _bounds_of(course.get_node(FIRST_STEP)).end.z
+		assert_true(runner.is_on_floor(), "a runner on the ground")
+		var gap: float = runner.global_position.z - face
+		assert_almost_eq(gap, runner.tuning.capsule_radius, NEAR, "against the face of a wall")
+		_count(course.flow, WALL_RUN_MOVE)
+		assert_true(course.flow.in_combo(), "in a combo")
+
+	await _wait_steps(STOP_STEPS - 5)
+	for course: Course in courses:
+		assert_true(course.flow.in_combo(), "just before the stop duration, the combo is on")
+
+	await _wait_steps(10)
+	for index: int in courses.size():
+		var context: String = "pushing %s: " % ["as tuned", "hard"][index]
+		var flow: FlowState = courses[index].flow
+		assert_false(flow.in_combo(), context + "the combo is broken")
+		assert_eq(flow.combos_broken, 1, context + "by a stop")
 
 
 func test_the_course_earns_flow() -> void:
@@ -142,3 +206,9 @@ func test_restarting_resets_everything() -> void:
 func _count(flow: FlowState, kind: RunnerEvent.Kind) -> void:
 	var events: Array[RunnerEvent] = [RunnerEvent.new(kind, 0)]
 	flow.step(events, flow.tuning.top_speed, false)
+
+
+## The box that holds a block, in the world.
+func _bounds_of(block: Node) -> AABB:
+	var collider: CollisionShape3D = block.get_node("CollisionShape3D") as CollisionShape3D
+	return collider.global_transform * collider.shape.get_debug_mesh().get_aabb()

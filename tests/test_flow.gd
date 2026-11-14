@@ -51,6 +51,21 @@ func test_the_same_move_repeated_in_a_row_is_worth_less_and_less() -> void:
 	assert_eq(flow.repeat_count, 4, "four times in a row")
 
 
+func test_the_end_of_a_combo_resets_the_repetition() -> void:
+	var flow: FlowState = _flow()
+	_move(flow, JUMP)
+	_move(flow, JUMP)
+	assert_eq(flow.last_points, 25, "two jumps in a row")
+
+	_wait(flow, CHAIN_STEPS)
+	assert_false(flow.in_combo(), "the combo ended by its delay")
+	assert_eq(flow.combos_broken, 0, "not broken")
+	_move(flow, JUMP)
+
+	assert_eq(flow.last_points, 50, "the jump is worth all its points")
+	assert_eq(flow.repeat_count, 1, "the jump counts from one again")
+
+
 func test_another_move_resets_the_repetition() -> void:
 	var flow: FlowState = _flow()
 	_move(flow, JUMP)
@@ -286,6 +301,27 @@ func test_crossing_a_tier_upwards_gives_ammunition() -> void:
 	assert_eq(flow.ammo, 2, "crossing it again gives another one")
 
 
+func test_a_full_gauge_keeps_giving_ammunition_for_style() -> void:
+	var flow: FlowState = _flow()
+	flow.gauge = flow.max_gauge()
+	_move(flow, WALL_RUN)
+	assert_eq(flow.ammo, 0, "a runner without ammunition, the gauge full, in a combo")
+	var beyond_full: int = flow.last_points
+
+	var index: int = 0
+	while beyond_full + _next_points(flow, index) < _tuning.flow_tier_value:
+		_move(flow, VARIED[index % VARIED.size()])
+		beyond_full += flow.last_points
+		index += 1
+		assert_eq(flow.ammo, 0, "%d points beyond full: no ammunition yet" % beyond_full)
+	_move(flow, VARIED[index % VARIED.size()])
+	beyond_full += flow.last_points
+
+	assert_gte(beyond_full, int(_tuning.flow_tier_value), "the moves earned a tier beyond full")
+	assert_eq(flow.ammo, 1, "it has one ammunition")
+	assert_eq(flow.gauge, flow.max_gauge(), "and the gauge stays full")
+
+
 func test_ammunition_does_not_go_above_its_maximum() -> void:
 	var flow: FlowState = _flow()
 	flow.ammo = _tuning.flow_max_ammo
@@ -359,6 +395,12 @@ func _wait(flow: FlowState, steps: int, on_foot: bool = true, speed: float = RUN
 	for i: int in steps:
 		_step += 1
 		flow.step(none, speed, on_foot)
+
+
+## What the move `index` of VARIED will earn next in `flow`: never a repeat, so all its
+## points, at the multiplier of the moment.
+func _next_points(flow: FlowState, index: int) -> int:
+	return _points(VARIED[index % VARIED.size()]) * flow.multiplier()
 
 
 func _points(kind: RunnerEvent.Kind) -> int:

@@ -32,6 +32,8 @@ var events: Array[RunnerEvent] = []
 var top_speed_bonus: float = 0.0
 
 var _step_seconds: float = 0.0
+## The velocity the runner really had as the step started: the one of its facts.
+var _real_velocity: Vector3 = Vector3.ZERO
 var _steps_in_the_air: int = LONG_AGO
 var _steps_since_jump_request: int = LONG_AGO
 var _steps_since_slide_press: int = LONG_AGO
@@ -78,6 +80,7 @@ func _init(movement_tuning: MovementTuning) -> void:
 func step(intent: MoveIntent, facts: RunnerFacts, delta: float) -> Vector3:
 	steps += 1
 	events.clear()
+	_real_velocity = facts.velocity
 	velocity = facts.velocity
 	_step_seconds = delta
 	_remember_requests(intent)
@@ -97,6 +100,7 @@ func step(intent: MoveIntent, facts: RunnerFacts, delta: float) -> Vector3:
 func reset() -> void:
 	state = State.FALLING
 	velocity = Vector3.ZERO
+	_real_velocity = Vector3.ZERO
 	events.clear()
 	_steps_since_landing = LONG_AGO
 	_steps_in_the_air = LONG_AGO
@@ -124,9 +128,10 @@ func top_speed() -> float:
 	return tuning.top_speed * (1.0 + top_speed_bonus)
 
 
-## The horizontal speed the runner wants for the step it just played, in m/s.
-func horizontal_speed() -> float:
-	return Vector2(velocity.x, velocity.z).length()
+## The real horizontal speed of the runner as it started the step it just played: what
+## the physics left it of the step before (against a wall, nothing), in m/s.
+func real_speed() -> float:
+	return Vector2(_real_velocity.x, _real_velocity.z).length()
 
 
 ## The runner is on its feet on the ground: neither in the air, nor along a wall, nor in
@@ -297,16 +302,23 @@ func _choose_floor_state(intent: MoveIntent, facts: RunnerFacts) -> void:
 
 ## A slide asked for starts. It is perfect when it starts within the window around a
 ## landing, the slide pressed at most that long before touching the floor or after: its
-## horizontal speed gains the tuned speed the way it slides (the cap holds, see _move).
+## horizontal speed gains the tuned speed the way it slides, but never beyond the top
+## speed of the moment plus that gain, so that perfect slides in a row do not add up; a
+## runner already faster keeps its speed. The absolute cap holds too (see _move).
 func _start_slide() -> void:
 	var window: int = _window_steps(tuning.perfect_slide_window)
 	if _steps_since_landing > window or _steps_since_slide_press > window:
 		_announce(RunnerEvent.Kind.SLIDE)
 		return
 	var horizontal: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
-	var gain: Vector3 = horizontal.normalized() * tuning.perfect_slide_speed_gain
-	velocity.x += gain.x
-	velocity.z += gain.z
+	var speed: float = horizontal.length()
+	var gained: float = minf(
+		speed + tuning.perfect_slide_speed_gain, top_speed() + tuning.perfect_slide_speed_gain
+	)
+	if gained > speed:
+		horizontal = horizontal.normalized() * gained
+		velocity.x = horizontal.x
+		velocity.z = horizontal.z
 	_announce(RunnerEvent.Kind.PERFECT_SLIDE)
 
 

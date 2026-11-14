@@ -14,6 +14,8 @@ const WINDOW_STEPS: int = 9
 ## More steps than any fall of these tests lasts.
 const MANY_STEPS: int = 600
 const NEVER: int = -1
+## Close enough to the floor, falling, for a slide pressed now to be within the window.
+const JUST_ABOVE_THE_FLOOR: float = 0.3
 
 var _tuning: MovementTuning
 
@@ -76,11 +78,71 @@ func test_a_slide_out_of_the_window_is_a_plain_slide() -> void:
 	assert_almost_eq(body.horizontal_speed(), expected, TOLERANCE, "without any gain")
 
 
-func test_the_gain_of_a_perfect_slide_respects_the_absolute_cap() -> void:
-	var low: float = _tuning.roll_fall_height / 4.0
-	var almost_the_cap: float = (
-		_tuning.max_horizontal_speed - _tuning.perfect_slide_speed_gain / 2.0
+func test_perfect_slides_do_not_raise_the_speed_without_end() -> void:
+	var flow: FlowState = FlowState.new(_tuning, 60)
+	var body: MotorBody = MotorBody.running(_tuning, FORWARD, _tuning.top_speed)
+	var gain: float = _tuning.perfect_slide_speed_gain
+	var perfect_slides: int = 0
+	var fastest_over_the_limit: float = -INF
+	var one_step_of_slide: float = _tuning.slide_deceleration * MotorBody.STEP
+	# The last perfect slide: how far it ended from the top speed of the moment plus the
+	# gain, once its first step of slide is taken off, and the flow bonus it had.
+	var last_gap: float = INF
+	var last_bonus: float = 0.0
+	var steps: int = 0
+	var slide_held: bool = false
+
+	# Jump, press the slide just before the floor and hold it, land in a perfect slide,
+	# jump again out of it: ten times, on the flat.
+	while perfect_slides < 10 and steps < MANY_STEPS * 10:
+		var intent: MoveIntent = _run(FORWARD)
+		var state: RunnerMotor.State = body.motor.state
+		if state == SLIDING or state == RunnerMotor.State.GROUNDED:
+			intent.jump_pressed = true
+			intent.jump_held = true
+		elif state == RunnerMotor.State.FALLING:
+			# Once pressed, held down to the floor.
+			var near: bool = body.velocity.y < 0.0 and body.position.y < JUST_ABOVE_THE_FLOOR
+			intent.slide_held = slide_held or near
+			intent.slide_pressed = intent.slide_held and not slide_held
+		slide_held = intent.slide_held
+		var bonus: float = body.motor.top_speed_bonus
+		var limit_of_the_step: float = body.motor.top_speed() + gain
+		body.step(intent)
+		flow.follow(body.motor)
+		steps += 1
+		for event: RunnerEvent in body.motor.events:
+			if event.kind == PERFECT_SLIDE:
+				perfect_slides += 1
+				last_gap = body.horizontal_speed() - (limit_of_the_step - one_step_of_slide)
+				last_bonus = bonus
+		var limit: float = body.motor.top_speed() + gain
+		fastest_over_the_limit = maxf(fastest_over_the_limit, body.horizontal_speed() - limit)
+
+	assert_eq(perfect_slides, 10, "ten perfect slides")
+	assert_gt(last_bonus, 0.0, "the last one with the bonus of the flow")
+	assert_lte(
+		fastest_over_the_limit,
+		TOLERANCE,
+		"never faster than the top speed of the moment plus the gain"
 	)
+	assert_almost_eq(last_gap, 0.0, TOLERANCE, "the last one up to it, bonus included")
+
+	# A runner already faster than that keeps its speed, without any gain.
+	var low: float = _tuning.roll_fall_height / 4.0
+	var faster: float = _tuning.top_speed + 2.0 * gain
+	var landing_step: int = _landing_step(low, faster)
+	var fast: MotorBody = _land(low, faster, landing_step - 1)
+	_assert_announced(fast, PERFECT_SLIDE, "a perfect slide, already fast")
+	var kept: float = faster - one_step_of_slide
+	assert_almost_eq(fast.horizontal_speed(), kept, TOLERANCE, "keeps its speed, no gain")
+
+
+func test_the_gain_of_a_perfect_slide_respects_the_absolute_cap() -> void:
+	# A cap under the top speed plus the gain: the gain alone would take the runner past it.
+	_tuning.max_horizontal_speed = _tuning.top_speed + _tuning.perfect_slide_speed_gain / 2.0
+	var low: float = _tuning.roll_fall_height / 4.0
+	var almost_the_cap: float = _tuning.top_speed
 	var landing_step: int = _landing_step(low, almost_the_cap)
 
 	var body: MotorBody = _land(low, almost_the_cap, landing_step - 1)
