@@ -47,6 +47,9 @@ var animation: RunnerAnimation = RunnerAnimation.new()
 ## leans to its left, in radians.
 var _yaw: float = 0.0
 var _lean: float = 0.0
+## How far the wall beside the runner was from the side of its capsule at its last step,
+## in m: INF without a wall.
+var _wall_distance: float = INF
 ## The Mixamo character in the visible body; null with the capsule.
 var _character: RunnerCharacter = null
 
@@ -181,6 +184,7 @@ func _observe(intent: MoveIntent) -> RunnerFacts:
 	facts.can_stand = not motor.is_low() or _has_headroom()
 	facts.ground_clearance = _ground_clearance()
 	_observe_the_wall_beside(facts, intent)
+	_wall_distance = facts.wall_distance
 	_observe_the_ledge_ahead(facts, intent)
 	return facts
 
@@ -420,11 +424,11 @@ func _heading(intent: MoveIntent) -> Vector3:
 
 
 ## In a wall run, the capsule one sees leans towards the wall, at the pace it turns; it
-## straightens up when the wall run is over.
+## straightens up when the wall run is over. The character does not: its clip leans.
 func _lean_towards_the_wall(delta: float) -> void:
 	var away: Vector3 = motor.wall_run_normal()
 	var lean: float = 0.0
-	if not away.is_zero_approx():
+	if not away.is_zero_approx() and _character == null:
 		# Rolling the body to the left (a positive angle) leans it towards a wall at its
 		# left, whose normal points to its right.
 		var right: Vector3 = _facing().cross(Vector3.UP)
@@ -432,12 +436,13 @@ func _lean_towards_the_wall(delta: float) -> void:
 	_lean = rotate_toward(_lean, lean, tuning.turn_speed * delta)
 
 
-## Places the visible body: where it looks and how it leans; in a trick, read from the
-## motor, twisted around its own axis and turned around the axis of the flip, through
-## the middle of the body. A trick over leaves it upright, and so does a crash, at once.
+## Places the visible body: where it looks, how it leans, and, in a wall run, the
+## character moved across against the wall; in a trick, read from the motor, twisted
+## around its own axis and turned around the axis of the flip, through the middle of the
+## body. A trick over leaves it upright, and so does a crash, at once.
 func _pose() -> void:
 	var pose: Basis = Basis.from_euler(Vector3(0.0, _yaw, _lean))
-	var origin: Vector3 = Vector3.ZERO
+	var origin: Vector3 = _beside_the_wall()
 	var trick: AirTrick = motor.current_trick()
 	if trick != null:
 		pose = pose * Basis(Vector3.UP, trick.twist_angle())
@@ -446,3 +451,14 @@ func _pose() -> void:
 		pose = flip * pose
 		origin = middle - flip * middle
 	_visual.transform = Transform3D(pose, origin)
+
+
+## Where the character is moved, across, in a wall run: towards the wall as far as its
+## clip asks for its feet to almost touch it (WallRunPose). Nowhere outside a wall run, nor
+## with the capsule.
+func _beside_the_wall() -> Vector3:
+	var away: Vector3 = motor.wall_run_normal()
+	if _character == null or away.is_zero_approx():
+		return Vector3.ZERO
+	var towards: Vector3 = global_basis.inverse() * -away
+	return towards * _character.wall_run_offset(_wall_distance, tuning)

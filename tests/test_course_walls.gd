@@ -56,8 +56,10 @@ func test_the_gap_can_be_cleared_by_wall_running() -> void:
 
 	_assert_cleared(attempt)
 	assert_gt(attempt.run.steps_wall_running, 0, "the runner ran along the wall")
-	# The capsule one sees leans towards the wall, then straightens up.
-	var tuned: float = deg_to_rad(runner.tuning.wall_run_lean)
+	# The capsule one sees leans towards the wall, then straightens up; the character, when
+	# its files are there, does not lean: its clip does.
+	var capsule: MeshInstance3D = runner.get_node("Visual/Body") as MeshInstance3D
+	var tuned: float = deg_to_rad(runner.tuning.wall_run_lean) if capsule.visible else 0.0
 	assert_true(lean.ran_along_a_left_wall, "the wall was at the runner's left")
 	assert_almost_eq(lean.leftmost, tuned, ANGLE_TOLERANCE, "it leaned to its left, towards it")
 	assert_almost_eq(lean.rightmost, 0.0, ANGLE_TOLERANCE, "and never to its right")

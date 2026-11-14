@@ -1,11 +1,12 @@
 class_name RunnerAnimation
 extends RefCounted
 ## The animation the runner's body shows, chosen from the state of its motor at the step
-## it just played: which clip, at what playback speed or in how long, mirrored or not,
-## whether the upper body holds the aim, and how long the blend into it lasts. Choosing it
-## is logic; playing it is presentation (game/player), with or without the clips. The
-## clips are the Mixamo ones of docs/specs/character-animations.md, plus the tuck pose
-## taken out of Backflip.
+## it just played: which clip, at what playback speed or in how long, on which side the
+## wall it runs along is, whether the upper body holds the aim, and how long the blend into
+## it lasts. Choosing it is logic; playing it is presentation (game/player), with or
+## without the clips: the mirror of a clip along a wall depends on the clip, and is chosen
+## there. The clips are the Mixamo ones of docs/specs/character-animations.md, plus the
+## tuck pose taken out of Backflip.
 
 enum Clip {
 	IDLE,
@@ -21,15 +22,21 @@ enum Clip {
 	TUCK,
 }
 
+## The side of the runner, the way it moves, where a wall is.
+enum WallSide {
+	NONE,
+	LEFT,
+	RIGHT,
+}
+
 var clip: Clip = Clip.IDLE
 ## How fast the clip plays: 1 for its own pace.
 var speed: float = 1.0
 ## How long the clip should take, in s, the move it shows lasting that long; 0 for its own
 ## length.
 var duration: float = 0.0
-## The clip plays mirrored, left for right. Wall Run has its wall at the runner's left:
-## it is mirrored along a wall at its right.
-var mirrored: bool = false
+## The side of the wall the runner runs along, the way it moves: NONE along no wall.
+var wall_side: WallSide = WallSide.NONE
 ## The upper body holds the aim (Pistol Idle), whatever the legs do.
 var aiming: bool = false
 ## How long the blend from the clip before into this one lasts, in s.
@@ -74,15 +81,18 @@ static func of(motor: RunnerMotor, step_seconds: float) -> RunnerAnimation:
 		RunnerMotor.State.WALL_RUNNING:
 			animation.clip = Clip.WALL_RUN
 			animation.duration = tuning.wall_run_duration
-			animation.mirrored = _wall_at_the_right(motor)
+			animation.wall_side = _side_of_the_wall(motor)
 	if motor.is_in_a_trick():
 		animation.clip = Clip.TUCK
 	return animation
 
 
-## Whether the wall the runner runs along is at its right, the way it moves: the way
-## away from it points to its left.
-static func _wall_at_the_right(motor: RunnerMotor) -> bool:
+## The side of the wall the runner runs along, the way it moves: the way away from it
+## points to the other side.
+static func _side_of_the_wall(motor: RunnerMotor) -> WallSide:
 	var motion: Vector3 = Vector3(motor.velocity.x, 0.0, motor.velocity.z)
 	var right: Vector3 = motion.cross(Vector3.UP)
-	return motor.wall_run_normal().dot(right) < 0.0
+	var away: float = motor.wall_run_normal().dot(right)
+	if is_zero_approx(away):
+		return WallSide.NONE
+	return WallSide.RIGHT if away < 0.0 else WallSide.LEFT
