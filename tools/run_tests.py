@@ -8,9 +8,10 @@ file name starts with COURSE_REPLAY_PREFIX (tools/repo.py). GUT can select scrip
 not exclude them, so a tier is handed to GUT as its explicit list of scripts.
 
 Every test script belongs to exactly one tier, so the whole suite is the two tiers, run
-side by side in two headless runs of the project (Godot runs several instances of a
-project at once, docs "Overview of debugging tools", "Customize Run Instances"). Each run
-must pass on its own; the output of each is printed whole once it is over.
+side by side in two headless runs of the project, which only read the import cache and
+write different user:// files. Each run must pass on its own. The output of each is
+printed whole as soon as it is over; a run that lasts more than TIER_TIMEOUT seconds is
+stopped, and what it printed is shown.
 
 Usage: python tools/run_tests.py <godot-binary> [--edit-loop | --course | filter]
   (nothing)    every test script: both tiers, side by side.
@@ -23,11 +24,13 @@ from __future__ import annotations
 
 import subprocess
 import sys
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from repo import ROOT, TESTS_DIR, is_course_replay, is_test_script, iter_files, res
 
 SUCCESS_MARKER = "All tests passed!"
+# Far above the slowest tier (about a minute): only a run that hangs reaches it.
+TIER_TIMEOUT = 600
 
 TIERS = {
     "--edit-loop": ("every test script but the course replays", False),
@@ -96,21 +99,38 @@ def run_streamed(command: list[str]) -> bool:
     return verdict(process.wait(), passed)
 
 
+def stop(process: subprocess.Popen[str]) -> None:
+    """Stops a run and what it started (on Windows, godot_console starts Godot)."""
+    if sys.platform == "win32":
+        subprocess.run(
+            ["taskkill", "/T", "/F", "/PID", str(process.pid)], capture_output=True, check=False
+        )
+    else:
+        process.kill()
+
+
 def run_captured(command: list[str]) -> tuple[int, str]:
-    result = subprocess.run(
+    """Runs GUT and returns its exit code and its output; a run that hangs is stopped."""
+    process = subprocess.Popen(
         command,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
         encoding="utf-8",
         errors="replace",
-        check=False,
     )
-    return result.returncode, result.stdout
+    try:
+        output, _ = process.communicate(timeout=TIER_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        stop(process)
+        # Communicating again keeps what the run printed before it was stopped.
+        output, _ = process.communicate()
+        return 1, output + f"\ntest: stopped after {TIER_TIMEOUT} s\n"
+    return process.returncode, output
 
 
 def run_every_tier(godot: str) -> bool:
-    """Both tiers side by side; then each one's output whole, in the order of the tiers."""
+    """Both tiers side by side; each one's output whole, as soon as it is over."""
     commands: list[tuple[str, list[str]]] = []
     for title, course_replays in TIERS.values():
         scripts = tier_scripts(course_replays)
@@ -119,13 +139,15 @@ def run_every_tier(godot: str) -> bool:
     if not commands:
         print("test: no test script found")
         return False
-    with ThreadPoolExecutor(max_workers=len(commands)) as pool:
-        results = list(pool.map(lambda entry: run_captured(entry[1]), commands))
     ok = True
-    for (title, _), (returncode, output) in zip(commands, results):
-        print(f"test: --- {title} ---")
-        sys.stdout.write(output)
-        ok = verdict(returncode, SUCCESS_MARKER in output, title) and ok
+    with ThreadPoolExecutor(max_workers=len(commands)) as pool:
+        runs = {pool.submit(run_captured, command): title for title, command in commands}
+        for run in as_completed(runs):
+            returncode, output = run.result()
+            print(f"test: --- {runs[run]} ---")
+            sys.stdout.write(output)
+            sys.stdout.flush()
+            ok = verdict(returncode, SUCCESS_MARKER in output, runs[run]) and ok
     return ok
 
 
