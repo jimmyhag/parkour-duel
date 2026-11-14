@@ -1,6 +1,6 @@
 # Figures par gestes, réception au bon moment, et le Trick Park
 
-**Statut : 🟢 Implémenté**
+**Statut : 🟡 Prêt pour le dev**
 
 Session du 2026-11-14, avec Jimmy, après qu'il a joué les figures de
 `docs/specs/air-tricks.md`. Cette spec **remplace le mécanisme de lancement et de
@@ -18,6 +18,11 @@ humains, les mêmes défauts : un coup au stick qui revient vite n'est pas lu, u
 tenue avant une courbe compte comme un coup de plus, un retour de souris arrondi est lu
 comme une vrille, un arc de 130° n'est pas une vrille. Décisions 17 à 20 ajoutées,
 décisions 7 et 14 corrigées, scénarios marqués « amendement ».
+
+Amendée une seconde fois le même jour, à la demande de Jimmy : « quand tu as fini ton
+tracé et que tu lâches F, il fait le saut et la figure, parce que sinon c'est pas assez
+fluide, ça va être trop galère de timer les deux ensemble […] si on est dans les airs,
+il fait la figure sans sauter ». Décision 3 amendée (marquée « second amendement »).
 
 ## Contexte
 
@@ -63,7 +68,7 @@ limites de temps des portes.
 | - | -------- | -------- | -------- |
 | 1 | Les boutons | **Figure** : **F** (touche physique) au clavier, **LB** à la manette ; se **garde enfoncé** pour dessiner. **Dessiner** : la souris, ou le stick droit. **Poser** : l'action de glissade, **Ctrl**, **RB** ou **B**. LB n'est plus un saut (A reste le saut) ; X et Shift ne servent plus aux figures. | Q7. Chaque doigt a un rôle ; le même geste existe aux deux claviers (règle d'`AGENTS.md`). |
 | 2 | La caméra | Tant que le bouton de figure est tenu, la souris et le stick droit ne tournent plus la caméra : ils dessinent. Lâché, la caméra reprend. | Q12. |
-| 3 | Dessiner, puis lancer | On peut commencer à dessiner au sol ou en l'air. La figure **part au pas où le bouton est lâché**, si le coureur est en l'air et peut lancer une figure (décision 6 de `docs/specs/air-tricks.md`). Lâché au sol, rien ne part et le dessin est oublié. | Jimmy : « faire les figures avant de les réaliser ». Préparer pendant la course, lancer au saut. |
+| 3 | Dessiner, puis lancer | On peut commencer à dessiner au sol ou en l'air. La figure **part au pas où le bouton est lâché**, si le coureur est en l'air et peut lancer une figure (décision 6 de `docs/specs/air-tricks.md`). Lâché au sol, rien ne part et le dessin est oublié. **Second amendement**, qui remplace la phrase précédente : lâché **au sol**, là où un saut est permis (au sol ou dans la tolérance de saut, avec la place de se tenir debout), le coureur **saute** à ce pas, d'un saut entier comme si le bouton de saut était gardé jusqu'en haut, et la figure part au même pas. Lâché là où un saut n'est pas permis (en glissade sous un plafond bas, en roulade, en réception dure, en visée), rien ne part et le dessin est oublié. En l'air, rien ne change : la figure part sans saut. Le bouton de saut reste le saut simple. | Jimmy : « faire les figures avant de les réaliser ». Préparer pendant la course, lancer au saut. |
 | 4 | Les gestes | Un **coup sec** dans une direction : haut **front flip**, bas **backflip**, gauche ou droite **side flip** de ce côté. Le **même coup répété** : un tour de plus (double, triple ; trois tours au plus). Un **demi-cercle** après le salto : une **vrille** (deux au plus par tour, et seulement sur un front flip ou un backflip). Un **cercle complet seul** : un **spin** à plat (360). Un geste qui ne se lit pas ne lance rien. | Q8. Une grammaire courte qui donne des dizaines de figures. |
 | 5 | Reconnaître un geste | La reconnaissance est de la logique pure de `core` : elle reçoit les déplacements du pavé à chaque pas (de la souris ou du stick, ramenés à une même échelle par `player`) et rend la « recette » (salto, tours, vrilles) ou rien. Ses seuils (amplitude d'un coup, angle d'un demi-cercle, délais) sont dans la ressource de réglage. | Testable sans scène ; demain, la recette passera par le réseau comme une intention. |
 | 6 | Sans geste | Un simple appui sur le bouton de figure, sans rien dessiner, lance la **figure du contexte** : front flip en courant vers l'avant, backflip à l'arrêt ou juste après un wall-jump, side flip en quittant un wall-run, du côté opposé au mur. Elle vaut la moitié des points d'un front flip. | Q9. Les débutants font quelque chose tout de suite. |
@@ -145,10 +150,29 @@ Fonctionnalité: Figures par gestes
     Quand il lâche le bouton de figure en l'air
     Alors un backflip commence à ce pas
 
-  Scénario: Lâcher le bouton au sol ne lance rien
+  Scénario: Lâcher le bouton au sol saute et lance la figure
+    # second amendement : remplace « Lâcher le bouton au sol ne lance rien »
     Soit un coureur au sol qui a dessiné un backflip
     Quand il lâche le bouton de figure
-    Alors rien ne commence, et le dessin est oublié
+    Alors il saute d'un saut entier et le backflip commence au même pas
+
+  Scénario: Un saut de figure sur le plat laisse le temps d'un simple
+    # second amendement
+    Soit un coureur qui court sur le plat et a dessiné un front flip
+    Quand il lâche le bouton de figure au sol puis appuie sur glissade au bon moment
+    Alors le front flip est fini avant le sol et posé
+
+  Scénario: Lâcher le bouton là où on ne peut pas sauter ne lance rien
+    # second amendement
+    Soit un coureur en roulade, puis un coureur en réception dure, qui a dessiné un backflip
+    Quand il lâche le bouton de figure
+    Alors il ne saute pas, rien ne commence, et le dessin est oublié
+
+  Scénario: Sans geste au sol, le saut lance la figure du contexte
+    # second amendement
+    Soit un coureur qui court vers l'avant au sol
+    Quand il appuie sur le bouton de figure et le lâche sans rien dessiner
+    Alors il saute et un front flip commence
 
   Scénario: Sans geste, la figure du contexte part
     Soit un coureur qui court vers l'avant, puis un coureur qui vient de faire un wall-jump, puis un coureur qui quitte un wall-run
