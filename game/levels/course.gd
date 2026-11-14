@@ -1,34 +1,26 @@
 class_name Course
-extends Node3D
-## A timed course, and the place where the layers meet: it owns the state of the run, the
-## flow of its runner, its weapon and the targets of the course (game/core), listens to
-## the lines and the checkpoints (game/world), brings the runner (game/player) back when
-## the rule of game/core says so, gives the flow what the runner's motor announced and
-## the motor the speed bonus of the flow, gives the targets the runners in their zones
-## and the weapon what the runner aims at, lets the target blocks (game/world) show what
-## their targets say, and feeds the displays and the sounds (game/ui). It reads no input
-## and decides nothing: it executes.
-## Expected children: Player, StartLine, FinishLine, Checkpoints (one Checkpoint per
-## section, numbered from 0), Targets (one TargetBlock per target), Hud/RaceHud,
-## Hud/FlowHud, Hud/Crosshair, Hud/DebugOverlay, FlowSounds and SabotageSounds.
+extends Lane
+## The course of solo practice: one lane, its runner, its own targets to shoot, and the
+## displays and the sounds of its runner (game/ui). It records each run as the ghost of a
+## duel replays it (GhostRun) and gives the session its finished runs; the best time and
+## the best style score shown are the session's. The menu action asks to leave it.
+## Expected children, besides the lane's: Player, Hud/RaceHud, Hud/FlowHud,
+## Hud/Crosshair, Hud/DebugOverlay, FlowSounds and SabotageSounds.
 
-## The identity of the runner of the course: who shoots, and who the targets hit.
-const RUNNER: int = 1
+## The menu action was pressed: whoever started the course may close it.
+signal menu_requested
 
-## The altitude under which a runner has fallen off the course.
-@export var fall_limit: float = 0.0
+## The identity of the runner of the course: the player.
+const RUNNER: int = 0
+const MENU: StringName = &"menu"
 
-var race: RaceState
-var flow: FlowState
-var targets: TargetBoard
-var shooter: Shooter
+## What the game remembers from one mode to the next; to set before the course enters the
+## tree, a session of its own otherwise.
+var session: Session = Session.new()
 
-var _checkpoints: Dictionary[int, Checkpoint] = {}
-var _blocks: Array[TargetBlock] = []
+## The run under way, as the ghost would replay it.
+var _run: GhostRun = GhostRun.new()
 
-@onready var player: Player = $Player as Player
-@onready var _start_line: RaceLine = $StartLine as RaceLine
-@onready var _finish_line: RaceLine = $FinishLine as RaceLine
 @onready var _race_hud: RaceHud = $Hud/RaceHud as RaceHud
 @onready var _flow_hud: FlowHud = $Hud/FlowHud as FlowHud
 @onready var _crosshair: Crosshair = $Hud/Crosshair as Crosshair
@@ -38,25 +30,11 @@ var _blocks: Array[TargetBlock] = []
 
 
 func _ready() -> void:
-	# Fixed steps per second of game time, whatever the speed of the engine's clock.
-	var steps_per_second: int = roundi(Engine.physics_ticks_per_second / Engine.time_scale)
-	race = RaceState.new(steps_per_second)
-	flow = FlowState.new(player.tuning, steps_per_second)
-	targets = TargetBoard.new()
-	shooter = Shooter.new(RUNNER, player.tuning, steps_per_second)
-	for child: Node in $Checkpoints.get_children():
-		var checkpoint: Checkpoint = child as Checkpoint
-		_checkpoints[checkpoint.index] = checkpoint
-		checkpoint.reached.connect(race.reach_checkpoint)
-	for child: Node in $Targets.get_children():
-		var block: TargetBlock = child as TargetBlock
-		block.target = SabotageTarget.new(
-			block.target_id, block.kind, player.tuning, steps_per_second
-		)
-		targets.add(block.target)
-		_blocks.append(block)
-	_start_line.crossed.connect(race.cross_start_line)
-	_finish_line.crossed.connect(_on_finish_line_crossed)
+	runner_id = RUNNER
+	super()
+	if session.has_solo_run():
+		race.best_steps = session.best_run.race_steps
+	flow.best_style_score = session.best_style_score
 	_race_hud.race = race
 	_race_hud.flow = flow
 	_flow_hud.flow = flow
@@ -69,57 +47,35 @@ func _ready() -> void:
 	_debug_overlay.flow = flow
 	_debug_overlay.shooter = shooter
 	_debug_overlay.targets = targets
-	player.stepped.connect(_on_player_stepped)
-	respawn()
+	player.stepped.connect(_record)
+	checkpoint_reached.connect(_on_checkpoint_reached_by_the_run)
+	restarted.connect(_on_restarted)
+	finished.connect(_on_finished)
 
 
-## Brings the runner back to the last checkpoint reached, at rest. The timer is not
-## touched.
-func respawn() -> void:
-	player.teleport(_checkpoints[race.last_checkpoint].global_transform)
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed(MENU):
+		menu_requested.emit()
 
 
-## One fixed step of the runner has passed: the respawn rule first, then the flow counts
-## the step (nothing of it after a return to a checkpoint) and gives its speed bonus back
-## to the motor; then the targets play their step, and their effects may hit the runner;
-## then the weapon follows what the runner aims at, and its shot reaches the targets.
-## Everything obeys the tuning the runner obeys. A restart puts every target back.
-func _on_player_stepped(intent: MoveIntent) -> void:
-	var altitude: float = player.global_position.y
-	var order: RaceState.RespawnOrder = race.apply_respawn_rule(altitude, fall_limit, intent)
-	if order != RaceState.RespawnOrder.NONE:
-		respawn()
-	if order == RaceState.RespawnOrder.RESTART:
-		flow.restart()
-		targets.reset()
-	elif order == RaceState.RespawnOrder.RESPAWN:
-		flow.respawn()
-	flow.tuning = player.tuning
-	flow.follow(player.motor)
-	_step_the_targets()
-	shooter.tuning = player.tuning
-	shooter.follow(
-		intent, player.aim_facts, player.motor.steps, targets, flow, player.motor.is_on_the_ground()
-	)
-	for block: TargetBlock in _blocks:
-		block.focused = shooter.shootable_target() == block.target_id
-		block.follow()
-	race.tick()
-
-
-## Every target plays its step with the runners in its zone, then the flow counts the
-## effects that hit its runner.
-func _step_the_targets() -> void:
-	targets.set_tuning(player.tuning)
-	for block: TargetBlock in _blocks:
-		var inside: Array[int] = []
-		if block.holds(player):
-			inside.append(RUNNER)
-		block.target.step(inside, not block.place_holds(player))
-	flow.follow_targets(targets, RUNNER)
-
-
-func _on_finish_line_crossed() -> void:
-	race.cross_finish_line()
+## Where the visible body is after this step, in the lane, until the finish line.
+func _record(intent: MoveIntent) -> void:
 	if race.phase == RaceState.Phase.FINISHED:
-		flow.finish()
+		return
+	var acted: bool = not intent.direction.is_zero_approx()
+	acted = acted or intent.jump_pressed or intent.slide_pressed
+	_run.record(global_transform.affine_inverse() * player.visual_transform(), acted)
+
+
+func _on_checkpoint_reached_by_the_run(index: int) -> void:
+	_run.reach(index)
+
+
+func _on_restarted() -> void:
+	_run = GhostRun.new()
+
+
+func _on_finished() -> void:
+	_run.finish(race.elapsed_steps, flow.style_score)
+	session.offer(_run)
+	session.best_style_score = maxi(session.best_style_score, flow.best_style_score)

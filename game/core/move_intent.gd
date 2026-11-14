@@ -19,6 +19,9 @@ var trick_pressed: bool = false
 var trick_held: bool = false
 ## The aim is held down: the runner aims.
 var aim_held: bool = false
+## Where the runner aims from its head, in the world; ZERO: through the centre of its
+## camera, as a player does.
+var aim_direction: Vector3 = Vector3.ZERO
 ## The shot was pressed at this step.
 var shoot_pressed: bool = false
 ## The return to the last checkpoint was asked at this step.

@@ -37,8 +37,9 @@ func _init(runner_id: int, movement_tuning: MovementTuning, steps_per_second: in
 
 
 ## One fixed step of the runner, at its step `step`: its intent, the facts under its
-## reticle, the targets it may shoot, its flow, and whether it is on the ground (on its
-## feet, sliding or rolling). Returns the message of the shot it fired, or null.
+## reticle, the targets it may shoot (its own lane's in solo, the opposing lane's in a
+## duel), its flow, and whether it is on the ground (on its feet, sliding or rolling).
+## Returns the message of the shot it fired, or null.
 func follow(
 	intent: MoveIntent,
 	facts: AimFacts,
@@ -81,9 +82,10 @@ func shootable_target() -> int:
 
 
 ## What the reticle shows, aiming at what it aims at with `ammo` in reserve: a ready
-## target within range is shootable, or too expensive; anything else is nothing.
+## target of the lane of the board, within range, is shootable, or too expensive; anything
+## else (a target of another lane among them) is nothing.
 func _judge(board: TargetBoard, ammo: int) -> Verdict:
-	if not aiming:
+	if not aiming or aim.lane != board.lane:
 		return Verdict.NONE
 	var target: SabotageTarget = board.target(aim.target)
 	if target == null or not target.is_ready() or aim.distance > tuning.shot_range:

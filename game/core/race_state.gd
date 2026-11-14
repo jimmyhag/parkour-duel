@@ -20,6 +20,9 @@ var phase: Phase = Phase.NOT_STARTED
 var elapsed_steps: int = 0
 var best_steps: int = NO_TIME
 var last_checkpoint: int = FIRST_CHECKPOINT
+## Whether its runner may restart the course: not in a duel, where the rematch replaces
+## it.
+var restartable: bool = true
 
 var _steps_per_second: int
 
@@ -63,9 +66,10 @@ func restart() -> void:
 ## The respawn rule, evaluated at every fixed step with the runner's altitude, the
 ## altitude under which it has fallen off the course, and its intent. A runner that
 ## fell or asks for it goes back to the last checkpoint, and the timer is not touched.
-## Restarting wins over respawning: the race itself is then restarted here.
+## Restarting wins over respawning: the race itself is then restarted here, if it may be;
+## otherwise the request does nothing.
 func apply_respawn_rule(altitude: float, fall_limit: float, intent: MoveIntent) -> RespawnOrder:
-	if intent.restart_requested:
+	if intent.restart_requested and restartable:
 		restart()
 		return RespawnOrder.RESTART
 	if intent.respawn_requested or altitude < fall_limit:

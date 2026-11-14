@@ -7,7 +7,10 @@ extends RefCounted
 ## says: whether the object is out of its place (`displaced`), and its state.
 ## Its zone is where its object goes or stands, and the space a runner on it takes: a
 ## runner in it as the effect starts is hit. Its place is the volume of its object alone:
-## the object never moves into a runner, it waits for its place to be free.
+## the object never moves into a runner, it waits for its place to be free. An object that
+## leaves its place does not start its effect while a runner is in the air above it; an
+## effect delayed so then also waits for nobody to be in its zone (a runner landing back
+## on it and running off is not hit). It lasts its full time from its real start.
 
 ## A platform vanishes and a bridge falls away: they leave their place. An obstacle
 ## falls onto the way and a barrier rises across it: they come onto the way.
@@ -18,9 +21,11 @@ enum State { READY, WARNING, SABOTAGED, RECOVERING, RESTING }
 
 ## The identity of no target.
 const NO_TARGET: int = 0
-## The metadata under which the bodies of a target's scene hold its identity: what the
-## player layer reads off the first thing on the line of the reticle.
+## The metadata under which the bodies of a target's scene hold its identity, and the
+## lane it belongs to: what the player layer reads off the first thing on the line of the
+## reticle.
 const META: StringName = &"sabotage_target"
+const LANE_META: StringName = &"sabotage_lane"
 
 ## Its identity in its course, stable from one run to the next; never NO_TARGET.
 var id: int
@@ -40,6 +45,8 @@ var tuning: MovementTuning
 var _steps_per_second: int
 ## Steps left of the warning, of the effect or of the rest under way.
 var _steps_left: int = 0
+## Its effect was delayed by a runner in the air above it: it now waits for an empty zone.
+var _delayed: bool = false
 
 
 func _init(
@@ -90,17 +97,25 @@ func receive(message: SabotageMessage) -> bool:
 	return true
 
 
-## One fixed step, with the runners that are in its zone, and whether its place is free.
-## The warning over, the effect starts and hits the runners in its zone. An object that
-## comes onto the way does so once its place is free; one that left its place comes back
-## once it is free. Then it rests.
-func step(runners_in_zone: Array[int], place_free: bool) -> void:
+## One fixed step, with the runners that are in its zone, whether its place is free, and
+## whether a runner is in the air above it. The warning over, the effect starts and hits
+## the runners in its zone; a platform or a bridge waits for nobody to be in the air above
+## it first, and once delayed so, for nobody to be in its zone. An object that comes onto
+## the way does so once its place is free; one that left its place comes back once it is
+## free. Then it rests.
+func step(
+	runners_in_zone: Array[int], place_free: bool, runner_in_the_air_above: bool = false
+) -> void:
 	hits.clear()
 	var free: bool = place_free
 	match state:
 		State.WARNING:
 			_steps_left -= 1
-			if _steps_left <= 0:
+			if _steps_left > 0:
+				return
+			if leaves_its_place() and runner_in_the_air_above:
+				_delayed = true
+			elif not _delayed or runners_in_zone.is_empty():
 				_start_the_effect(runners_in_zone, free)
 		State.SABOTAGED:
 			displaced = displaced or free
@@ -129,6 +144,7 @@ func reset() -> void:
 	displaced = false
 	hits.clear()
 	_steps_left = 0
+	_delayed = false
 
 
 ## A platform and a bridge leave their place; an obstacle and a barrier come onto the
@@ -142,6 +158,7 @@ func leaves_its_place() -> bool:
 
 
 func _start_the_effect(runners_in_zone: Array[int], free: bool) -> void:
+	_delayed = false
 	state = State.SABOTAGED
 	_steps_left = _steps(effect_duration())
 	effects += 1

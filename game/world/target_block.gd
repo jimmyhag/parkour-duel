@@ -5,8 +5,9 @@ extends Node3D
 ## It decides nothing: it shows what the state machine of its target (SabotageTarget,
 ## game/core) says, which the course gives it. Ready, it is highlighted, and brighter
 ## still under the reticle when it can be shot; during the warning it flashes; otherwise
-## it looks like any block. Its body holds the identity of its target, for the shot to
-## read it; its zone tells the course which runners are where its object goes or stands.
+## it looks like any block. Its body holds the identity of its target and its lane, for
+## the shot to read them; its zone tells the course which runners are where its object
+## goes or stands; its aim point is where a bot aims to hit it.
 ## Expected children: Body (a StaticBody3D with its CollisionShape3D and MeshInstance3D),
 ## and Zone (an Area3D whose mask holds the runners' layer and nothing else); an object
 ## that leaves its place has a Place too, an Area3D of the volume of its body, whose
@@ -24,6 +25,8 @@ const HIGHLIGHT_ENERGY: float = 0.6
 const FOCUS_ENERGY: float = 2.5
 ## How long the warning stays lit, then dark, in s.
 const FLASH_SECONDS: float = 0.1
+## How far under the top of its body its aim point is, in m.
+const AIM_BELOW_THE_TOP: float = 0.005
 
 ## Its identity in its course: stable, and different from every other target's.
 @export var target_id: int = SabotageTarget.NO_TARGET
@@ -33,6 +36,12 @@ const FLASH_SECONDS: float = 0.1
 ## Its body is solid in its place: a barrier rests in the ground, and is not.
 @export var solid_at_rest: bool = true
 
+## The lane it belongs to, by the runner that runs it: its body holds it for the shot.
+var lane: int = 0:
+	set(value):
+		lane = value
+		if _body != null:
+			_body.set_meta(SabotageTarget.LANE_META, lane)
 ## The state machine it shows; the course gives it.
 var target: SabotageTarget
 ## The reticle is on it and it can be shot.
@@ -53,6 +62,7 @@ var _clock: float = 0.0
 func _ready() -> void:
 	_home = _body.position
 	_body.set_meta(SabotageTarget.META, target_id)
+	_body.set_meta(SabotageTarget.LANE_META, lane)
 	_mesh.material_override = _material
 	follow()
 	refresh()
@@ -67,6 +77,13 @@ func _process(delta: float) -> void:
 func _place_area() -> Area3D:
 	var place: Area3D = get_node_or_null("Place") as Area3D
 	return place if place != null else $Zone as Area3D
+
+
+## Where to aim to hit it: just under the middle of the top of its body, in the world.
+func aim_point() -> Vector3:
+	var collider: CollisionShape3D = _body.get_node("CollisionShape3D") as CollisionShape3D
+	var box: AABB = collider.global_transform * collider.shape.get_debug_mesh().get_aabb()
+	return Vector3(box.get_center().x, box.end.y - AIM_BELOW_THE_TOP, box.get_center().z)
 
 
 ## Whether `body` is in its zone.

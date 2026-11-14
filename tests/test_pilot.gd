@@ -1,5 +1,5 @@
 extends ReplayTest
-## The test pilot (tests/pilot_intent_source.gd), on small courses built here, that it
+## The pilot (game/player/pilot_intent_source.gd), on small courses built here, that it
 ## has never seen: it must read the world to clear them, and it must be able to fail.
 ## What must be within or out of the runner's reach is sized from the tuning; the other
 ## lengths are arbitrary.
