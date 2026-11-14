@@ -96,6 +96,26 @@ func test_without_a_gamepad_the_mode_waits() -> void:
 	assert_false(message.is_visible_in_tree(), "the message is gone once the screen opens again")
 
 
+func test_the_gamepad_wait_ends_when_the_selection_leaves_chase() -> void:
+	var gamepad: Array[bool] = [false]
+	var screen: StartScreen = _add_screen(true)
+	screen.has_the_gamepad = func() -> bool: return gamepad[0]
+	var message: Label = screen.get_node("%GamepadReason") as Label
+	for step: int in 4:
+		await _tap(&"menu_down")
+	await _tap(&"jump")
+	assert_true(message.is_visible_in_tree(), "CHASE chosen without a gamepad: the message")
+
+	await _tap(&"menu_up")
+
+	assert_eq(screen.selected(), StartScreen.Choice.TRICK_PARK, "the selection left CHASE")
+	assert_false(message.is_visible_in_tree(), "the message is gone")
+	gamepad[0] = true
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(_chosen.size(), 0, "a gamepad connected now starts nothing")
+
+
 func _add_screen(ghost_available: bool) -> StartScreen:
 	var screen: StartScreen = SCREEN_SCENE.instantiate() as StartScreen
 	add_child_autofree(screen)

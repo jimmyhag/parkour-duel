@@ -1,4 +1,4 @@
-[gd_scene load_steps=41 format=3]
+[gd_scene load_steps=39 format=3]
 
 [ext_resource type="Script" path="res://game/levels/chase.gd" id="1_chase"]
 [ext_resource type="PackedScene" path="res://game/ui/player_view.tscn" id="2_view"]
@@ -34,19 +34,19 @@ size = Vector3(22, 1, 22)
 material = SubResource("Material_ground")
 size = Vector3(22, 1, 22)
 
-[sub_resource type="BoxShape3D" id="Shape_22_8_1_enclosure"]
-size = Vector3(22, 8, 1)
+[sub_resource type="BoxShape3D" id="Shape_22_10_1_enclosure"]
+size = Vector3(22, 10, 1)
 
-[sub_resource type="BoxMesh" id="Mesh_22_8_1_enclosure"]
+[sub_resource type="BoxMesh" id="Mesh_22_10_1_enclosure"]
 material = SubResource("Material_enclosure")
-size = Vector3(22, 8, 1)
+size = Vector3(22, 10, 1)
 
-[sub_resource type="BoxShape3D" id="Shape_1_8_20_enclosure"]
-size = Vector3(1, 8, 20)
+[sub_resource type="BoxShape3D" id="Shape_1_10_20_enclosure"]
+size = Vector3(1, 10, 20)
 
-[sub_resource type="BoxMesh" id="Mesh_1_8_20_enclosure"]
+[sub_resource type="BoxMesh" id="Mesh_1_10_20_enclosure"]
 material = SubResource("Material_enclosure")
-size = Vector3(1, 8, 20)
+size = Vector3(1, 10, 20)
 
 [sub_resource type="BoxShape3D" id="Shape_4_1_0p3_low_wall"]
 size = Vector3(4, 1, 0.3)
@@ -76,26 +76,12 @@ size = Vector3(0.3, 1.2, 4)
 material = SubResource("Material_low_wall")
 size = Vector3(0.3, 1.2, 4)
 
-[sub_resource type="BoxShape3D" id="Shape_2_1p6_2_block"]
-size = Vector3(2, 1.6, 2)
+[sub_resource type="BoxShape3D" id="Shape_2_1p9_2_block"]
+size = Vector3(2, 1.9, 2)
 
-[sub_resource type="BoxMesh" id="Mesh_2_1p6_2_block"]
+[sub_resource type="BoxMesh" id="Mesh_2_1p9_2_block"]
 material = SubResource("Material_block")
-size = Vector3(2, 1.6, 2)
-
-[sub_resource type="BoxShape3D" id="Shape_2_1p8_2_block"]
-size = Vector3(2, 1.8, 2)
-
-[sub_resource type="BoxMesh" id="Mesh_2_1p8_2_block"]
-material = SubResource("Material_block")
-size = Vector3(2, 1.8, 2)
-
-[sub_resource type="BoxShape3D" id="Shape_2_1p5_2_block"]
-size = Vector3(2, 1.5, 2)
-
-[sub_resource type="BoxMesh" id="Mesh_2_1p5_2_block"]
-material = SubResource("Material_block")
-size = Vector3(2, 1.5, 2)
+size = Vector3(2, 1.9, 2)
 
 [sub_resource type="BoxShape3D" id="Shape_2_2_2_block"]
 size = Vector3(2, 2, 2)
@@ -103,6 +89,13 @@ size = Vector3(2, 2, 2)
 [sub_resource type="BoxMesh" id="Mesh_2_2_2_block"]
 material = SubResource("Material_block")
 size = Vector3(2, 2, 2)
+
+[sub_resource type="BoxShape3D" id="Shape_2_1p5_2_block"]
+size = Vector3(2, 1.5, 2)
+
+[sub_resource type="BoxMesh" id="Mesh_2_1p5_2_block"]
+material = SubResource("Material_block")
+size = Vector3(2, 1.5, 2)
 
 [sub_resource type="BoxShape3D" id="Shape_6_3p5_0p4_wall"]
 size = Vector3(6, 3.5, 0.4)
@@ -118,12 +111,12 @@ size = Vector3(3, 0.6, 2)
 material = SubResource("Material_low_passage")
 size = Vector3(3, 0.6, 2)
 
-[sub_resource type="BoxShape3D" id="Shape_4_3_4_platform"]
-size = Vector3(4, 3, 4)
+[sub_resource type="BoxShape3D" id="Shape_4_4p2_4_platform"]
+size = Vector3(4, 4.2, 4)
 
-[sub_resource type="BoxMesh" id="Mesh_4_3_4_platform"]
+[sub_resource type="BoxMesh" id="Mesh_4_4p2_4_platform"]
 material = SubResource("Material_platform")
-size = Vector3(4, 3, 4)
+size = Vector3(4, 4.2, 4)
 
 [node name="Chase" type="Node3D"]
 script = ExtResource("1_chase")
@@ -145,40 +138,40 @@ mesh = SubResource("Mesh_22_1_22_ground")
 [node name="Enclosure" type="Node3D" parent="Arena"]
 
 [node name="North" type="StaticBody3D" parent="Arena/Enclosure" groups=["no_wall_run"]]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4, -10.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, -10.5)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Arena/Enclosure/North"]
-shape = SubResource("Shape_22_8_1_enclosure")
+shape = SubResource("Shape_22_10_1_enclosure")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Arena/Enclosure/North"]
-mesh = SubResource("Mesh_22_8_1_enclosure")
+mesh = SubResource("Mesh_22_10_1_enclosure")
 
 [node name="South" type="StaticBody3D" parent="Arena/Enclosure" groups=["no_wall_run"]]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4, 10.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 10.5)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Arena/Enclosure/South"]
-shape = SubResource("Shape_22_8_1_enclosure")
+shape = SubResource("Shape_22_10_1_enclosure")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Arena/Enclosure/South"]
-mesh = SubResource("Mesh_22_8_1_enclosure")
+mesh = SubResource("Mesh_22_10_1_enclosure")
 
 [node name="West" type="StaticBody3D" parent="Arena/Enclosure" groups=["no_wall_run"]]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10.5, 4, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10.5, 5, 0)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Arena/Enclosure/West"]
-shape = SubResource("Shape_1_8_20_enclosure")
+shape = SubResource("Shape_1_10_20_enclosure")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Arena/Enclosure/West"]
-mesh = SubResource("Mesh_1_8_20_enclosure")
+mesh = SubResource("Mesh_1_10_20_enclosure")
 
 [node name="East" type="StaticBody3D" parent="Arena/Enclosure" groups=["no_wall_run"]]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.5, 4, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.5, 5, 0)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Arena/Enclosure/East"]
-shape = SubResource("Shape_1_8_20_enclosure")
+shape = SubResource("Shape_1_10_20_enclosure")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Arena/Enclosure/East"]
-mesh = SubResource("Mesh_1_8_20_enclosure")
+mesh = SubResource("Mesh_1_10_20_enclosure")
 
 [node name="LowWalls" type="Node3D" parent="Arena"]
 
@@ -221,22 +214,22 @@ mesh = SubResource("Mesh_0p3_1p2_4_low_wall")
 [node name="Blocks" type="Node3D" parent="Arena"]
 
 [node name="LedgeNorthWest" type="StaticBody3D" parent="Arena/Blocks"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0.8, -7)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0.95, -7)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Arena/Blocks/LedgeNorthWest"]
-shape = SubResource("Shape_2_1p6_2_block")
+shape = SubResource("Shape_2_1p9_2_block")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Arena/Blocks/LedgeNorthWest"]
-mesh = SubResource("Mesh_2_1p6_2_block")
+mesh = SubResource("Mesh_2_1p9_2_block")
 
 [node name="LedgeSouthEast" type="StaticBody3D" parent="Arena/Blocks"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0.9, 7)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 1, 7)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Arena/Blocks/LedgeSouthEast"]
-shape = SubResource("Shape_2_1p8_2_block")
+shape = SubResource("Shape_2_2_2_block")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Arena/Blocks/LedgeSouthEast"]
-mesh = SubResource("Mesh_2_1p8_2_block")
+mesh = SubResource("Mesh_2_2_2_block")
 
 [node name="SouthWest" type="StaticBody3D" parent="Arena/Blocks"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 0.75, 7.5)
@@ -299,22 +292,22 @@ mesh = SubResource("Mesh_3_0p6_2_low_passage")
 [node name="Platforms" type="Node3D" parent="Arena"]
 
 [node name="NorthWest" type="StaticBody3D" parent="Arena/Platforms"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 1.5, -7)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 2.1, -7)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Arena/Platforms/NorthWest"]
-shape = SubResource("Shape_4_3_4_platform")
+shape = SubResource("Shape_4_4p2_4_platform")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Arena/Platforms/NorthWest"]
-mesh = SubResource("Mesh_4_3_4_platform")
+mesh = SubResource("Mesh_4_4p2_4_platform")
 
 [node name="SouthEast" type="StaticBody3D" parent="Arena/Platforms"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 1.5, 7)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 2.1, 7)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Arena/Platforms/SouthEast"]
-shape = SubResource("Shape_4_3_4_platform")
+shape = SubResource("Shape_4_4p2_4_platform")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Arena/Platforms/SouthEast"]
-mesh = SubResource("Mesh_4_3_4_platform")
+mesh = SubResource("Mesh_4_4p2_4_platform")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.8193, -0.4559, 0.3478, 0, 0.6066, 0.795, -0.5735, -0.6513, 0.4969, 0, 20, 0)

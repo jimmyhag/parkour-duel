@@ -305,10 +305,12 @@ as soon as one is connected. The arena is a 20 m by 20 m square closed by high w
 that cannot be run along, full of obstacles: four light low walls (0.9 to 1.2 m, thin,
 to jump over or climb, and to vault once the vault exists), grey blocks of 1.5 to 2 m to
 climb, two blue-grey walls 3 m apart to run along and to jump between, two low beams to
-slide under, and two platforms 3 m high in opposite corners, each reached from a grey
-block against it. One player is the cat, in red, the other the mouse, in blue; player 1
-is the cat of the first round. A countdown (3, 2, 1, GO) holds both at their start
-points, 10 m apart and face to face; then the cat has 20 s to touch the mouse (the two
+slide under (their tops, and the tops of the walls, can be climbed too), and two
+platforms 4.2 m high in opposite corners, out of reach of a jump and a mantle from the
+floor: each is reached only from the grey block of about 2 m against it. One player is the
+cat, in red, the other the mouse, in blue; player 1 is the cat of the first round of the
+first match, and each REMATCH gives that first round to the other player. A countdown
+(3, 2, 1, GO) holds both at their start points, 14 m apart and face to face; then the cat has 20 s to touch the mouse (the two
 bodies touching is enough). Caught, the cat wins the round; still free after 20 s, the
 mouse wins it. The roles swap at every round, and the first to win 3 rounds wins the
 match. Each view shows its player's role (CAT or MOUSE) and the time left at the top,

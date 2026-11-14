@@ -7,12 +7,11 @@ extends RefCounted
 ## its own reads actions of its own, made at run time from the actions of the project,
 ## the first time they are asked for: the same name with the device as a suffix, holding
 ## only the keys and the mouse buttons of the action, or only its gamepad buttons and axes,
-## set to device 0. The project's actions are left as they are.
+## set to the device of player 2 (ChaseState.GAMEPAD_DEVICE). The project's actions are
+## left as they are.
 
 enum Kind { ANY, KEYBOARD_AND_MOUSE, GAMEPAD }
 
-## The gamepad of player 2.
-const GAMEPAD_DEVICE: int = 0
 const SUFFIXES: Dictionary[Kind, String] = {
 	Kind.KEYBOARD_AND_MOUSE: "@keyboard_and_mouse",
 	Kind.GAMEPAD: "@gamepad",
@@ -32,7 +31,7 @@ static func action(base: StringName, kind: Kind) -> StringName:
 			continue
 		var copy: InputEvent = event.duplicate() as InputEvent
 		if kind == Kind.GAMEPAD:
-			copy.device = GAMEPAD_DEVICE
+			copy.device = ChaseState.GAMEPAD_DEVICE
 		InputMap.action_add_event(own, copy)
 	return own
 

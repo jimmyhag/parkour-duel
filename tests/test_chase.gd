@@ -130,6 +130,20 @@ func test_the_flow_starts_from_zero_every_round() -> void:
 		assert_eq(flow.speed_bonus(), 0.0, "no speed bonus left")
 
 
+func test_the_intents_of_the_chase_have_no_aim_shot_return_or_restart() -> void:
+	var source: ChaseIntentSource = ChaseIntentSource.new(EverythingAsked.new())
+
+	var intent: MoveIntent = source.next_intent()
+
+	assert_eq(intent.direction, Vector3.FORWARD, "the way it goes is kept")
+	assert_true(intent.jump_held, "and the jump")
+	assert_false(intent.aim_held, "no aim")
+	assert_eq(intent.aim_direction, Vector3.ZERO, "nowhere to aim at")
+	assert_false(intent.shoot_pressed, "no shot")
+	assert_false(intent.respawn_requested, "no return to a checkpoint")
+	assert_false(intent.restart_requested, "no restart")
+
+
 func _chase() -> ChaseState:
 	return ChaseState.new(_tuning, STEPS_PER_SECOND)
 
@@ -144,3 +158,19 @@ func _play_a_round(chase: ChaseState, step: int, caught: bool) -> int:
 		return go + 300
 	chase.receive(ChaseMessage.time_up(go + ROUND_STEPS))
 	return go + ROUND_STEPS
+
+
+## A source that asks for everything at every step.
+class EverythingAsked:
+	extends IntentSource
+
+	func next_intent() -> MoveIntent:
+		var intent: MoveIntent = MoveIntent.new()
+		intent.direction = Vector3.FORWARD
+		intent.jump_held = true
+		intent.aim_held = true
+		intent.aim_direction = Vector3.LEFT
+		intent.shoot_pressed = true
+		intent.respawn_requested = true
+		intent.restart_requested = true
+		return intent

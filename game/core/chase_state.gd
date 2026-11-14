@@ -5,14 +5,16 @@ extends RefCounted
 ## (ChaseMessage): the start of a round at GO, the contact of the cat with the mouse, the
 ## end of the time of the round. A contact before the time is up wins the round for the
 ## cat; the time up wins it for the mouse. The roles swap at the start of every round
-## after the first, where player 0 is the cat; the first to win the rounds of the tuning
-## wins the match. It holds the flow of each player, which starts from zero with every
+## after the first, whose cat is given (player 0 unless said); the first to win the rounds
+## of the tuning wins the match. It holds the flow of each player, which starts from zero with every
 ## round and freezes at its end.
 
 enum Phase { COUNTDOWN, RUNNING, ROUND_OVER, MATCH_OVER }
 enum Role { CAT, MOUSE }
 
 const PLAYERS: int = 2
+## The device of the gamepad player 2 plays on: the first one connected.
+const GAMEPAD_DEVICE: int = 0
 ## The winner of a round or of a match not over.
 const NOBODY: int = -1
 ## A step not reached yet: the start or the end of a round.
@@ -20,6 +22,8 @@ const NOT_YET: int = -1
 const CENTISECONDS_PER_SECOND: int = 100
 
 var phase: Phase = Phase.COUNTDOWN
+## The cat of the first round of the match.
+var first_cat: int = 0
 ## The cat of the round under way, or of the last one played.
 var cat: int = 0
 ## The rounds started so far.
@@ -40,8 +44,10 @@ var tuning: MovementTuning
 var _steps_per_second: int
 
 
-func _init(chase_tuning: MovementTuning, steps_per_second: int) -> void:
+func _init(chase_tuning: MovementTuning, steps_per_second: int, first: int = 0) -> void:
 	tuning = chase_tuning
+	first_cat = first
+	cat = first
 	_steps_per_second = steps_per_second
 	for player: int in PLAYERS:
 		score.append(0)
@@ -60,11 +66,6 @@ func receive(message: ChaseMessage) -> void:
 		ChaseMessage.Kind.TIME_UP:
 			if phase == Phase.RUNNING:
 				_end(mouse(), Role.MOUSE, message.step)
-
-
-## The players may move while a round is on, and only then.
-func players_may_move() -> bool:
-	return phase == Phase.RUNNING
 
 
 func mouse() -> int:

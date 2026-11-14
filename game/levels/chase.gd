@@ -79,10 +79,11 @@ func _ready() -> void:
 	rematch()
 
 
-## A match from zero: the scores, the roles of the first round, the flows, and the
-## countdown.
+## A match from zero: the scores, the flows, and the countdown. Player 1 is the cat of the
+## first round of the first match; each rematch gives that first round to the other.
 func rematch() -> void:
-	chase = ChaseState.new(players[PLAYER_ONE].tuning, steps_per_second)
+	var first_cat: int = PLAYER_ONE if chase == null else 1 - chase.first_cat
+	chase = ChaseState.new(players[PLAYER_ONE].tuning, steps_per_second, first_cat)
 	match_steps = 0
 	_over = false
 	for player: int in ChaseState.PLAYERS:
@@ -110,7 +111,9 @@ func _play_the_step() -> void:
 		return
 	if chase.phase == ChaseState.Phase.RUNNING and touch(players[PLAYER_ONE], players[PLAYER_TWO]):
 		chase.receive(ChaseMessage.contact(match_steps))
-		return
+		# A contact once the time is up wins nothing: the clock still says it is up.
+		if chase.phase != ChaseState.Phase.RUNNING:
+			return
 	match clock.tick():
 		RoundClock.Event.GO:
 			chase.receive(ChaseMessage.start(match_steps))
