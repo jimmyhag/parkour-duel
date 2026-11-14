@@ -18,7 +18,8 @@ assistant. `CLAUDE.md` and `GEMINI.md` only import it: edit this file, not them.
   `.godot-version`. The `godot` command must be on `PATH` (on Windows, `godot_console`
   too: it is the one that waits and prints), or the `GODOT` environment variable must
   point to the editor binary. Python 3.13 (`.python-version`) runs the gate tools and
-  the GDScript linter. [`just`](https://github.com/casey/just) runs everything.
+  the GDScript linter. [`just`](https://github.com/casey/just) runs everything: just
+  1.42 or later, for the `[parallel]` attribute of the justfile (CI: 1.58.0).
 - `just setup` installs a fresh checkout or worktree: it creates `.venv` with the
   pinned tooling of `requirements-dev.txt` and builds Godot's import cache. `just dev`
   starts the game; in the editor, F5 does the same. No secret is needed and there is no
