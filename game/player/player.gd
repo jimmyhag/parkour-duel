@@ -3,8 +3,8 @@ extends CharacterBody3D
 ## The runner's body. At every fixed step it asks its intent source for an intent,
 ## gives it to the motor of game/core with the facts it observes (RunnerFacts), and
 ## applies what the motor decides: the velocity it wants, a capsule as low as its state
-## says, a visible body that faces the push and leans towards the wall it runs along. It
-## decides nothing about the movement itself.
+## says, a visible body that faces the push, leans towards the wall it runs along and
+## turns with the trick under way. It decides nothing about the movement itself.
 
 ## Emitted at the end of every fixed step, with the intent the runner just followed.
 signal stepped(intent: MoveIntent)
@@ -25,6 +25,11 @@ const ALMOST_STILL: float = 0.1
 var motor: RunnerMotor
 ## Replaceable: the inputs by default, a sequence written in advance in the tests.
 var intent_source: IntentSource
+
+## Where the visible body looks, as a rotation around the vertical axis, and how far it
+## leans to its left, in radians.
+var _yaw: float = 0.0
+var _lean: float = 0.0
 
 @onready var camera_rig: CameraRig = $CameraRig as CameraRig
 @onready var _collider: CollisionShape3D = $CollisionShape3D as CollisionShape3D
@@ -47,6 +52,7 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	_turn(intent, delta)
 	_lean_towards_the_wall(delta)
+	_pose()
 	stepped.emit(intent)
 
 
@@ -87,7 +93,9 @@ func teleport(spawn: Transform3D) -> void:
 	velocity = Vector3.ZERO
 	motor.reset()
 	_fit_capsule()
-	_visual.rotation = Vector3(0.0, yaw, 0.0)
+	_yaw = yaw
+	_lean = 0.0
+	_pose()
 	camera_rig.face(yaw)
 	reset_physics_interpolation()
 
@@ -230,7 +238,7 @@ func _fits_standing_at(feet: Vector3) -> bool:
 
 ## Where the runner faces, on the ground: the direction its visible body looks at.
 func _facing() -> Vector3:
-	return Vector3.FORWARD.rotated(Vector3.UP, _visual.rotation.y)
+	return Vector3.FORWARD.rotated(Vector3.UP, _yaw)
 
 
 func _capsule_height() -> float:
@@ -282,13 +290,13 @@ func _set_capsule_height(height: float) -> void:
 
 
 ## The visible body turns, at its pace, towards where it should look this step; with
-## nowhere to look, it keeps its orientation.
+## nowhere to look, or during a trick, it keeps its orientation.
 func _turn(intent: MoveIntent, delta: float) -> void:
 	var heading: Vector3 = _heading(intent)
-	if heading.is_zero_approx():
+	if heading.is_zero_approx() or motor.is_in_a_trick():
 		return
 	var facing: float = atan2(-heading.x, -heading.z)
-	_visual.rotation.y = rotate_toward(_visual.rotation.y, facing, tuning.turn_speed * delta)
+	_yaw = rotate_toward(_yaw, facing, tuning.turn_speed * delta)
 
 
 ## Where the visible body should look, horizontal; ZERO to keep its orientation. Towards
@@ -319,4 +327,20 @@ func _lean_towards_the_wall(delta: float) -> void:
 		# left, whose normal points to its right.
 		var right: Vector3 = _facing().cross(Vector3.UP)
 		lean = deg_to_rad(tuning.wall_run_lean) * signf(away.dot(right))
-	_visual.rotation.z = rotate_toward(_visual.rotation.z, lean, tuning.turn_speed * delta)
+	_lean = rotate_toward(_lean, lean, tuning.turn_speed * delta)
+
+
+## Places the visible body: where it looks and how it leans; in a trick, read from the
+## motor, twisted around its own axis and turned around the axis of the flip, through
+## the middle of the body. A trick over leaves it upright, and so does a crash, at once.
+func _pose() -> void:
+	var pose: Basis = Basis.from_euler(Vector3(0.0, _yaw, _lean))
+	var origin: Vector3 = Vector3.ZERO
+	var trick: AirTrick = motor.current_trick()
+	if trick != null:
+		pose = pose * Basis(Vector3.UP, trick.twist_angle())
+		var flip: Basis = Basis(trick.axis, trick.flip_angle())
+		var middle: Vector3 = Vector3.UP * _capsule_height() / 2.0
+		pose = flip * pose
+		origin = middle - flip * middle
+	_visual.transform = Transform3D(pose, origin)

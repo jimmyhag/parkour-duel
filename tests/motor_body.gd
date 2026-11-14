@@ -110,6 +110,14 @@ static func fixed_tuning() -> MovementTuning:
 	tuning.perfect_slide_speed_gain = 2.0
 	tuning.flow_stop_speed = 1.0
 	tuning.flow_stop_duration = 1.0
+	tuning.trick_turn_duration = 0.45
+	tuning.trick_max_twists_per_turn = 2
+	tuning.trick_points_per_turn = 200
+	tuning.trick_points_per_twist = 100
+	tuning.trick_air_chain_bonus = 0.5
+	tuning.trick_perfect_window = 0.15
+	tuning.trick_perfect_bonus = 0.5
+	tuning.trick_perfect_speed_gain = 1.0
 	return tuning
 
 

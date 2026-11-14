@@ -1,0 +1,26 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://game/ui/flow_sounds.gd" id="1_flow_sounds"]
+[ext_resource type="AudioStream" path="res://assets/sounds/confirmation_001.ogg" id="2_trick_landed"]
+[ext_resource type="AudioStream" path="res://assets/sounds/confirmation_002.ogg" id="3_perfect_landing"]
+[ext_resource type="AudioStream" path="res://assets/sounds/impactPunch_heavy_000.ogg" id="4_crash"]
+[ext_resource type="AudioStream" path="res://assets/sounds/maximize_006.ogg" id="5_tier_crossed"]
+[ext_resource type="AudioStream" path="res://assets/sounds/error_004.ogg" id="6_combo_broken"]
+
+[node name="FlowSounds" type="Node"]
+script = ExtResource("1_flow_sounds")
+
+[node name="TrickLanded" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("2_trick_landed")
+
+[node name="PerfectLanding" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("3_perfect_landing")
+
+[node name="Crash" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("4_crash")
+
+[node name="TierCrossed" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("5_tier_crossed")
+
+[node name="ComboBroken" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("6_combo_broken")

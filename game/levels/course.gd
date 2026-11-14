@@ -4,10 +4,10 @@ extends Node3D
 ## the flow of its runner (game/core), listens to the lines and the checkpoints
 ## (game/world), brings the runner (game/player) back when the rule of game/core says
 ## so, gives the flow what the runner's motor announced and the motor the speed bonus of
-## the flow, and feeds the displays (game/ui). It reads no input and decides nothing: it
-## executes.
+## the flow, and feeds the displays and the sounds (game/ui). It reads no input and
+## decides nothing: it executes.
 ## Expected children: Player, StartLine, FinishLine, Checkpoints (one Checkpoint per
-## section, numbered from 0), Hud/RaceHud, Hud/FlowHud and Hud/DebugOverlay.
+## section, numbered from 0), Hud/RaceHud, Hud/FlowHud, Hud/DebugOverlay and FlowSounds.
 
 ## The altitude under which a runner has fallen off the course.
 @export var fall_limit: float = 0.0
@@ -23,6 +23,7 @@ var _checkpoints: Dictionary[int, Checkpoint] = {}
 @onready var _race_hud: RaceHud = $Hud/RaceHud as RaceHud
 @onready var _flow_hud: FlowHud = $Hud/FlowHud as FlowHud
 @onready var _debug_overlay: DebugOverlay = $Hud/DebugOverlay as DebugOverlay
+@onready var _flow_sounds: FlowSounds = $FlowSounds as FlowSounds
 
 
 func _ready() -> void:
@@ -39,6 +40,8 @@ func _ready() -> void:
 	_race_hud.race = race
 	_race_hud.flow = flow
 	_flow_hud.flow = flow
+	_flow_hud.motor = player.motor
+	_flow_sounds.flow = flow
 	_debug_overlay.motor = player.motor
 	_debug_overlay.flow = flow
 	player.stepped.connect(_on_player_stepped)
