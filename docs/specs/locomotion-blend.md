@@ -1,6 +1,6 @@
 # Une locomotion fluide : blend space, transitions réglées, pieds en phase
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-14, avec Jimmy. Suite de `docs/specs/character-animations.md` : Jimmy
 a demandé « tout ce qui est blend space, pour fluidifier les animations, les
