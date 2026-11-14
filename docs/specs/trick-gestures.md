@@ -390,6 +390,12 @@ rouvrir chacun après avoir joué.
   souris) ; un dessin de moins de 0,55 unité compte comme rien (la figure du contexte
   part) ; une vrille se lit dès 100° d'arc, deux vrilles dès 300° ; un cercle dès 270°.
   Le corpus des gestes humains les garde. À régler par Jimmy en jouant.
+- **Le saut de figure (second amendement)** : il n'annonce pas de saut au flow, la figure
+  est le move ; un dessin illisible au sol ne fait pas sauter ; la tolérance de saut compte
+  comme le sol ; une glissade avec de la place au-dessus permet le saut de figure, une
+  roulade non (le bouton de saut, lui, peut sauter d'une roulade) ; saut et lâcher au même
+  pas donnent le saut de figure. La boucle sans risque sur le plat en sauts de figure fait
+  2 702 points de style par minute (3 790 avec le bouton de saut puis la figure).
 - **Le spin** : un deuxième cercle fait un 720, un troisième un 1080, trois tours au plus.
 - **« À l'arrêt »** pour la figure du contexte : sous la vitesse d'arrêt du flow (1 m/s).
 - **Le côté d'un side flip** ne compte pas pour la variété ; une figure du contexte est le
