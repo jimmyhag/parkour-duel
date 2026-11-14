@@ -23,3 +23,4 @@ cell means not assessed yet.
 | Composing tricks from building blocks rather than a fixed list | `game/core/`, first applied by `docs/specs/air-tricks.md` | discovered | 2026-11-14 |
 | Small object state machines driven by dated messages | `game/core/`, first applied by `docs/specs/sabotage.md` | discovered | 2026-11-14 |
 | A round state in `core` fed by dated messages, ready for the network | `game/core/`, first applied by `docs/specs/local-duel.md` | discovered | 2026-11-14 |
+| Separating a gesture (input presentation) from its recipe (logic) | `game/core/`, `game/player/`, first applied by `docs/specs/trick-gestures.md` | discovered | 2026-11-14 |
