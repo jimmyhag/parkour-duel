@@ -147,6 +147,23 @@ func test_the_debug_display_shows_the_flow() -> void:
 	assert_string_contains(overlay.text, "SPEED BONUS 10 %")
 
 
+func test_the_debug_display_shows_the_opponent_flow() -> void:
+	var tuning: MovementTuning = MotorBody.fixed_tuning()
+	var overlay: DebugOverlay = OVERLAY_SCENE.instantiate() as DebugOverlay
+	overlay.motor = RunnerMotor.new(tuning)
+	add_child_autofree(overlay)
+	_trigger(TOGGLE_DEBUG)
+	assert_false(overlay.text.contains("OPPONENT"), "no opponent in solo practice")
+	var opponent: FlowState = FlowState.new(tuning, 60)
+	opponent.gauge = 1234.5
+	opponent.ammo = 2
+	overlay.opponent_flow = opponent
+
+	overlay.refresh()
+
+	assert_string_contains(overlay.text, "OPPONENT GAUGE 1234 AMMO 2")
+
+
 func test_the_debug_display_shows_the_aim_and_the_targets() -> void:
 	var tuning: MovementTuning = MotorBody.fixed_tuning()
 	var targets: TargetBoard = TargetBoard.new()

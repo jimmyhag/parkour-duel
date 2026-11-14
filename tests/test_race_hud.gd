@@ -66,6 +66,31 @@ func test_the_finish_shows_the_style_score() -> void:
 	assert_eq(_text(hud, "%BestStyleLabel"), "BEST STYLE 300")
 
 
+func test_the_hud_shows_the_gap_to_the_opponent() -> void:
+	var race: RaceState = RaceState.new(STEPS_PER_SECOND)
+	var hud: RaceHud = _add_hud(race)
+	var round_state: RoundState = RoundState.new(STEPS_PER_SECOND)
+	round_state.receive(RoundMessage.start(0))
+	hud.round_state = round_state
+	race.cross_start_line()
+	hud.refresh()
+	assert_false(_label(hud, "%GapLabel").visible, "no common checkpoint yet: no gap")
+	assert_false(_label(hud, "%BestLabel").visible, "no best time in a duel")
+
+	# The opponent at 1.01 s on the timer, the player at 2.25 s.
+	round_state.receive(RoundMessage.checkpoint_reached(1, 1, 61, 0))
+	round_state.receive(RoundMessage.checkpoint_reached(0, 1, 135, 0))
+	hud.refresh()
+
+	assert_true(_label(hud, "%GapLabel").visible, "a gap at the checkpoint both passed")
+	assert_eq(_text(hud, "%GapLabel"), "+1.24", "the player 1.24 s after the opponent")
+
+	round_state.receive(RoundMessage.checkpoint_reached(0, 2, 200, 0))
+	round_state.receive(RoundMessage.checkpoint_reached(1, 2, 248, 0))
+	hud.refresh()
+	assert_eq(_text(hud, "%GapLabel"), "-0.80", "0.80 s before it at the next one")
+
+
 func _add_hud(race: RaceState, flow: FlowState = null) -> RaceHud:
 	var hud: RaceHud = HUD_SCENE.instantiate() as RaceHud
 	hud.race = race

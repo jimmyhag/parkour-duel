@@ -5,8 +5,9 @@ extends CharacterBody3D
 ## applies what the motor decides: the velocity it wants, a capsule as low as its state
 ## says, a visible body that faces the push, leans towards the wall it runs along and
 ## turns with the trick under way. While it aims, it observes what is under the reticle
-## (AimFacts) and puts the camera over its shoulder. It decides nothing about the
-## movement or the shot itself.
+## (AimFacts), or on the line from its head that its intent gives (the bot's aim), and
+## puts the camera over its shoulder. Held (a countdown), it follows no intent. It decides
+## nothing about the movement or the shot itself.
 
 ## Emitted at the end of every fixed step, with the intent the runner just followed.
 signal stepped(intent: MoveIntent)
@@ -32,6 +33,8 @@ var motor: RunnerMotor
 var intent_source: IntentSource
 ## What the runner observed under the reticle at its last step: nothing unless it aimed.
 var aim_facts: AimFacts = AimFacts.new()
+## The runner waits: at every step it wants nothing, whatever its intent source.
+var held: bool = false
 
 ## Where the visible body looks, as a rotation around the vertical axis, and how far it
 ## leans to its left, in radians.
@@ -53,7 +56,7 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	var intent: MoveIntent = intent_source.next_intent()
+	var intent: MoveIntent = MoveIntent.new() if held else intent_source.next_intent()
 	velocity = motor.step(intent, _observe(intent), delta)
 	_fit_capsule()
 	move_and_slide()
@@ -79,6 +82,29 @@ func apply_tuning(new_tuning: MovementTuning) -> void:
 	(_collider.shape as CapsuleShape3D).radius = tuning.capsule_radius
 	(_body.mesh as CapsuleMesh).radius = tuning.capsule_radius
 	_visor.position.z = -tuning.capsule_radius
+
+
+## Gives the capsule one sees the colour `colour` (the opponent's, in a duel).
+func paint(colour: Color) -> void:
+	var material: StandardMaterial3D = StandardMaterial3D.new()
+	material.albedo_color = colour
+	_body.material_override = material
+
+
+## Shows the world through this runner's camera, or not: a duel shows the player's only,
+## and the bot's camera then neither turns nor follows.
+func watch(watched: bool) -> void:
+	var camera: Camera3D = camera_rig.camera()
+	if watched:
+		camera.make_current()
+	else:
+		camera.current = false
+	camera_rig.process_mode = Node.PROCESS_MODE_INHERIT if watched else Node.PROCESS_MODE_DISABLED
+
+
+## Where the visible body is and how it is turned, in the world: what a ghost replays.
+func visual_transform() -> Transform3D:
+	return _visual.global_transform
 
 
 ## Reads the tuning file again, so that a value changed on disk applies without
@@ -247,24 +273,32 @@ func _fits_standing_at(feet: Vector3) -> bool:
 
 ## What is under the reticle while the runner aims: the first block or target on the
 ## line from the camera through the centre of the screen, as far as twice the range of a
-## shot beyond the camera's arm. A target is a body that holds the identity of its target
-## (SabotageTarget.META); its distance is measured from the runner's eyes.
+## shot beyond the camera's arm; or, when the intent gives a direction to aim at, on the
+## line from the runner's eyes that way. A target is a body that holds the identity of its
+## target (SabotageTarget.META) and of its lane (SabotageTarget.LANE_META); its distance
+## is measured from the runner's eyes.
 func _observe_the_aim(intent: MoveIntent) -> AimFacts:
 	if not intent.aim_held:
 		return AimFacts.new()
-	var eye: Transform3D = camera_rig.camera().global_transform
+	var eyes: Vector3 = global_position + Vector3.UP * tuning.camera_look_height
 	var reach: float = 2.0 * tuning.shot_range + tuning.camera_distance
+	var from: Vector3 = eyes
+	var towards: Vector3 = intent.aim_direction.normalized()
+	if intent.aim_direction.is_zero_approx():
+		var eye: Transform3D = camera_rig.camera().global_transform
+		from = eye.origin
+		towards = -eye.basis.z
 	var ray: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
-		eye.origin, eye.origin - eye.basis.z * reach, AIM_MASK, [get_rid()]
+		from, from + towards * reach, AIM_MASK, [get_rid()]
 	)
 	var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(ray)
 	if hit.is_empty():
 		return AimFacts.new()
 	var collider: Object = hit["collider"]
 	var target: int = collider.get_meta(SabotageTarget.META, SabotageTarget.NO_TARGET)
+	var lane: int = collider.get_meta(SabotageTarget.LANE_META, 0)
 	var point: Vector3 = hit["position"]
-	var eyes: Vector3 = global_position + Vector3.UP * tuning.camera_look_height
-	return AimFacts.new(target, eyes.distance_to(point))
+	return AimFacts.new(target, eyes.distance_to(point), lane)
 
 
 ## Where the runner faces, on the ground: the direction its visible body looks at.

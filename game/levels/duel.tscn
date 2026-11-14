@@ -1,0 +1,36 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://game/levels/duel.gd" id="1_duel"]
+[ext_resource type="PackedScene" path="res://game/ui/race_hud.tscn" id="2_race_hud"]
+[ext_resource type="PackedScene" path="res://game/ui/flow_hud.tscn" id="3_flow_hud"]
+[ext_resource type="PackedScene" path="res://game/ui/crosshair.tscn" id="4_crosshair"]
+[ext_resource type="PackedScene" path="res://game/ui/debug_overlay.tscn" id="5_debug_overlay"]
+[ext_resource type="PackedScene" path="res://game/ui/countdown_display.tscn" id="6_countdown"]
+[ext_resource type="PackedScene" path="res://game/ui/result_screen.tscn" id="7_result"]
+[ext_resource type="PackedScene" path="res://game/ui/flow_sounds.tscn" id="8_flow_sounds"]
+[ext_resource type="PackedScene" path="res://game/ui/sabotage_sounds.tscn" id="9_sabotage_sounds"]
+
+[node name="Duel" type="Node3D"]
+script = ExtResource("1_duel")
+
+[node name="Hud" type="CanvasLayer" parent="."]
+
+[node name="RaceHud" parent="Hud" instance=ExtResource("2_race_hud")]
+
+[node name="FlowHud" parent="Hud" instance=ExtResource("3_flow_hud")]
+
+[node name="Crosshair" parent="Hud" instance=ExtResource("4_crosshair")]
+
+[node name="DebugOverlay" parent="Hud" instance=ExtResource("5_debug_overlay")]
+
+[node name="CountdownDisplay" parent="Hud" instance=ExtResource("6_countdown")]
+
+[node name="ResultScreen" parent="Hud" instance=ExtResource("7_result")]
+
+[node name="FlowSounds" parent="." instance=ExtResource("8_flow_sounds")]
+
+[node name="SabotageSounds" parent="." instance=ExtResource("9_sabotage_sounds")]
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.8193, -0.4559, 0.3478, 0, 0.6066, 0.795, -0.5735, -0.6513, 0.4969, 0, 20, 0)
+shadow_enabled = true

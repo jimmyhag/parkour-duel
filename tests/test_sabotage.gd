@@ -38,6 +38,12 @@ const OTHER_RUNNER: int = 2
 const AT_STEP: int = 123
 const IN_RANGE: float = 30.0
 const NOBODY: Array[int] = []
+## The lanes of a duel, by the runner that runs each one: the shooter runs the first.
+const OWN_LANE: int = 0
+const OPPOSING_LANE: int = 1
+## Someone is in the air above a target, or nobody is.
+const IN_THE_AIR_ABOVE: bool = true
+const NOBODY_IN_THE_AIR: bool = false
 ## The shooter stands on the ground.
 const ON_THE_GROUND: bool = true
 const WALL_RUN: RunnerEvent.Kind = RunnerEvent.Kind.WALL_RUN
@@ -250,6 +256,63 @@ func test_the_minimal_aim_does_not_count_in_the_air() -> void:
 		_shot(), obstacle, AT_STEP, board, flow, in_the_air
 	)
 	assert_not_null(airborne, "aimed long enough on the ground: a shot in the air goes")
+
+
+func test_in_a_duel_only_the_opposing_lane_can_be_shot() -> void:
+	# In a duel the shots of the runner of the first lane go to the targets of the other.
+	var opposing: TargetBoard = _board()
+	opposing.lane = OPPOSING_LANE
+	var flow: FlowState = _flow(3)
+	var shooter: Shooter = _shooter()
+	# The reticle on a ready target of its own lane: the same identity as one of the other.
+	var own: AimFacts = AimFacts.new(IDS[PLATFORM], IN_RANGE, OWN_LANE)
+	_aim(shooter, own, opposing, flow, AIM_MIN_STEPS)
+	assert_eq(shooter.verdict, Shooter.Verdict.NONE, "the reticle shows nothing to shoot")
+
+	var message: SabotageMessage = shooter.follow(
+		_shot(), own, AT_STEP, opposing, flow, ON_THE_GROUND
+	)
+
+	assert_null(message, "nothing happens")
+	assert_eq(flow.ammo, 3, "nothing is spent")
+	_assert_all_ready(opposing)
+	assert_eq(shooter.shots, 0, "no shot")
+	# The same target, on the opposing lane.
+	var theirs: AimFacts = AimFacts.new(IDS[PLATFORM], IN_RANGE, OPPOSING_LANE)
+	var shot: SabotageMessage = shooter.follow(
+		_shot(), theirs, AT_STEP, opposing, flow, ON_THE_GROUND
+	)
+	assert_not_null(shot, "the opposing lane's one is shot")
+	assert_eq(opposing.target(IDS[PLATFORM]).state, WARNING, "and hit")
+
+
+func test_a_platform_waits_for_nobody_to_be_in_the_air_above_it() -> void:
+	for kind: SabotageTarget.Kind in KINDS:
+		var context: String = SabotageTarget.Kind.keys()[kind] + ": "
+		var target: SabotageTarget = _target(kind)
+		target.receive(_message(target))
+		var waits: bool = kind == PLATFORM or kind == BRIDGE
+		var extra: int = 20
+		for step: int in WARNING_STEPS + extra:
+			target.step(NOBODY, true, IN_THE_AIR_ABOVE)
+		if not waits:
+			assert_eq(target.state, SABOTAGED, context + "comes onto the way all the same")
+			continue
+		assert_eq(target.state, WARNING, context + "the effect waits")
+		assert_false(target.displaced, context + "in its place")
+		assert_eq(target.effects, 0, context + "no effect yet")
+
+		# The runner landed on it: nobody in the air above, the effect starts and hits it.
+		var standing: Array[int] = [RUNNER]
+		target.step(standing, false, NOBODY_IN_THE_AIR)
+
+		assert_eq(target.state, SABOTAGED, context + "then the effect starts")
+		assert_eq(target.hits, standing, context + "a runner standing on it is hit")
+		for step: int in EFFECT_STEPS[kind] - 1:
+			target.step(NOBODY, true, NOBODY_IN_THE_AIR)
+		assert_eq(target.state, SABOTAGED, context + "for the duration of its type")
+		target.step(NOBODY, true, NOBODY_IN_THE_AIR)
+		assert_eq(target.state, RESTING, context + "counted from its real start")
 
 
 func test_no_shot_without_aiming() -> void:

@@ -38,11 +38,13 @@ func after_each() -> void:
 		DirAccess.remove_absolute(TUNING_COPY)
 
 
-func test_the_main_scene_is_the_test_course() -> void:
+func test_the_test_course_has_its_runner_lines_and_checkpoints() -> void:
+	# The game opens on its start screen (test_course_menus.gd), which starts this course
+	# for solo practice.
 	var main_scene: String = ProjectSettings.get_setting(MAIN_SCENE_SETTING)
-	assert_eq(main_scene, COURSE_SCENE)
+	assert_ne(main_scene, COURSE_SCENE, "no longer the main scene")
 
-	var root: Node = (load(main_scene) as PackedScene).instantiate()
+	var root: Node = (load(COURSE_SCENE) as PackedScene).instantiate()
 	add_child_autofree(root)
 
 	assert_true(root is Course, "the test course")

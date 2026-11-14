@@ -1,7 +1,8 @@
 class_name PilotIntentSource
 extends IntentSource
-## The test pilot: a source of intents that, at every fixed step, looks at its runner
-## and at the physical world around it, then decides. It runs in a given direction,
+## The pilot: a source of intents that, at every fixed step, looks at its runner and at
+## the physical world around it, then decides. The tests lead their runners with it, and
+## the bot of a duel runs with it. It runs in a given direction,
 ## jumps when the floor stops just ahead, when a step it can clear stands just ahead, or
 ## when a ledge that a jump then a mantle climb stands right in front of it, and holds
 ## the jump up to its top unless holding it would carry it past the floor it can land
@@ -31,8 +32,13 @@ var _flying_off_a_wall: bool = false
 ## nor rolls.
 func _init(runner: Player, direction: Vector3, slides: bool = true) -> void:
 	_runner = runner
-	_direction = Vector3(direction.x, 0.0, direction.z).normalized()
+	run_towards(direction)
 	_slides = slides
+
+
+## From now on, runs in `direction`, in the world; only its horizontal part counts.
+func run_towards(direction: Vector3) -> void:
+	_direction = Vector3(direction.x, 0.0, direction.z).normalized()
 
 
 func next_intent() -> MoveIntent:
