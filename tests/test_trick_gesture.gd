@@ -139,6 +139,18 @@ func test_a_circle_alone_is_a_spin() -> void:
 		if gesture.recipe() != null:
 			assert_eq(gesture.recipe().name(), "360", context + ": named by its degrees")
 
+	# A second circle makes a 720, a third a 1080, and not more; a half circle adds nothing.
+	var spin: TrickGesture = TrickGesture.new(_tuning)
+	_arc(spin, RIGHT, 360.0, 2 * HALF_CIRCLE_STEPS)
+	var names: Array[String] = []
+	for circle: int in 3:
+		_arc(spin, RIGHT, 360.0, 2 * HALF_CIRCLE_STEPS)
+		names.append("" if spin.recipe() == null else spin.recipe().name())
+	_arc(spin, RIGHT, 180.0)
+	names.append("" if spin.recipe() == null else spin.recipe().name())
+	assert_eq(names, ["720", "1080", "1080", "1080"] as Array[String], "more circles")
+	_assert_recipe(spin, SPIN, 3, 0, "three circles at most")
+
 
 func test_an_unreadable_gesture_starts_nothing() -> void:
 	# Too little for a stroke, though more than a hand that holds still.

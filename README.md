@@ -126,7 +126,8 @@ mouse or the right stick draws instead. A quick stroke chooses the flip: up a fr
 flip, down a backflip, left or right a side flip that way. The same stroke again adds a
 turn (double, then triple, no more); going back between two strokes is not read. A half
 circle after a front flip or a backflip adds a twist (two per turn at most); a whole
-circle on its own is a flat spin (360). On the right stick, a stroke is a flick (push it
+circle on its own is a flat spin (360), and each circle after it a turn more (720,
+1080). On the right stick, a stroke is a flick (push it
 and let it spring back) and a half circle is the stick turned half round its rim. While
 the button is held, the name of what the drawing reads shows above the flow gauge, or ?
 while nothing reads yet. The trick starts as the button is released, if the runner is

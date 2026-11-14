@@ -11,7 +11,8 @@ extends RefCounted
 ## is not read. The elements make the recipe: the first stroke chooses the
 ## flip (up a front flip, down a backflip, left or right a side flip that way); the same
 ## stroke again adds a turn; a curve after a front flip or a backflip adds a twist per half
-## circle; a whole circle before any stroke is a spin; anything else is not read. A hand
+## circle; a whole circle before any stroke is a spin, and each circle after it a turn
+## more (a 720, a 1080); anything else is not read. A hand
 ## that hardly moves draws nothing: the trick of the context.
 
 ## One element of the drawing, as read.
@@ -170,11 +171,15 @@ func _compose(shapes: Array[Shape], ways: Array[Vector2], angles: Array[float]) 
 			recipe = _flip_of(ways[index])
 			flip_way = ways[index]
 		elif recipe == null and shape == Shape.CURVE and _is_a_circle(angles[index]):
-			recipe = TrickRecipe.drawn(TrickRecipe.Flip.SPIN)
+			recipe = TrickRecipe.drawn(TrickRecipe.Flip.SPIN, 0)
+			recipe.turns = mini(_circles(angles[index]), tuning.trick_max_turns)
 		elif recipe == null:
 			continue
 		elif shape == Shape.STROKE and ways[index] == flip_way:
 			recipe.turns = mini(recipe.turns + 1, tuning.trick_max_turns)
+		elif shape == Shape.CURVE and recipe.flip == TrickRecipe.Flip.SPIN:
+			if _is_a_circle(angles[index]):
+				recipe.turns = mini(recipe.turns + _circles(angles[index]), tuning.trick_max_turns)
 		elif shape == Shape.CURVE and _takes_twists(recipe):
 			if half_circles == 0:
 				recipe.twist_way = -1.0 if angles[index] > 0.0 else 1.0
@@ -194,6 +199,11 @@ func _flip_of(way: Vector2) -> TrickRecipe:
 
 func _is_a_circle(angle: float) -> bool:
 	return absf(angle) >= tuning.trick_gesture_circle_angle
+
+
+## The whole circles a curve of a circle's angle at least makes: one at least.
+func _circles(angle: float) -> int:
+	return maxi(roundi(absf(angle) / 360.0), 1)
 
 
 func _takes_twists(recipe: TrickRecipe) -> bool:
