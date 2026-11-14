@@ -1,6 +1,6 @@
 # Où regarde le coureur : le corps visible face à la poussée
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-14, au point d'arrêt n° 2. Jimmy a joué la version finale de
 l'étape 1 et la trouve correcte, sauf un point : « dès qu'il détecte un objet, sa tête
