@@ -159,9 +159,9 @@ game/               the game, one folder per layer (table above)
                     walls, ledges) and under the reticle; the pilot, the bot's intents,
                     and the ghost
   world/            checkpoints, race lines, and the four sabotageable target blocks
-  ui/               timer, flow and debug displays, the reticle, the sounds of the
-                    flow and of the sabotage, the countdown, and the start and result
-                    screens
+  ui/               timer, flow and debug displays, the reticle, the pad of the trick
+                    being drawn, the sounds of the flow and of the sabotage, the
+                    countdown, and the start and result screens
   levels/           the lane of the course, the solo course (test_course.tscn), the
                     duel (two lanes), the Trick Park (trick_park.tscn), and main.tscn,
                     the main scene: the start screen and the mode it starts
