@@ -1,6 +1,6 @@
 # Flow et combo : la jauge que remplissent les moves
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-14, avec Jimmy. Première des deux specs de l'étape 2 de la feuille de
 route (« Figures et flow ») ; la seconde ajoutera les figures aériennes (saltos) et les
