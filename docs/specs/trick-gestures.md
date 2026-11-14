@@ -1,6 +1,6 @@
 # Figures par gestes, réception au bon moment, et le Trick Park
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-14, avec Jimmy, après qu'il a joué les figures de
 `docs/specs/air-tricks.md`. Cette spec **remplace le mécanisme de lancement et de
