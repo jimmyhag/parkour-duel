@@ -1,0 +1,22 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://game/ui/sabotage_sounds.gd" id="1_sabotage_sounds"]
+[ext_resource type="AudioStream" path="res://assets/sounds/impactMetal_light_000.ogg" id="2_shot"]
+[ext_resource type="AudioStream" path="res://assets/sounds/glitch_001.ogg" id="3_warning"]
+[ext_resource type="AudioStream" path="res://assets/sounds/impactWood_heavy_000.ogg" id="4_effect"]
+[ext_resource type="AudioStream" path="res://assets/sounds/back_002.ogg" id="5_return"]
+
+[node name="SabotageSounds" type="Node"]
+script = ExtResource("1_sabotage_sounds")
+
+[node name="Shot" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("2_shot")
+
+[node name="Warning" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("3_warning")
+
+[node name="Effect" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("4_effect")
+
+[node name="Return" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("5_return")

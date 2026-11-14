@@ -44,6 +44,18 @@ func trick(direction: Vector3, steps: int) -> ScriptedIntentSource:
 	return self
 
 
+## Adds `steps` steps going in `direction` (in the world) with the aim held; the shot is
+## pressed at the step `shot_at` of them, if it is one.
+func aim(direction: Vector3, steps: int, shot_at: int = -1) -> ScriptedIntentSource:
+	for i: int in steps:
+		var intent: MoveIntent = MoveIntent.new()
+		intent.direction = direction
+		intent.aim_held = true
+		intent.shoot_pressed = i == shot_at
+		_intents.append(intent)
+	return self
+
+
 ## Adds one step that asks to come back to the last checkpoint.
 func request_respawn() -> ScriptedIntentSource:
 	var intent: MoveIntent = MoveIntent.new()

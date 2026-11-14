@@ -17,6 +17,10 @@ var slide_held: bool = false
 var trick_pressed: bool = false
 ## The trick is held down.
 var trick_held: bool = false
+## The aim is held down: the runner aims.
+var aim_held: bool = false
+## The shot was pressed at this step.
+var shoot_pressed: bool = false
 ## The return to the last checkpoint was asked at this step.
 var respawn_requested: bool = false
 ## Restarting the course was asked at this step.

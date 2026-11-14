@@ -10,3 +10,7 @@ licence.
 | `sounds/maximize_006.ogg` | Interface Sounds 1.0 | Kenney (www.kenney.nl) | https://kenney.nl/assets/interface-sounds | CC0 1.0 (http://creativecommons.org/publicdomain/zero/1.0/) |
 | `sounds/error_004.ogg` | Interface Sounds 1.0 | Kenney (www.kenney.nl) | https://kenney.nl/assets/interface-sounds | CC0 1.0 (http://creativecommons.org/publicdomain/zero/1.0/) |
 | `sounds/impactPunch_heavy_000.ogg` | Impact Sounds 1.0 | Kenney (www.kenney.nl) | https://kenney.nl/assets/impact-sounds | CC0 1.0 (http://creativecommons.org/publicdomain/zero/1.0/) |
+| `sounds/glitch_001.ogg` | Interface Sounds 1.0 | Kenney (www.kenney.nl) | https://kenney.nl/assets/interface-sounds | CC0 1.0 (http://creativecommons.org/publicdomain/zero/1.0/) |
+| `sounds/back_002.ogg` | Interface Sounds 1.0 | Kenney (www.kenney.nl) | https://kenney.nl/assets/interface-sounds | CC0 1.0 (http://creativecommons.org/publicdomain/zero/1.0/) |
+| `sounds/impactMetal_light_000.ogg` | Impact Sounds 1.0 | Kenney (www.kenney.nl) | https://kenney.nl/assets/impact-sounds | CC0 1.0 (http://creativecommons.org/publicdomain/zero/1.0/) |
+| `sounds/impactWood_heavy_000.ogg` | Impact Sounds 1.0 | Kenney (www.kenney.nl) | https://kenney.nl/assets/impact-sounds | CC0 1.0 (http://creativecommons.org/publicdomain/zero/1.0/) |

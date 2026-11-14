@@ -4,7 +4,9 @@ extends CharacterBody3D
 ## gives it to the motor of game/core with the facts it observes (RunnerFacts), and
 ## applies what the motor decides: the velocity it wants, a capsule as low as its state
 ## says, a visible body that faces the push, leans towards the wall it runs along and
-## turns with the trick under way. It decides nothing about the movement itself.
+## turns with the trick under way. While it aims, it observes what is under the reticle
+## (AimFacts) and puts the camera over its shoulder. It decides nothing about the
+## movement or the shot itself.
 
 ## Emitted at the end of every fixed step, with the intent the runner just followed.
 signal stepped(intent: MoveIntent)
@@ -18,6 +20,9 @@ const NO_WALL_RUN_GROUP: StringName = &"no_wall_run"
 ## Below this horizontal speed (m/s), a body that looks where it moves keeps its
 ## orientation: what is left of a speed that small says nothing of a direction.
 const ALMOST_STILL: float = 0.1
+## What the line of the reticle meets: the blocks of the world and the targets
+## (project.godot, layer names 1 and 3), not the runners.
+const AIM_MASK: int = 0b101
 
 ## The tuning resource; its capsule and camera values replace the ones of the scene.
 @export var tuning: MovementTuning
@@ -25,6 +30,8 @@ const ALMOST_STILL: float = 0.1
 var motor: RunnerMotor
 ## Replaceable: the inputs by default, a sequence written in advance in the tests.
 var intent_source: IntentSource
+## What the runner observed under the reticle at its last step: nothing unless it aimed.
+var aim_facts: AimFacts = AimFacts.new()
 
 ## Where the visible body looks, as a rotation around the vertical axis, and how far it
 ## leans to its left, in radians.
@@ -50,6 +57,8 @@ func _physics_process(delta: float) -> void:
 	velocity = motor.step(intent, _observe(intent), delta)
 	_fit_capsule()
 	move_and_slide()
+	camera_rig.aiming = intent.aim_held
+	aim_facts = _observe_the_aim(intent)
 	_turn(intent, delta)
 	_lean_towards_the_wall(delta)
 	_pose()
@@ -234,6 +243,28 @@ func _fits_standing_at(feet: Vector3) -> bool:
 	query.collision_mask = collision_mask
 	query.exclude = [get_rid()]
 	return get_world_3d().direct_space_state.intersect_shape(query, 1).is_empty()
+
+
+## What is under the reticle while the runner aims: the first block or target on the
+## line from the camera through the centre of the screen, as far as twice the range of a
+## shot beyond the camera's arm. A target is a body that holds the identity of its target
+## (SabotageTarget.META); its distance is measured from the runner's eyes.
+func _observe_the_aim(intent: MoveIntent) -> AimFacts:
+	if not intent.aim_held:
+		return AimFacts.new()
+	var eye: Transform3D = camera_rig.camera().global_transform
+	var reach: float = 2.0 * tuning.shot_range + tuning.camera_distance
+	var ray: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
+		eye.origin, eye.origin - eye.basis.z * reach, AIM_MASK, [get_rid()]
+	)
+	var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(ray)
+	if hit.is_empty():
+		return AimFacts.new()
+	var collider: Object = hit["collider"]
+	var target: int = collider.get_meta(SabotageTarget.META, SabotageTarget.NO_TARGET)
+	var point: Vector3 = hit["position"]
+	var eyes: Vector3 = global_position + Vector3.UP * tuning.camera_look_height
+	return AimFacts.new(target, eyes.distance_to(point))
 
 
 ## Where the runner faces, on the ground: the direction its visible body looks at.

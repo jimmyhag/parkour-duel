@@ -3,9 +3,9 @@ extends RefCounted
 ## The runner's state machine. At every fixed step the player layer gives it an intent
 ## and the facts it observed (RunnerFacts); it answers with the state of the runner and
 ## the velocity it wants, and announces the moves it starts and the tricks its landings
-## pay (RunnerEvent). It plays the aerial tricks (AirTrick) of each jump. It uses
-## nothing but its arguments, the tuning and the speed bonus the flow gives it: no
-## input, no clock, no scene.
+## pay (RunnerEvent). It plays the aerial tricks (AirTrick) of each jump. A runner that
+## aims is slower on the ground and starts no trick. It uses nothing but its arguments,
+## the tuning and the speed bonus the flow gives it: no input, no clock, no scene.
 
 enum State {
 	GROUNDED,
@@ -33,6 +33,8 @@ var events: Array[RunnerEvent] = []
 var top_speed_bonus: float = 0.0
 
 var _step_seconds: float = 0.0
+## The runner aims at this step.
+var _aiming: bool = false
 ## The velocity the runner really had as the step started: the one of its facts.
 var _real_velocity: Vector3 = Vector3.ZERO
 var _steps_in_the_air: int = LONG_AGO
@@ -89,6 +91,7 @@ func step(intent: MoveIntent, facts: RunnerFacts, delta: float) -> Vector3:
 	_real_velocity = facts.velocity
 	velocity = facts.velocity
 	_step_seconds = delta
+	_aiming = intent.aim_held
 	_remember_requests(intent)
 	_turn_the_trick(intent)
 	_observe_floor(facts)
@@ -109,6 +112,7 @@ func reset() -> void:
 	state = State.FALLING
 	velocity = Vector3.ZERO
 	_real_velocity = Vector3.ZERO
+	_aiming = false
 	events.clear()
 	_steps_since_landing = LONG_AGO
 	_slide_pressed_since_the_last_slide = false
@@ -136,6 +140,11 @@ func reset() -> void:
 ## The top speed of the runner: the one of the tuning, plus the bonus of the flow.
 func top_speed() -> float:
 	return tuning.top_speed * (1.0 + top_speed_bonus)
+
+
+## The runner aimed at the step it just played.
+func is_aiming() -> bool:
+	return _aiming
 
 
 ## The real horizontal speed of the runner as it started the step it just played: what
@@ -563,6 +572,9 @@ func _steer(direction: Vector3, delta: float) -> void:
 	var momentum_loss: float = 0.0
 	if state == State.HARD_LANDING:
 		top *= tuning.hard_landing_speed_ratio
+	var aims_on_the_ground: bool = _aiming and not _is_in_the_air()
+	if aims_on_the_ground:
+		top *= tuning.aim_speed_ratio
 	if not _is_in_the_air():
 		rate = tuning.ground_deceleration if wish.is_zero_approx() else tuning.ground_acceleration
 		momentum_loss = tuning.momentum_deceleration * delta
@@ -574,6 +586,10 @@ func _steer(direction: Vector3, delta: float) -> void:
 	var speed: float = horizontal.length()
 	if state == State.HARD_LANDING:
 		horizontal = horizontal.limit_length(top)
+	elif aims_on_the_ground and speed > top:
+		# Aiming is braking: the runner comes down to the speed of an aim as fast as it
+		# stops, and keeps no momentum above it.
+		rate = maxf(rate, tuning.ground_deceleration)
 	elif speed > top and not wish.is_zero_approx():
 		# Momentum: the runner goes where it wants at the speed it has, which only comes
 		# back down towards the top speed at the pace of the loss.
@@ -754,10 +770,11 @@ func _crash() -> void:
 
 
 ## A trick pressed in the air, rising or falling (not along a wall), starts, unless one
-## is under way. It is chosen by the push against the velocity the runner had as the step
-## started: the push of this step does not bend what it is measured against.
+## is under way or the runner aims. It is chosen by the push against the velocity the
+## runner had as the step started: the push of this step does not bend what it is
+## measured against.
 func _start_a_trick(intent: MoveIntent) -> void:
-	if not intent.trick_pressed or is_in_a_trick():
+	if not intent.trick_pressed or intent.aim_held or is_in_a_trick():
 		return
 	if state != State.RISING and state != State.FALLING:
 		return

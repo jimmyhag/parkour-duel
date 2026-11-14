@@ -3,8 +3,10 @@ extends SpringArm3D
 ## Free third-person camera: the mouse or the right stick turns it around the runner,
 ## and the spring arm pulls it closer when an obstacle comes between them: the arm
 ## carries a sphere, so the camera stays at a distance from a wall instead of sinking
-## into it. The camera is not part of the simulation: it follows frame time, and the
-## interpolated position of its target.
+## into it. While the runner aims, the camera goes over its right shoulder and narrows
+## its field of view, so that the centre of the screen, where the reticle is, shows what
+## the runner aims at. The camera is not part of the simulation: it follows frame time,
+## and the interpolated position of its target.
 
 const LOOK_LEFT: StringName = &"look_left"
 const LOOK_RIGHT: StringName = &"look_right"
@@ -14,15 +16,25 @@ const RELEASE_MOUSE: StringName = &"release_mouse"
 
 ## The node the camera turns around.
 var target: Node3D
+## The runner aims: the camera goes over its shoulder.
+var aiming: bool = false
 var tuning: MovementTuning:
 	set(value):
 		tuning = value
 		spring_length = tuning.camera_distance
 		(shape as SphereShape3D).radius = tuning.camera_collision_radius
 
+## How far the camera is over the shoulder: 0 behind the back, 1 over the shoulder.
+var _aim_blend: float = 0.0
+## The field of view of the camera when the runner does not aim, in degrees.
+var _usual_fov: float = 0.0
+
+@onready var _camera: Camera3D = $Camera3D as Camera3D
+
 
 func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	_usual_fov = _camera.fov
 
 
 func _process(delta: float) -> void:
@@ -31,8 +43,15 @@ func _process(delta: float) -> void:
 	)
 	var stick_turn: Vector2 = -stick * tuning.camera_stick_speed * delta
 	turn(stick_turn.x, stick_turn.y)
+	var blend_step: float = 1.0
+	if tuning.aim_camera_blend_time > 0.0:
+		blend_step = delta / tuning.aim_camera_blend_time
+	_aim_blend = move_toward(_aim_blend, 1.0 if aiming else 0.0, blend_step)
 	var feet: Vector3 = target.get_global_transform_interpolated().origin
-	global_position = feet + Vector3.UP * tuning.camera_look_height
+	# The right of the view stays horizontal: looking up or down turns around it.
+	var shoulder: Vector3 = global_basis.x * tuning.aim_camera_offset * _aim_blend
+	global_position = feet + Vector3.UP * tuning.camera_look_height + shoulder
+	_camera.fov = lerpf(_usual_fov, tuning.aim_camera_fov, _aim_blend)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -58,6 +77,11 @@ func turn(yaw: float, pitch: float) -> void:
 ## Puts the camera behind the back of a runner that faces `yaw`.
 func face(yaw: float) -> void:
 	rotation.y = yaw
+
+
+## The camera at the end of the arm: the eye the reticle is the centre of.
+func camera() -> Camera3D:
+	return _camera
 
 
 ## The direction the camera looks at, as a rotation around the vertical axis.

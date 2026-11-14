@@ -147,6 +147,41 @@ func test_the_debug_display_shows_the_flow() -> void:
 	assert_string_contains(overlay.text, "SPEED BONUS 10 %")
 
 
+func test_the_debug_display_shows_the_aim_and_the_targets() -> void:
+	var tuning: MovementTuning = MotorBody.fixed_tuning()
+	var targets: TargetBoard = TargetBoard.new()
+	var platform: SabotageTarget = SabotageTarget.new(1, SabotageTarget.Kind.PLATFORM, tuning, 60)
+	var bridge: SabotageTarget = SabotageTarget.new(2, SabotageTarget.Kind.BRIDGE, tuning, 60)
+	targets.add(platform)
+	targets.add(bridge)
+	var shooter: Shooter = Shooter.new(1, tuning)
+	var overlay: DebugOverlay = OVERLAY_SCENE.instantiate() as DebugOverlay
+	overlay.motor = RunnerMotor.new(tuning)
+	overlay.shooter = shooter
+	overlay.targets = targets
+	add_child_autofree(overlay)
+	_trigger(TOGGLE_DEBUG)
+	overlay.refresh()
+	assert_string_contains(overlay.text, "AIM OFF")
+	assert_string_contains(overlay.text, "AIMED -")
+	# The platform hit ten steps ago: 26 steps of its warning left.
+	platform.receive(SabotageMessage.new(7, 1, 0))
+	var nobody: Array[int] = []
+	for i: int in 10:
+		platform.step(nobody)
+	var aim: MoveIntent = MoveIntent.new()
+	aim.aim_held = true
+	var flow: FlowState = FlowState.new(tuning, 60)
+
+	shooter.follow(aim, AimFacts.new(2, 30.5), 0, targets, flow)
+	overlay.refresh()
+
+	assert_string_contains(overlay.text, "AIM ON")
+	assert_string_contains(overlay.text, "AIMED 2 BRIDGE READY 30.5 m")
+	assert_string_contains(overlay.text, "TARGET 1 PLATFORM WARNING 0.43 s")
+	assert_false(overlay.text.contains("TARGET 2"), "a ready target has no time left to show")
+
+
 ## A runner going at 5 m/s that left the floor one step ago, without jumping.
 func _motor_falling_off_a_ledge() -> RunnerMotor:
 	var tuning: MovementTuning = MovementTuning.new()
