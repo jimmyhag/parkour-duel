@@ -140,10 +140,12 @@ func test_the_hud_shows_the_recipe_being_drawn() -> void:
 		shown, ["?", "BACKFLIP", "BACKFLIP FULL"] as Array[String], "what it reads, as it goes"
 	)
 
-	# Released on the ground: nothing is drawn any more.
+	# Released where no jump is allowed (the runner aims): nothing is drawn any more, and
+	# nothing starts.
 	var released: MoveIntent = MoveIntent.new()
 	released.trick_released = true
 	released.trick_recipe = gesture.recipe()
+	released.aim_held = true
 	body.step(released)
 	hud.refresh()
 	assert_eq(_shown(hud, "%TrickLabel"), "", "nothing shown")

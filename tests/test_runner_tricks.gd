@@ -1,7 +1,8 @@
 extends TrickTest
 ## The aerial tricks of the runner's motor (game/core) in the air: the trick drawn starts
-## as the button is released in the air, the trick of the context when nothing was
-## drawn, one trick per jump, what a trick forbids meanwhile, and their names.
+## as the button is released in the air, or on the ground with the full jump the release
+## makes where a jump is allowed (nothing elsewhere), the trick of the context when
+## nothing was drawn, one trick per jump, what a trick forbids meanwhile, and their names.
 
 # --- Drawing and releasing ---
 
@@ -114,16 +115,117 @@ func test_one_trick_per_jump() -> void:
 # --- Where a trick starts ---
 
 
-func test_a_trick_does_not_start_on_the_ground() -> void:
-	var body: MotorBody = MotorBody.running(_tuning, FORWARD, _tuning.top_speed)
-	assert_eq(body.motor.state, RunnerMotor.State.GROUNDED, "a runner on the ground")
+func test_releasing_the_button_on_the_ground_jumps_and_starts_the_trick() -> void:
+	# A backflip drawn on the ground, then the trick button released, the jump never
+	# pressed; beside it, the same runner jumping with the jump held up to the top.
+	var tricking: MotorBody = MotorBody.running(_tuning, FORWARD, _tuning.top_speed)
+	var plain: MotorBody = MotorBody.running(_tuning, FORWARD, _tuning.top_speed)
+	for step: int in 4:
+		tricking.step(_drawing(_backflip(), FORWARD))
+		plain.step(_push(FORWARD))
+	assert_eq(tricking.motor.state, RunnerMotor.State.GROUNDED, "a runner on the ground")
 
-	for recipe: TrickRecipe in [_backflip(), _front_flip(), TrickRecipe.of_the_context()]:
-		body.step(_release(recipe, FORWARD))
-		assert_null(body.motor.current_trick(), "nothing starts: %s" % recipe.name())
-		body.step(_push(FORWARD))
+	tricking.step(_release(_backflip(), FORWARD))
+	plain.step(_jump(FORWARD))
 
-	assert_eq(body.motor.state, RunnerMotor.State.GROUNDED, "it stays on the ground")
+	assert_eq(tricking.motor.state, RunnerMotor.State.RISING, "it jumps at the release")
+	assert_almost_eq(tricking.velocity, plain.velocity, Vector3.ONE * TOLERANCE, "a jump")
+	var trick: AirTrick = tricking.motor.current_trick()
+	assert_not_null(trick, "a trick starts at the same step")
+	if trick != null:
+		assert_eq(trick.name(), "BACKFLIP", "the backflip drawn")
+		assert_false(trick.recipe.context, "not the trick of the context")
+	assert_true(tricking.motor.is_in_a_trick(), "under way")
+	# The trick is the move: the jump that carries it is not one more.
+	_assert_kinds(tricking, [])
+
+	# A full jump: it flies as the jump held up to its top does.
+	var steps: int = 0
+	while not plain.on_floor and steps < MANY_STEPS:
+		tricking.step(_push(FORWARD))
+		var flight: MoveIntent = _push(FORWARD)
+		flight.jump_held = plain.motor.state == RunnerMotor.State.RISING
+		plain.step(flight)
+		var context: String = "step %d" % steps
+		assert_almost_eq(tricking.position, plain.position, Vector3.ONE * TOLERANCE, context)
+		steps += 1
+	assert_true(tricking.on_floor, "both land together")
+
+	# Within the coyote time, just off the floor: the same.
+	var leaving: MotorBody = MotorBody.running(_tuning, FORWARD, _tuning.top_speed)
+	leaving.has_floor = false
+	leaving.on_floor = false
+	leaving.step(_drawing(_backflip(), FORWARD))
+	assert_eq(leaving.motor.state, RunnerMotor.State.FALLING, "a runner off the floor")
+	assert_gt(leaving.motor.coyote_time_left(), 0.0, "within the coyote time")
+	leaving.step(_release(_backflip(), FORWARD))
+	assert_eq(leaving.motor.state, RunnerMotor.State.RISING, "it jumps at the release")
+	assert_true(leaving.motor.is_in_a_trick(), "and the trick starts")
+
+	# A drawing that cannot be read starts nothing, not even the jump.
+	var unread: MotorBody = MotorBody.running(_tuning, FORWARD, _tuning.top_speed)
+	unread.step(_release(null, FORWARD))
+	assert_eq(unread.motor.state, RunnerMotor.State.GROUNDED, "a drawing not read: no jump")
+	assert_null(unread.motor.current_trick(), "and no trick")
+
+
+func test_without_a_gesture_on_the_ground_the_jump_starts_the_trick_of_the_context() -> void:
+	var nothing_drawn: TrickRecipe = TrickRecipe.of_the_context()
+
+	# Running forward: a front flip.
+	var running: MotorBody = MotorBody.running(_tuning, FORWARD, _tuning.top_speed)
+	running.step(_drawing(nothing_drawn, FORWARD))
+	running.step(_release(nothing_drawn, FORWARD))
+	assert_eq(running.motor.state, RunnerMotor.State.RISING, "running forward: it jumps")
+	_assert_context_trick(running, FRONT_FLIP, "running forward")
+
+	# At a stop: a backflip.
+	var still: MotorBody = MotorBody.new(_tuning)
+	still.step(_push(Vector3.ZERO))
+	still.step(_release(nothing_drawn))
+	assert_eq(still.motor.state, RunnerMotor.State.RISING, "at a stop: it jumps")
+	_assert_context_trick(still, BACKFLIP, "at a stop")
+
+
+func test_releasing_the_button_where_no_jump_is_allowed_starts_nothing() -> void:
+	# A roll and a hard landing, from above the height of a roll, the slide pressed just
+	# before the ground or not at all.
+	var rolling: MotorBody = _dropped(true)
+	assert_eq(rolling.motor.state, RunnerMotor.State.ROLLING, "a runner in a roll")
+	var hard: MotorBody = _dropped(false)
+	assert_eq(hard.motor.state, RunnerMotor.State.HARD_LANDING, "a runner in a hard landing")
+	# A slide under a low ceiling.
+	var low: MotorBody = MotorBody.running(_tuning, FORWARD, _tuning.top_speed)
+	low.step(_slide(FORWARD))
+	low.can_stand = false
+	low.step(_push(FORWARD))
+	assert_eq(low.motor.state, RunnerMotor.State.SLIDING, "a runner low under a ceiling")
+	# A runner that aims, on its feet.
+	var aiming: MotorBody = MotorBody.running(_tuning, FORWARD, _tuning.top_speed)
+
+	for body: MotorBody in [rolling, hard, low, aiming]:
+		var state: String = RunnerMotor.State.keys()[body.motor.state]
+		var release: MoveIntent = _release(_backflip(), FORWARD)
+		release.aim_held = body == aiming
+		body.step(release)
+		assert_true(body.on_floor, "%s: it does not jump" % state)
+		assert_ne(body.motor.state, RunnerMotor.State.RISING, "%s: not rising" % state)
+		assert_null(body.motor.current_trick(), "%s: nothing starts" % state)
+		_assert_kinds(body, [])
+
+	# The drawing is forgotten: back on its feet, a jump starts no trick.
+	low.can_stand = true
+	for body: MotorBody in [rolling, hard, low, aiming]:
+		var state: String = RunnerMotor.State.keys()[body.motor.state]
+		var steps: int = 0
+		while body.motor.state != RunnerMotor.State.GROUNDED and steps < MANY_STEPS:
+			body.step(_push(FORWARD))
+			steps += 1
+		body.step(_jump(FORWARD))
+		assert_eq(body.motor.state, RunnerMotor.State.RISING, "%s, then a jump" % state)
+		for step: int in TURN_STEPS:
+			body.step(_push(FORWARD))
+			assert_null(body.motor.current_trick(), "%s: no trick in the jump" % state)
 
 
 func test_a_trick_does_not_start_in_a_wall_run_or_a_mantle() -> void:
@@ -311,3 +413,27 @@ func _assert_context_trick(body: MotorBody, flip: TrickRecipe.Flip, context: Str
 	assert_eq(trick.recipe.flip, flip, context + ": its flip")
 	assert_eq(trick.recipe.turns, 1, context + ": one turn")
 	assert_eq(trick.points(_tuning), _tuning.trick_points_context, context + ": its points")
+
+
+## The jump pressed at this step, and held.
+func _jump(direction: Vector3) -> MoveIntent:
+	var intent: MoveIntent = _push(direction)
+	intent.jump_pressed = true
+	intent.jump_held = true
+	return intent
+
+
+## A runner dropped from a metre above the height of a roll, played until it lands: it
+## rolls if `roll`, the slide pressed just before the ground, and lands hard otherwise.
+func _dropped(roll: bool) -> MotorBody:
+	var body: MotorBody = MotorBody.new(_tuning, _tuning.roll_fall_height + 1.0)
+	var pressed: bool = false
+	var steps: int = 0
+	while not body.motor.is_on_the_ground() and steps < MANY_STEPS:
+		var intent: MoveIntent = _push(Vector3.ZERO)
+		if roll and not pressed and body.position.y < 1.0:
+			intent.slide_pressed = true
+			pressed = true
+		body.step(intent)
+		steps += 1
+	return body
