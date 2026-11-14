@@ -349,7 +349,19 @@ et Jimmy peut rouvrir chacun après avoir joué.
   dessous, un salto tient de nouveau dans un saut à plat. Le test « Un salto ne tient
   pas dans un saut à plat » lit le réglage du projet et le refuse.
 - **La descente qui permet un salto** se calcule depuis le réglage, avec deux pas de
-  marge : 1,37 m aujourd'hui.
+  marge pour le test : 1,37 m aujourd'hui. Mesuré : une figure lancée au pas même du
+  saut passe dès 0,6 m de descente ; lancée 2 pas après, il faut 1,1 m.
+- **Appuyer figure en même temps que saut ou wall-jump** donne presque toujours un
+  PERFECT sur une descente de moins de 3,5 m : le risque n'est que d'appuyer trop tard
+  (2 pas). Une figure posée en combo ×4 vaut environ 1 600 points de style, soit plus
+  d'une munition. Gardé pour que Jimmy le juge en jouant ; pour remettre du risque, un
+  délai minimal avant de lancer une figure ou une fenêtre PERFECT plus courte se règlent
+  ensuite, et le coût en munitions se revoit avec l'étape 3.
+- **Vriller pendant la montée** oblige à relâcher le saut, ce qui écourte la montée : en
+  pratique, on vrille après le sommet. Gardé (la figure ne change pas la trajectoire,
+  le saut relâché si) ; à juger en jouant.
+- **Deux figures dans un même saut** demandent une très longue chute (environ 20 m,
+  calculé) ; le parcours de test n'en offre pas.
 
 ## Hors périmètre
 
