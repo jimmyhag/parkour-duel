@@ -114,8 +114,8 @@ Jumping from one wall to the one facing it, again and again, climbs between them
 | Step | Content | Status |
 | ---- | ------- | ------ |
 | 0 | Repository, Godot skeleton, harness and gates | done |
-| 1 | Solo movement prototype | in progress: the base (run, jump, camera, timed course), the ground moves (slide, roll, momentum) and the wall moves (mantle, wall run, wall jump) are in; the owner plays the whole course next |
-| 2 | Tricks and flow | not started |
+| 1 | Solo movement prototype | done: validated by the owner on 2026-11-14 |
+| 2 | Tricks and flow | in progress: the flow gauge and combo are specified (`docs/specs/flow-combo.md`); aerial tricks and sounds come next |
 | 3 | Shooting and sabotage | not started |
 | 4 | Local duel (ghost, then bot) | not started |
 | 5 | Online PVP | not started |
