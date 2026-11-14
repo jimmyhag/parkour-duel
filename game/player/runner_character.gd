@@ -5,9 +5,11 @@ extends Node3D
 ## capsule; without them, there is none. It stands as tall as the standing capsule, its
 ## feet on the ground, facing -Z, and plays the animation chosen from the motor
 ## (RunnerAnimation): a short blend from one clip to the next, the clip fitted to the
-## move it shows, mirrored along a wall at the right, and the upper body held in the aim of
-## Pistol Idle over what the legs do. The clips play in place: the motor alone moves the
-## runner. Presentation only: nothing the runner observes depends on it.
+## move it shows, the upper body held in the aim of Pistol Idle over what the legs do. The
+## clips play in place: the motor alone moves the runner. Wall Run is laid against the wall
+## from its bones (WallRunPose): mirrored along a wall on the other side than its own, and
+## moved across so that its feet almost touch the wall. Presentation only: nothing the
+## runner observes depends on it.
 
 ## The character, the only file whose mesh the game uses.
 const MODEL: String = "res://assets/mixamo/ch08_nonpbr.fbx"
@@ -54,12 +56,20 @@ const RAISED: Array[RunnerAnimation.Clip] = [
 	RunnerAnimation.Clip.WALL_RUN,
 ]
 ## The animation of a Mixamo file, the root bone of its skeleton, the first bone of the
-## upper body and the bone whose bend shows the tuck, in the tracks of the files.
+## upper body, the bone whose bend shows the tuck, and the head and feet that tell the side
+## of the wall of Wall Run, in the tracks of the files.
 const TAKE: StringName = &"mixamo_com"
 const SKELETON: String = "Skeleton3D"
 const HIPS: String = "mixamorig7_Hips"
 const SPINE: String = "mixamorig7_Spine"
 const KNEE: String = "mixamorig7_LeftLeg"
+const HEAD: String = "mixamorig7_Head"
+const LEFT_FOOT: String = "mixamorig7_LeftFoot"
+const RIGHT_FOOT: String = "mixamorig7_RightFoot"
+## The bones the character must have for the clips to move it.
+const RIG: Array[String] = [HIPS, SPINE, KNEE, HEAD, LEFT_FOOT, RIGHT_FOOT]
+## The turn that makes the model, which faces +Z, face -Z as the runner does.
+const FACING: Basis = Basis(Vector3.UP, PI)
 ## The rate at which the clips are sampled, as in the files.
 const FRAMES_PER_SECOND: float = 30.0
 const LIBRARY: StringName = &"runner"
@@ -78,6 +88,8 @@ const TINT_SHARE: float = 0.5
 ## kept: loading it again for every runner would take a second each time.
 static var _library: AnimationLibrary = null
 static var _scenes: Dictionary[String, PackedScene] = {}
+## How Wall Run is laid against the wall, measured as its clip is made.
+static var _wall_run: WallRunPose = null
 
 var _model: Node3D
 var _skeleton: Skeleton3D
@@ -149,14 +161,15 @@ static func fits(model: Node3D) -> bool:
 	var skeleton: Skeleton3D = model.get_node_or_null(SKELETON) as Skeleton3D
 	if skeleton == null:
 		return false
-	for bone: String in [HIPS, SPINE, KNEE]:
+	for bone: String in RIG:
 		if skeleton.find_bone(bone) < 0:
 			return false
 	return true
 
 
 ## Shows `animation`: a new clip blends in, in its blend time; the clip plays at its speed,
-## or fitted to its duration; the mirror follows at once; the aim blends in and out.
+## or fitted to its duration; the mirror along a wall follows at once; the aim blends in
+## and out.
 func play(animation: RunnerAnimation) -> void:
 	var length: float = _library.get_animation(_clip_name(animation.clip)).length
 	var pace: float = animation.speed
@@ -169,10 +182,18 @@ func play(animation: RunnerAnimation) -> void:
 	_tree.set(PACE, pace)
 	_aim_wanted = 1.0 if animation.aiming else 0.0
 	_aim_blend_time = animation.blend_time
-	if animation.mirrored != _mirrored:
-		_mirrored = animation.mirrored
+	var mirrored: bool = _wall_run.mirrors(animation.wall_side)
+	if mirrored != _mirrored:
+		_mirrored = mirrored
 		_place()
 		_model.reset_physics_interpolation()
+
+
+## How far towards the wall of a wall run the character is moved, in m, the wall being
+## `wall_distance` m from the side of the capsule: what puts its feet a few centimetres
+## from the wall (WallRunPose).
+func wall_run_offset(wall_distance: float, tuning: MovementTuning) -> float:
+	return _wall_run.offset(_scale, wall_distance, tuning)
 
 
 ## Adds `colour` over the character, as a share of it: the bot's.
@@ -230,7 +251,7 @@ func _build(model: Node3D, height: float) -> void:
 ## Turns the model to face -Z, at its size, mirrored or not.
 func _place() -> void:
 	var size: Vector3 = Vector3(-_scale if _mirrored else _scale, _scale, _scale)
-	_model.basis = Basis(Vector3.UP, PI) * Basis.from_scale(size)
+	_model.basis = FACING * Basis.from_scale(size)
 
 
 func _meshes() -> Array[MeshInstance3D]:
@@ -298,7 +319,8 @@ static func _clip_name(clip: RunnerAnimation.Clip) -> String:
 	return name.to_lower()
 
 
-## Every clip, cut, in place, looped or not; the tuck pose; and the aim.
+## Every clip, cut, in place, looped or not; the tuck pose; and the aim. Wall Run is laid
+## against its wall, measured from its bones.
 static func _make_library(skeleton: Skeleton3D) -> AnimationLibrary:
 	var hips_rest: Vector3 = skeleton.get_bone_rest(skeleton.find_bone(HIPS)).origin
 	var library: AnimationLibrary = AnimationLibrary.new()
@@ -310,6 +332,8 @@ static func _make_library(skeleton: Skeleton3D) -> AnimationLibrary:
 		else:
 			var cut: Vector2 = CUTS.get(clip, Vector2.ZERO)
 			made = _in_place(source, cut, clip in RAISED, hips_rest)
+		if clip == RunnerAnimation.Clip.WALL_RUN:
+			_wall_run = _lay_against_the_wall(made, skeleton)
 		if clip in LOOPED:
 			made.loop_mode = Animation.LOOP_LINEAR
 		library.add_animation(_clip_name(clip), made)
@@ -317,6 +341,58 @@ static func _make_library(skeleton: Skeleton3D) -> AnimationLibrary:
 	aim.loop_mode = Animation.LOOP_LINEAR
 	library.add_animation(AIM, aim)
 	return library
+
+
+## Measures how `clip`, in place, is laid against its wall, from where its bones are at each
+## key of its hips, across, the way the runner faces; and moves its hips across at each
+## key as the measure says, so that its bone nearest the wall stays on one plane.
+static func _lay_against_the_wall(clip: Animation, skeleton: Skeleton3D) -> WallRunPose:
+	var hips: int = clip.find_track(
+		NodePath("%s:%s" % [SKELETON, HIPS]), Animation.TYPE_POSITION_3D
+	)
+	var frames: Array[PackedFloat32Array] = []
+	for key: int in clip.track_get_key_count(hips):
+		var across: PackedFloat32Array = []
+		for place: Vector3 in _bone_places(clip, clip.track_get_key_time(hips, key), skeleton):
+			across.append((FACING * place).x)
+		frames.append(across)
+	var feet: PackedInt32Array = [skeleton.find_bone(LEFT_FOOT), skeleton.find_bone(RIGHT_FOOT)]
+	var pose: WallRunPose = WallRunPose.measure(frames, feet, skeleton.find_bone(HEAD))
+	var towards: Vector3 = FACING.inverse() * Vector3.RIGHT * WallRunPose.way(pose.side)
+	for key: int in pose.shifts.size():
+		var place: Vector3 = clip.track_get_key_value(hips, key)
+		clip.track_set_key_value(hips, key, place + towards * pose.shifts[key])
+	return pose
+
+
+## Where every bone of `skeleton` is, in its space, at `time` of `clip`: a bone that the
+## clip does not move stays as at rest.
+static func _bone_places(clip: Animation, time: float, skeleton: Skeleton3D) -> PackedVector3Array:
+	var poses: Array[Transform3D] = []
+	for bone: int in skeleton.get_bone_count():
+		poses.append(skeleton.get_bone_rest(bone))
+	for track: int in clip.get_track_count():
+		var bone: int = skeleton.find_bone(clip.track_get_path(track).get_concatenated_subnames())
+		if bone < 0:
+			continue
+		if clip.track_get_type(track) == Animation.TYPE_ROTATION_3D:
+			poses[bone].basis = Basis(clip.rotation_track_interpolate(track, time))
+		elif clip.track_get_type(track) == Animation.TYPE_POSITION_3D:
+			poses[bone].origin = clip.position_track_interpolate(track, time)
+	var places: PackedVector3Array = []
+	places.resize(skeleton.get_bone_count())
+	var bones: Array[int] = []
+	bones.append_array(skeleton.get_parentless_bones())
+	var index: int = 0
+	while index < bones.size():
+		var bone: int = bones[index]
+		var parent: int = skeleton.get_bone_parent(bone)
+		if parent >= 0:
+			poses[bone] = poses[parent] * poses[bone]
+		places[bone] = poses[bone].origin
+		bones.append_array(skeleton.get_bone_children(bone))
+		index += 1
+	return places
 
 
 ## The animation of a Mixamo file.

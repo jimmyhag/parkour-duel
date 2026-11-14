@@ -1,8 +1,9 @@
 extends GutTest
 ## The animation the runner's body shows, chosen from the state of its motor (game/core),
-## without the Mixamo files: the clip of each state, its playback speed, its mirror along a
-## wall, the tuck pose of a trick, the aim held by the upper body, and the brief landing.
-## The tuning is the fixed one of MotorBody; the runners go along -Z.
+## without the Mixamo files: the clip of each state, its playback speed, the side of the
+## wall it runs along and the mirror that follows, the tuck pose of a trick, the aim held
+## by the upper body, and the brief landing. The tuning is the fixed one of MotorBody; the
+## runners go along -Z.
 
 const FORWARD: Vector3 = Vector3.FORWARD
 ## A wall at the left of a runner going along -Z (its normal points to the runner), and
@@ -48,7 +49,11 @@ func test_every_state_of_the_runner_has_its_animation() -> void:
 		assert_eq(
 			animation.clip, expected[state], "the clip of %s" % RunnerMotor.State.keys()[state]
 		)
-		assert_false(animation.mirrored, "%s: not mirrored" % RunnerMotor.State.keys()[state])
+		assert_eq(
+			animation.wall_side,
+			RunnerAnimation.WallSide.NONE,
+			"%s: along no wall" % RunnerMotor.State.keys()[state]
+		)
 		assert_false(
 			animation.aiming, "%s: the upper body follows" % RunnerMotor.State.keys()[state]
 		)
@@ -119,7 +124,21 @@ func test_the_wall_run_on_the_other_side_is_mirrored() -> void:
 
 	assert_eq(along_the_left.clip, RunnerAnimation.Clip.WALL_RUN, "a wall at its left: Wall Run")
 	assert_eq(along_the_right.clip, RunnerAnimation.Clip.WALL_RUN, "a wall at its right: Wall Run")
-	assert_ne(along_the_left.mirrored, along_the_right.mirrored, "mirrored for one of the two")
+	assert_eq(along_the_left.wall_side, RunnerAnimation.WallSide.LEFT, "the wall at its left")
+	assert_eq(along_the_right.wall_side, RunnerAnimation.WallSide.RIGHT, "the wall at its right")
+	# Whichever side the clip has its wall on, measured from its bones (WallRunPose):
+	# mirrored for one of the two, and played as it is along a wall on its own side.
+	var sides: Array[RunnerAnimation.WallSide] = [
+		RunnerAnimation.WallSide.LEFT, RunnerAnimation.WallSide.RIGHT
+	]
+	for clip_side: RunnerAnimation.WallSide in sides:
+		var clip: WallRunPose = WallRunPose.new()
+		clip.side = clip_side
+		var context: String = "a clip with its wall at the %s" % _side_name(clip_side)
+		var left: bool = clip.mirrors(along_the_left.wall_side)
+		var right: bool = clip.mirrors(along_the_right.wall_side)
+		assert_ne(left, right, context + ": mirrored for one of the two")
+		assert_false(clip.mirrors(clip_side), context + ": as it is along a wall on its side")
 
 
 func test_a_trick_takes_the_tuck_pose() -> void:
@@ -214,6 +233,10 @@ func _fall_until(body: MotorBody, intent: MoveIntent, state: RunnerMotor.State) 
 	while body.motor.state != state and steps < MANY_STEPS:
 		body.step(intent)
 		steps += 1
+
+
+func _side_name(side: RunnerAnimation.WallSide) -> String:
+	return "left" if side == RunnerAnimation.WallSide.LEFT else "right"
 
 
 func _push(direction: Vector3) -> MoveIntent:

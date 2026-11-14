@@ -156,7 +156,7 @@ func test_without_the_files_the_capsule_stays() -> void:
 
 
 func test_a_character_of_another_rig_keeps_the_capsule() -> void:
-	var rig: Array[String] = [RunnerCharacter.HIPS, RunnerCharacter.SPINE, RunnerCharacter.KNEE]
+	var rig: Array[String] = RunnerCharacter.RIG
 	assert_true(RunnerCharacter.fits(_model_with_bones(rig)), "the bones of Ch08: it fits")
 	var other: Array[String] = []
 	for bone: String in rig:
