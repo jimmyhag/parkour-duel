@@ -124,7 +124,7 @@ Fonctionnalité: Flow et combo
     Alors le premier vaut tous ses points, le deuxième la moitié, le troisième rien
 
   Scénario: La fin d'un combo remet la répétition à zéro
-    # amendement
+    # amendement ; remplacé par docs/specs/trick-gestures.md, décision 19 : la fin au délai garde la répétition
     Soit un coureur qui vient de faire deux sauts d'affilée
     Quand son combo se termine par le délai puis qu'il saute de nouveau avec élan
     Alors ce saut vaut tous ses points

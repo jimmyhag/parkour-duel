@@ -361,11 +361,11 @@ rouvrir chacun après avoir joué.
   projet) et une vrille dure **0,3 s** (`trick_twist_duration`) : une figure vrillée ne
   tient plus dans un saut à plat, il reste les quatre simples, et la boucle rapporte
   **3 790** points par minute (75 en sautant sans figure). Le test refuse plus de 4 800.
-- **Les seuils des gestes** (dans la ressource de réglage) : un coup sec fait au moins
-  80 px de souris ou environ 0,08 s de stick à fond ; un dessin de moins de 30 px compte
-  comme rien (la figure du contexte part) ; un demi-cercle se lit dès 120°, un cercle dès
-  270° ; une pause de 0,05 s ou un virage de plus de 90° sépare deux éléments ; le retour
-  de la main entre deux coups est ignoré. À régler par Jimmy en jouant.
+- **Les seuils des gestes** (dans la ressource de réglage, après l'amendement) : le stick
+  à fond vaut 18 unités par seconde ; un coup sec fait au moins 0,65 unité (65 px de
+  souris) ; un dessin de moins de 0,55 unité compte comme rien (la figure du contexte
+  part) ; une vrille se lit dès 100° d'arc, deux vrilles dès 300° ; un cercle dès 270°.
+  Le corpus des gestes humains les garde. À régler par Jimmy en jouant.
 - **Le spin** : un deuxième cercle fait un 720, un troisième un 1080, trois tours au plus.
 - **« À l'arrêt »** pour la figure du contexte : sous la vitesse d'arrêt du flow (1 m/s).
 - **Le côté d'un side flip** ne compte pas pour la variété ; une figure du contexte est le
@@ -373,7 +373,8 @@ rouvrir chacun après avoir joué.
 - **Le sens de la vrille** suit le sens du demi-cercle ; les points ne changent pas.
 - **Poser** : un appui dans la fenêtre compte même avant la fin de la figure, si elle est
   finie au contact ; un appui au pas du contact est un PERFECT ; un appui entre 0,2 et
-  0,25 s avant le sol pose la figure mais ne fait pas rouler (fenêtre de roulade 0,2 s).
+  0,25 s avant le sol pose la figure et fait rouler en grande chute (décision 20 ; avant
+  l'amendement, il ne faisait pas rouler).
 - **Le dessin à la souris** marche même souris non capturée ; la caméra, elle, demande la
   capture.
 - **Le HUD** : bouton tenu, le dessin passe avant la figure en cours ; « ? » aussi pour un
