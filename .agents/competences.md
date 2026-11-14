@@ -21,3 +21,4 @@ cell means not assessed yet.
 | Combo economy: guards against repetition, risk against reward | `game/core/`, first applied by `docs/specs/flow-combo.md` | discovered | 2026-11-14 |
 | Dated events produced by the simulation and counted by another state | `game/core/`, first applied by `docs/specs/flow-combo.md` | discovered | 2026-11-14 |
 | Composing tricks from building blocks rather than a fixed list | `game/core/`, first applied by `docs/specs/air-tricks.md` | discovered | 2026-11-14 |
+| Small object state machines driven by dated messages | `game/core/`, first applied by `docs/specs/sabotage.md` | discovered | 2026-11-14 |
