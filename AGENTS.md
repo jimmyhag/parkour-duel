@@ -18,7 +18,8 @@ assistant. `CLAUDE.md` and `GEMINI.md` only import it: edit this file, not them.
   `.godot-version`. The `godot` command must be on `PATH` (on Windows, `godot_console`
   too: it is the one that waits and prints), or the `GODOT` environment variable must
   point to the editor binary. Python 3.13 (`.python-version`) runs the gate tools and
-  the GDScript linter. [`just`](https://github.com/casey/just) runs everything.
+  the GDScript linter. [`just`](https://github.com/casey/just) runs everything: just
+  1.42 or later, for the `[parallel]` attribute of the justfile (CI: 1.58.0).
 - `just setup` installs a fresh checkout or worktree: it creates `.venv` with the
   pinned tooling of `requirements-dev.txt` and builds Godot's import cache. `just dev`
   starts the game; in the editor, F5 does the same. No secret is needed and there is no
@@ -71,10 +72,10 @@ deadcode` refuses one that does not. Time limits on the owner's machine: 40 s fo
 | ------------------ | ---------------------------------------------------------- |
 | `just setup`       | Install a fresh checkout or worktree (`.venv`, import cache) |
 | `just dev`         | Start the game                                             |
-| `just test`        | Every test once (GUT, headless); `just test <filter>` runs the test scripts whose file name contains the filter |
+| `just test`        | Every test once (GUT, headless), the two tiers side by side; `just test <filter>` runs the test scripts whose file name contains the filter |
 | `just test-course` | Only the course replays (`test_course*`)                   |
-| `just typecheck`   | Every script loaded by Godot with the typing warnings raised to errors |
-| `just lint`        | `gdlint` and `gdformat --check`; any finding fails. `.venv/bin/gdformat <file>` (`.venv\Scripts\gdformat` on Windows) formats a file |
+| `just typecheck`   | Every script loaded by Godot, all in one process (`tools/typecheck.gd`), with the typing warnings raised to errors |
+| `just lint`        | `gdlint` and `gdformat --check`, side by side; any finding fails. `.venv/bin/gdformat <file>` (`.venv\Scripts\gdformat` on Windows) formats a file |
 | `just deadcode`    | Layer boundaries, dead files, course replay names and the `.claude/` mirror (`tools/check_structure.py`) |
 | `just preflight`   | typecheck + lint + every test but the course replays + deadcode: the edit-loop gate |
 | `just build`       | Export the Windows and Linux release builds, then start the host platform's one headless |
@@ -180,7 +181,7 @@ tests/              headless tests, one script per subject: test_<subject>.gd; t
                     without a scene, the bases of the replay, course, duel and trick
                     tests)
 tools/              the gate tools and the copy of the Mixamo files (Python, standard
-                    library only)
+                    library only), and the script the type gate runs inside Godot
 .agents/            the roles AI assistants play and the skills they load (README.md)
 .claude/            copies of .agents/ for Claude Code (kept identical by the gate)
 docs/specs/         one spec per request, written by the sparring partner

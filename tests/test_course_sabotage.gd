@@ -414,8 +414,9 @@ func test_the_reticle_shows_a_shootable_target() -> void:
 	var material: StandardMaterial3D = _material(platform)
 	assert_eq(material.emission_energy_multiplier, TargetBlock.FOCUS_ENERGY, "brighter")
 
-	# The shot, through the course: the message, the ammunition spent, the warning.
-	course.player.intent_source = ScriptedIntentSource.new().aim(Vector3.ZERO, FEW_STEPS, 0)
+	# The shot, through the course: the message, the ammunition spent, the warning. The
+	# runner goes on aiming at the platform after it.
+	course.player.intent_source = ScriptedIntentSource.new().aim(Vector3.ZERO, 1000, 0)
 	await _wait_steps(FEW_STEPS)
 	var message: SabotageMessage = course.shooter.last_message
 	assert_not_null(message, "a shot")
@@ -425,6 +426,12 @@ func test_the_reticle_shows_a_shootable_target() -> void:
 	assert_eq(course.flow.ammo, 0, "its cost spent")
 	assert_eq(platform.target.state, SabotageTarget.State.WARNING, "the platform warns")
 	assert_false(platform.focused, "no longer shootable")
+	# The reticle follows the frames, not the fixed steps: a few steps can pass within one
+	# frame on a busy machine. Once a whole frame has gone by, it shows the shot.
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_true(course.shooter.aiming, "the runner still aims at the platform")
+	assert_true(crosshair.visible, "so the reticle is still shown")
 	assert_eq(crosshair.look, Crosshair.Look.NEUTRAL, "nor is the reticle on a target")
 
 

@@ -1,6 +1,8 @@
-extends GutTest
+extends ReplayTest
 ## The player layer: inputs turned into intents, the capsule that follows the state of
 ## the runner, the third-person camera, and the visible body without the Mixamo files.
+## Its fixed steps run faster than real time, each one still 1/60 s of the game's time
+## (ReplayTest).
 
 const PLAYER_SCENE: PackedScene = preload("res://game/player/player.tscn")
 const GHOST_SCENE: PackedScene = preload("res://game/player/ghost.tscn")
