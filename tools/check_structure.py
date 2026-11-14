@@ -7,9 +7,10 @@
 2. Dead files. Every script, scene and resource of game/ (and every helper script of
    tests/) must be reachable from project.godot or from a test script.
 3. Course replays. A test script that loads a course scene (a scene of game/levels/),
-   directly or through the helpers of tests/ (CourseTest), replays the course: its file
-   name must start with the course replay prefix, which keeps it out of `just preflight`
-   and in `just check` (docs/specs/test-tiers.md).
+   directly, by the name of a project.godot setting that names it
+   ("application/run/main_scene"), or through the helpers of tests/ (CourseTest),
+   replays the course: its file name must start with the course replay prefix, which
+   keeps it out of `just preflight` and in `just check` (docs/specs/test-tiers.md).
 4. Mirror. .claude/agents and .claude/skills are copies of .agents/ on this project;
    they must stay identical to their source.
 
@@ -184,6 +185,38 @@ class Project:
         self.by_rel = {f.rel: f for f in self.files}
         self.by_uid = {uid: f for f in self.files if (uid := f.own_uid())}
         self.by_class = {f.class_name: f for f in self.files if f.class_name}
+        self.by_setting = self.settings_naming_files()
+
+    def settings_naming_files(self) -> dict[str, list[ProjectFile]]:
+        """The settings of project.godot whose value names project files, by the full
+        name ProjectSettings.get_setting() reads ("application/run/main_scene")."""
+        found: dict[str, list[ProjectFile]] = {}
+        section = ""
+        settings = (ROOT / "project.godot").read_text(encoding="utf-8")
+        for line in settings.split("\n"):
+            line = line.strip()
+            if line.startswith("[") and line.endswith("]"):
+                section = line[1:-1]
+                continue
+            key, equals, value = line.partition("=")
+            if not section or not equals:
+                continue
+            paths = RES_PATH.findall(value)
+            targets = [self.by_rel.get(path.removeprefix("res://")) for path in paths]
+            targets += [self.by_uid.get(uid) for uid in UID.findall(value)]
+            named = [target for target in targets if target is not None]
+            if named:
+                found[f"{section}/{key.strip()}"] = named
+        return found
+
+    def setting_references(self, source: ProjectFile) -> list[tuple[int, ProjectFile, str]]:
+        """The project files the source reaches by the name of a project setting that
+        names them, such as load(ProjectSettings.get_setting("application/run/main_scene"))."""
+        return [
+            (line, target, f'setting "{literal}"')
+            for line, literal in source.strings
+            for target in self.by_setting.get(literal, [])
+        ]
 
     def references(self, source: ProjectFile) -> list[tuple[int, ProjectFile, str]]:
         """Every project file the source refers to: (line, target, how)."""
@@ -332,13 +365,15 @@ def is_course_scene(candidate: ProjectFile) -> bool:
 
 
 def course_scene_loaded_by(project: Project, script: ProjectFile) -> tuple[int, str] | None:
-    """Whether the script loads a course scene, directly or through files of tests/:
-    the line of the script that leads to it, and the chain of references."""
+    """Whether the script loads a course scene, directly, by a project setting that names
+    it, or through files of tests/: the line of the script that leads to it, and the
+    chain of references."""
     pending: list[tuple[ProjectFile, int, list[str]]] = [(script, 0, [])]
     seen = {script.rel}
     while pending:
         current, first_line, chain = pending.pop(0)
-        for line, target, how in project.references(current):
+        references = project.references(current) + project.setting_references(current)
+        for line, target, how in references:
             step_line = first_line or line
             step_chain = [*chain, how]
             if is_course_scene(target):
