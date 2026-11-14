@@ -2,8 +2,9 @@ class_name RunnerMotor
 extends RefCounted
 ## The runner's state machine. At every fixed step the player layer gives it an intent
 ## and the facts it observed (RunnerFacts); it answers with the state of the runner and
-## the velocity it wants. It uses nothing but its arguments and the tuning: no input, no
-## clock, no scene.
+## the velocity it wants, and announces the moves it starts (RunnerEvent). It uses
+## nothing but its arguments, the tuning and the speed bonus the flow gives it: no
+## input, no clock, no scene.
 
 enum State {
 	GROUNDED,
@@ -22,11 +23,20 @@ const LONG_AGO: int = 1 << 30
 var tuning: MovementTuning
 var state: State = State.FALLING
 var velocity: Vector3 = Vector3.ZERO
+## The fixed steps the motor has played: what dates its messages.
+var steps: int = 0
+## What the motor announces at the step it just played: the moves started, and a hard
+## landing.
+var events: Array[RunnerEvent] = []
+## The share of the top speed added by the flow (0 for none); the absolute cap holds.
+var top_speed_bonus: float = 0.0
 
 var _step_seconds: float = 0.0
 var _steps_in_the_air: int = LONG_AGO
 var _steps_since_jump_request: int = LONG_AGO
 var _steps_since_slide_press: int = LONG_AGO
+## Steps since the runner last landed after a fall.
+var _steps_since_landing: int = LONG_AGO
 var _jump_spent: bool = true
 var _jump_cut: bool = false
 ## Where the slide is heading: what moves a runner that a low ceiling keeps down.
@@ -66,6 +76,8 @@ func _init(movement_tuning: MovementTuning) -> void:
 ## Advances the runner by one fixed step of `delta` seconds and returns the velocity it
 ## wants for this step.
 func step(intent: MoveIntent, facts: RunnerFacts, delta: float) -> Vector3:
+	steps += 1
+	events.clear()
 	velocity = facts.velocity
 	_step_seconds = delta
 	_remember_requests(intent)
@@ -80,10 +92,13 @@ func step(intent: MoveIntent, facts: RunnerFacts, delta: float) -> Vector3:
 	return velocity
 
 
-## Back to the state of a runner that was just put somewhere, at rest.
+## Back to the state of a runner that was just put somewhere, at rest, that has
+## announced nothing. Its steps go on being counted.
 func reset() -> void:
 	state = State.FALLING
 	velocity = Vector3.ZERO
+	events.clear()
+	_steps_since_landing = LONG_AGO
 	_steps_in_the_air = LONG_AGO
 	_steps_since_jump_request = LONG_AGO
 	_jump_spent = true
@@ -102,6 +117,22 @@ func reset() -> void:
 	_ledge_top = 0.0
 	_onto_the_ledge = Vector3.ZERO
 	_mantle_steps = 0
+
+
+## The top speed of the runner: the one of the tuning, plus the bonus of the flow.
+func top_speed() -> float:
+	return tuning.top_speed * (1.0 + top_speed_bonus)
+
+
+## The horizontal speed the runner wants for the step it just played, in m/s.
+func horizontal_speed() -> float:
+	return Vector2(velocity.x, velocity.z).length()
+
+
+## The runner is on its feet on the ground: neither in the air, nor along a wall, nor in
+## a mantle, a slide or a roll.
+func is_on_foot() -> bool:
+	return state == State.GROUNDED or state == State.HARD_LANDING
 
 
 ## The runner is low: its capsule has the height of a slide. It is in a slide and in a
@@ -181,6 +212,7 @@ func _remember_requests(intent: MoveIntent) -> void:
 
 func _observe_floor(facts: RunnerFacts) -> void:
 	var was_low: bool = is_low()
+	_steps_since_landing = mini(_steps_since_landing + 1, LONG_AGO)
 	if state == State.MANTLING:
 		# A mantle is a contact with the ground: what follows it starts from there.
 		_touch_the_ground(facts)
@@ -218,16 +250,21 @@ func _touch_the_ground(facts: RunnerFacts) -> void:
 ## roll, the slide must have been pressed within the window before this step: a button
 ## held since earlier is not a press. Otherwise the landing is hard and costs speed. A
 ## runner kept `low` by a ceiling lands the same way, and slides where it would stand.
+## A runner that was only put somewhere (its fall has no height) has not landed.
 func _land(fall_height: float, low: bool) -> void:
 	_landing_steps = 0
+	if is_finite(fall_height):
+		_steps_since_landing = 0
 	if fall_height <= tuning.roll_fall_height:
 		state = State.SLIDING if low else State.GROUNDED
 	elif _steps_since_slide_press <= _window_steps(tuning.roll_window):
 		state = State.ROLLING
+		_announce(RunnerEvent.Kind.ROLL)
 	else:
 		state = State.HARD_LANDING
 		velocity.x *= tuning.hard_landing_speed_ratio
 		velocity.z *= tuning.hard_landing_speed_ratio
+		_announce(RunnerEvent.Kind.HARD_LANDING)
 
 
 ## The runner is off the floor: rising, falling, or running along a wall.
@@ -251,10 +288,26 @@ func _choose_floor_state(intent: MoveIntent, facts: RunnerFacts) -> void:
 	if state == State.GROUNDED:
 		if intent.slide_held and not _slide_spent and speed >= tuning.slide_min_speed:
 			state = State.SLIDING
+			_start_slide()
 	elif state == State.SLIDING and facts.can_stand:
 		if not intent.slide_held or speed < tuning.slide_stop_speed:
 			state = State.GROUNDED
 			_slide_spent = intent.slide_held
+
+
+## A slide asked for starts. It is perfect when it starts within the window around a
+## landing, the slide pressed at most that long before touching the floor or after: its
+## horizontal speed gains the tuned speed the way it slides (the cap holds, see _move).
+func _start_slide() -> void:
+	var window: int = _window_steps(tuning.perfect_slide_window)
+	if _steps_since_landing > window or _steps_since_slide_press > window:
+		_announce(RunnerEvent.Kind.SLIDE)
+		return
+	var horizontal: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
+	var gain: Vector3 = horizontal.normalized() * tuning.perfect_slide_speed_gain
+	velocity.x += gain.x
+	velocity.z += gain.z
+	_announce(RunnerEvent.Kind.PERFECT_SLIDE)
 
 
 ## In the air: a wall run goes on while its wall does, and a runner that stands (not
@@ -295,6 +348,7 @@ func _start_mantle(facts: RunnerFacts) -> void:
 	_ledge_top = facts.altitude + facts.ledge_height
 	_onto_the_ledge = -_horizontal_unit(facts.ledge_normal)
 	_jump_spent = true
+	_announce(RunnerEvent.Kind.MANTLE)
 
 
 ## The runner rises along the face of its ledge up to its top, while it pushes onto it
@@ -360,6 +414,7 @@ func _start_wall_run(facts: RunnerFacts) -> void:
 	_refused_wall = facts.wall_id
 	_away_from_the_wall = _horizontal_unit(facts.wall_normal)
 	_steps_off_the_wall = 0
+	_announce(RunnerEvent.Kind.WALL_RUN)
 
 
 ## A wall run lasts its time, along the same wall, fast enough, unless the runner pushes
@@ -450,12 +505,12 @@ func _speed_down_the_slope(normal: Vector3) -> float:
 func _steer(direction: Vector3, delta: float) -> void:
 	var wish: Vector3 = Vector3(direction.x, 0.0, direction.z).limit_length(1.0)
 	var rate: float = tuning.air_acceleration
-	var top_speed: float = tuning.top_speed
+	var top: float = top_speed()
 	# What the floor takes, per step, from a speed above the top speed; the air takes
 	# nothing.
 	var momentum_loss: float = 0.0
 	if state == State.HARD_LANDING:
-		top_speed *= tuning.hard_landing_speed_ratio
+		top *= tuning.hard_landing_speed_ratio
 	if not _is_in_the_air():
 		rate = tuning.ground_deceleration if wish.is_zero_approx() else tuning.ground_acceleration
 		momentum_loss = tuning.momentum_deceleration * delta
@@ -463,14 +518,14 @@ func _steer(direction: Vector3, delta: float) -> void:
 		# Nothing brakes in the air: the momentum of the run carries the jump.
 		return
 	var horizontal: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
-	var target: Vector3 = wish * top_speed
+	var target: Vector3 = wish * top
 	var speed: float = horizontal.length()
 	if state == State.HARD_LANDING:
-		horizontal = horizontal.limit_length(top_speed)
-	elif speed > top_speed and not wish.is_zero_approx():
+		horizontal = horizontal.limit_length(top)
+	elif speed > top and not wish.is_zero_approx():
 		# Momentum: the runner goes where it wants at the speed it has, which only comes
 		# back down towards the top speed at the pace of the loss.
-		var kept: float = maxf(speed - momentum_loss, top_speed)
+		var kept: float = maxf(speed - momentum_loss, top)
 		target = wish.normalized() * maxf(target.length(), kept)
 	horizontal = horizontal.move_toward(target, rate * delta)
 	velocity.x = horizontal.x
@@ -509,6 +564,7 @@ func _wall_jump() -> void:
 	_jump_cut = false
 	_steps_since_jump_request = LONG_AGO
 	_steps_off_the_wall = LONG_AGO
+	_announce(RunnerEvent.Kind.WALL_JUMP)
 
 
 func _can_jump(facts: RunnerFacts) -> bool:
@@ -529,6 +585,7 @@ func _start_jump(delta: float) -> void:
 	_jump_spent = true
 	_jump_cut = false
 	_steps_since_jump_request = LONG_AGO
+	_announce(RunnerEvent.Kind.JUMP)
 
 
 func _fly(jump_held: bool, delta: float) -> void:
@@ -601,6 +658,11 @@ func _on_the_split(angle: float) -> bool:
 ## The horizontal direction of `vector`, of length 1; ZERO if it has none.
 func _horizontal_unit(vector: Vector3) -> Vector3:
 	return Vector3(vector.x, 0.0, vector.z).normalized()
+
+
+## Tells, dated by this step, that `kind` happened.
+func _announce(kind: RunnerEvent.Kind) -> void:
+	events.append(RunnerEvent.new(kind, steps))
 
 
 ## How long the roll or the hard landing under way lasts, in fixed steps.

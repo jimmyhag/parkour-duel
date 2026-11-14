@@ -1,4 +1,4 @@
-[gd_scene load_steps=53 format=3]
+[gd_scene load_steps=54 format=3]
 
 [ext_resource type="Script" path="res://game/levels/course.gd" id="1_course"]
 [ext_resource type="PackedScene" path="res://game/player/player.tscn" id="2_player"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://game/world/race_line.gd" id="4_race_line"]
 [ext_resource type="PackedScene" path="res://game/ui/race_hud.tscn" id="5_race_hud"]
 [ext_resource type="PackedScene" path="res://game/ui/debug_overlay.tscn" id="6_debug_overlay"]
+[ext_resource type="PackedScene" path="res://game/ui/flow_hud.tscn" id="7_flow_hud"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_block"]
 albedo_color = Color(0.55, 0.55, 0.58, 1)
@@ -533,6 +534,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 3)
 [node name="Hud" type="CanvasLayer" parent="."]
 
 [node name="RaceHud" parent="Hud" instance=ExtResource("5_race_hud")]
+
+[node name="FlowHud" parent="Hud" instance=ExtResource("7_flow_hud")]
 
 [node name="DebugOverlay" parent="Hud" instance=ExtResource("6_debug_overlay")]
 

@@ -40,6 +40,14 @@ func request_respawn() -> ScriptedIntentSource:
 	return self
 
 
+## Adds one step that asks to restart the course.
+func request_restart() -> ScriptedIntentSource:
+	var intent: MoveIntent = MoveIntent.new()
+	intent.restart_requested = true
+	_intents.append(intent)
+	return self
+
+
 ## The number of steps written so far.
 func length() -> int:
 	return _intents.size()

@@ -268,9 +268,10 @@ func _probe_feet() -> Vector3:
 	return feet + Vector3.UP * _runner.safe_margin
 
 
-## The speed at which the runner goes its way once this step has accelerated it.
+## The speed at which the runner goes its way once this step has accelerated it, up to
+## its top speed (with the bonus of its flow).
 func _speed_ahead() -> float:
 	var tuning: MovementTuning = _runner.tuning
 	var step: float = _runner.get_physics_process_delta_time()
 	var speed: float = maxf(_runner.velocity.dot(_direction), 0.0)
-	return minf(speed + tuning.ground_acceleration * step, tuning.top_speed)
+	return minf(speed + tuning.ground_acceleration * step, _runner.motor.top_speed())

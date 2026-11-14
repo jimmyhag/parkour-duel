@@ -1,7 +1,7 @@
 class_name MovementTuning
 extends Resource
-## The single tuning resource of the feel: every speed, gravity, tolerance window and
-## camera value lives here and nowhere else. The values are in movement_tuning.tres; the
+## The single tuning resource of the feel: every speed, gravity, tolerance window, flow
+## and camera value lives here and nowhere else. The values are in movement_tuning.tres; the
 ## zeros below are only the neutral defaults of an empty resource. Durations are in
 ## seconds: the runner applies them in fixed steps.
 
@@ -106,6 +106,46 @@ extends Resource
 @export var wall_jump_up_speed: float = 0.0
 ## Time after leaving a wall run during which a jump is still a wall jump, in s.
 @export var wall_jump_grace_time: float = 0.0
+
+@export_group("Flow")
+## Points of each move, before the repetition and the multiplier.
+@export var flow_points_jump: int = 0
+@export var flow_points_slide: int = 0
+@export var flow_points_perfect_slide: int = 0
+@export var flow_points_roll: int = 0
+@export var flow_points_mantle: int = 0
+@export var flow_points_wall_run: int = 0
+@export var flow_points_wall_jump: int = 0
+## Least horizontal speed of a jump that counts, as a share of the top speed (0 to 1).
+@export_range(0.0, 1.0) var flow_jump_min_speed_share: float = 0.0
+## Share of its points a move is worth the second time in a row (0 to 1).
+@export_range(0.0, 1.0) var flow_second_time_share: float = 0.0
+## Share of its points a move is worth the third time in a row and after (0 to 1).
+@export_range(0.0, 1.0) var flow_later_times_share: float = 0.0
+## Longest time on the ground between two moves of a combo, in s.
+@export var flow_chain_delay: float = 0.0
+## Moves of a combo that raise its multiplier by one.
+@export var flow_moves_per_multiplier: int = 0
+## Highest multiplier of a combo.
+@export var flow_max_multiplier: int = 0
+## Points of the gauge in one tier, and number of tiers: the gauge holds their product.
+@export var flow_tier_value: float = 0.0
+@export var flow_tier_count: int = 0
+## What the gauge loses out of a combo, in points per second.
+@export var flow_decay: float = 0.0
+## Share of the top speed added at each tier, from the first; a tier past the end of the
+## list has the bonus of its last one.
+@export var flow_tier_speed_bonus: Array[float] = []
+## Most ammunition held at once.
+@export var flow_max_ammo: int = 0
+## Time before and after a landing during which a slide press makes a perfect slide, in s.
+@export var perfect_slide_window: float = 0.0
+## Horizontal speed a perfect slide gains, in m/s.
+@export var perfect_slide_speed_gain: float = 0.0
+## Horizontal speed under which a runner on the ground is stopped, in m/s, and how long
+## it must stay so for the stop to break its combo, in s.
+@export var flow_stop_speed: float = 0.0
+@export var flow_stop_duration: float = 0.0
 
 @export_group("Character")
 ## Dead zone of both sticks (0 to 1).
