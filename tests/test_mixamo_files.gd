@@ -40,6 +40,16 @@ const PACK_CLIPS: Dictionary[String, String] = {
 	"pistol run.fbx": "",
 	"pistol walk.fbx": "",
 }
+## A Python script that runs the copy command with its folder argument ending with a
+## quote (chr(34)), as cmd.exe gives a quoted folder that ends with a backslash. Its
+## arguments: the folder of the tool, the download folder, the folder to copy into.
+const AS_CMD_GIVES_IT: String = "user://mixamo_as_cmd_gives_it.py"
+const AS_CMD_GIVES_IT_SCRIPT: String = """import sys
+sys.path.insert(0, sys.argv[1])
+import mixamo
+sys.argv = ["mixamo.py", sys.argv[2] + chr(34), "--into", sys.argv[3]]
+sys.exit(mixamo.main())
+"""
 ## What the clips of the made-up pack hold before their name: they differ from the
 ## downloads of the same name.
 const PACKED: String = "pack:"
@@ -100,11 +110,18 @@ func test_the_copy_command_puts_away_the_used_files() -> void:
 func test_a_download_folder_ending_with_a_backslash_is_read_under_cmd() -> void:
 	_make_the_downloads()
 	# cmd.exe hands "C:\downloads\" over as C:\downloads" : the backslash escapes the
-	# closing quote. On Windows, Godot passes the argument as it is written, and the
-	# program reads \" as a quote; elsewhere the quote is given as it is.
-	var quote: String = '\\"' if OS.get_name() == "Windows" else '"'
+	# closing quote. No shell may see that quote (sh would refuse the command): a script
+	# gives the tool the folder with the quote, as its argument, the way cmd.exe does.
+	_write(AS_CMD_GIVES_IT, AS_CMD_GIVES_IT_SCRIPT)
+	var arguments: PackedStringArray = [
+		_absolute(AS_CMD_GIVES_IT),
+		_absolute("res://tools"),
+		_absolute(DOWNLOADS),
+		_absolute(COPY),
+	]
 	var output: Array = []
-	var code: int = _copy(_absolute(DOWNLOADS) + quote, output)
+	var code: int = OS.execute(_venv_python(), arguments, output, true)
+	DirAccess.remove_absolute(AS_CMD_GIVES_IT)
 
 	assert_eq(code, 0, "the copy command succeeds: %s" % [output])
 	assert_true(FileAccess.file_exists(COPY.path_join("ch08_nonpbr.fbx")), "the files are copied")
