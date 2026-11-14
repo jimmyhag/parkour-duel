@@ -7,7 +7,8 @@ extends IntentSource
 ## the camera, and the right stick as a speed, as the tuning says, with how far it is
 ## pushed; the stick back in its dead zone lets go of the pad. The
 ## drawing starts afresh at each press of the button; the pad on the screen reads it
-## (drawing).
+## (drawing). It reads the device of its camera rig only (InputDevice): any device alone,
+## the keyboard and the mouse or the gamepad in a split screen.
 
 const MOVE_LEFT: StringName = &"move_left"
 const MOVE_RIGHT: StringName = &"move_right"
@@ -40,19 +41,26 @@ func _init(camera_rig: CameraRig) -> void:
 
 func next_intent() -> MoveIntent:
 	var deadzone: float = _camera_rig.tuning.stick_deadzone
-	var stick: Vector2 = Input.get_vector(MOVE_LEFT, MOVE_RIGHT, MOVE_FORWARD, MOVE_BACK, deadzone)
+	var stick: Vector2 = Input.get_vector(
+		_own(MOVE_LEFT), _own(MOVE_RIGHT), _own(MOVE_FORWARD), _own(MOVE_BACK), deadzone
+	)
 	var intent: MoveIntent = MoveIntent.new()
 	intent.direction = Vector3(stick.x, 0.0, stick.y).rotated(Vector3.UP, _camera_rig.view_yaw())
-	intent.jump_pressed = Input.is_action_just_pressed(JUMP)
-	intent.jump_held = Input.is_action_pressed(JUMP)
-	intent.slide_pressed = Input.is_action_just_pressed(SLIDE)
-	intent.slide_held = Input.is_action_pressed(SLIDE)
+	intent.jump_pressed = Input.is_action_just_pressed(_own(JUMP))
+	intent.jump_held = Input.is_action_pressed(_own(JUMP))
+	intent.slide_pressed = Input.is_action_just_pressed(_own(SLIDE))
+	intent.slide_held = Input.is_action_pressed(_own(SLIDE))
 	_draw(intent)
-	intent.aim_held = Input.is_action_pressed(AIM)
-	intent.shoot_pressed = Input.is_action_just_pressed(SHOOT)
-	intent.respawn_requested = Input.is_action_just_pressed(RESPAWN)
-	intent.restart_requested = Input.is_action_just_pressed(RESTART)
+	intent.aim_held = Input.is_action_pressed(_own(AIM))
+	intent.shoot_pressed = Input.is_action_just_pressed(_own(SHOOT))
+	intent.respawn_requested = Input.is_action_just_pressed(_own(RESPAWN))
+	intent.restart_requested = Input.is_action_just_pressed(_own(RESTART))
 	return intent
+
+
+## The action to read for `action` on the device of the camera rig.
+func _own(action: StringName) -> StringName:
+	return InputDevice.action(action, _camera_rig.device)
 
 
 ## The trick button held or released at this step: the pad moves by what the mouse and
@@ -60,16 +68,16 @@ func next_intent() -> MoveIntent:
 func _draw(intent: MoveIntent) -> void:
 	var tuning: MovementTuning = _camera_rig.tuning
 	var mouse: Vector2 = _camera_rig.take_pad_motion()
-	intent.trick_held = Input.is_action_pressed(TRICK)
-	intent.trick_released = Input.is_action_just_released(TRICK)
-	if Input.is_action_just_pressed(TRICK):
+	intent.trick_held = Input.is_action_pressed(_own(TRICK))
+	intent.trick_released = Input.is_action_just_released(_own(TRICK))
+	if Input.is_action_just_pressed(_own(TRICK)):
 		drawing.reset()
 		_stick_pushed = false
 	if not intent.trick_held and not intent.trick_released:
 		return
 	var delta: float = _camera_rig.get_physics_process_delta_time()
 	var stick: Vector2 = Input.get_vector(
-		LOOK_LEFT, LOOK_RIGHT, LOOK_UP, LOOK_DOWN, tuning.stick_deadzone
+		_own(LOOK_LEFT), _own(LOOK_RIGHT), _own(LOOK_UP), _own(LOOK_DOWN), tuning.stick_deadzone
 	)
 	var radians: float = tuning.camera_mouse_sensitivity * tuning.trick_pad_units_per_radian
 	var pad: Vector2 = mouse * radians

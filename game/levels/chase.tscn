@@ -1,0 +1,346 @@
+[gd_scene load_steps=41 format=3]
+
+[ext_resource type="Script" path="res://game/levels/chase.gd" id="1_chase"]
+[ext_resource type="PackedScene" path="res://game/ui/player_view.tscn" id="2_view"]
+[ext_resource type="PackedScene" path="res://game/ui/countdown_display.tscn" id="3_countdown"]
+[ext_resource type="PackedScene" path="res://game/ui/chase_round_screen.tscn" id="4_round"]
+[ext_resource type="PackedScene" path="res://game/ui/result_screen.tscn" id="5_result"]
+
+[sub_resource type="StandardMaterial3D" id="Material_ground"]
+albedo_color = Color(0.36, 0.38, 0.42, 1)
+
+[sub_resource type="StandardMaterial3D" id="Material_enclosure"]
+albedo_color = Color(0.3, 0.32, 0.36, 1)
+
+[sub_resource type="StandardMaterial3D" id="Material_low_wall"]
+albedo_color = Color(0.72, 0.68, 0.6, 1)
+
+[sub_resource type="StandardMaterial3D" id="Material_block"]
+albedo_color = Color(0.55, 0.55, 0.58, 1)
+
+[sub_resource type="StandardMaterial3D" id="Material_wall"]
+albedo_color = Color(0.45, 0.5, 0.6, 1)
+
+[sub_resource type="StandardMaterial3D" id="Material_low_passage"]
+albedo_color = Color(0.62, 0.6, 0.56, 1)
+
+[sub_resource type="StandardMaterial3D" id="Material_platform"]
+albedo_color = Color(0.5, 0.52, 0.5, 1)
+
+[sub_resource type="BoxShape3D" id="Shape_22_1_22_ground"]
+size = Vector3(22, 1, 22)
+
+[sub_resource type="BoxMesh" id="Mesh_22_1_22_ground"]
+material = SubResource("Material_ground")
+size = Vector3(22, 1, 22)
+
+[sub_resource type="BoxShape3D" id="Shape_22_8_1_enclosure"]
+size = Vector3(22, 8, 1)
+
+[sub_resource type="BoxMesh" id="Mesh_22_8_1_enclosure"]
+material = SubResource("Material_enclosure")
+size = Vector3(22, 8, 1)
+
+[sub_resource type="BoxShape3D" id="Shape_1_8_20_enclosure"]
+size = Vector3(1, 8, 20)
+
+[sub_resource type="BoxMesh" id="Mesh_1_8_20_enclosure"]
+material = SubResource("Material_enclosure")
+size = Vector3(1, 8, 20)
+
+[sub_resource type="BoxShape3D" id="Shape_4_1_0p3_low_wall"]
+size = Vector3(4, 1, 0.3)
+
+[sub_resource type="BoxMesh" id="Mesh_4_1_0p3_low_wall"]
+material = SubResource("Material_low_wall")
+size = Vector3(4, 1, 0.3)
+
+[sub_resource type="BoxShape3D" id="Shape_4_0p9_0p3_low_wall"]
+size = Vector3(4, 0.9, 0.3)
+
+[sub_resource type="BoxMesh" id="Mesh_4_0p9_0p3_low_wall"]
+material = SubResource("Material_low_wall")
+size = Vector3(4, 0.9, 0.3)
+
+[sub_resource type="BoxShape3D" id="Shape_0p3_1p1_4_low_wall"]
+size = Vector3(0.3, 1.1, 4)
+
+[sub_resource type="BoxMesh" id="Mesh_0p3_1p1_4_low_wall"]
+material = SubResource("Material_low_wall")
+size = Vector3(0.3, 1.1, 4)
+
+[sub_resource type="BoxShape3D" id="Shape_0p3_1p2_4_low_wall"]
+size = Vector3(0.3, 1.2, 4)
+
+[sub_resource type="BoxMesh" id="Mesh_0p3_1p2_4_low_wall"]
+material = SubResource("Material_low_wall")
+size = Vector3(0.3, 1.2, 4)
+
+[sub_resource type="BoxShape3D" id="Shape_2_1p6_2_block"]
+size = Vector3(2, 1.6, 2)
+
+[sub_resource type="BoxMesh" id="Mesh_2_1p6_2_block"]
+material = SubResource("Material_block")
+size = Vector3(2, 1.6, 2)
+
+[sub_resource type="BoxShape3D" id="Shape_2_1p8_2_block"]
+size = Vector3(2, 1.8, 2)
+
+[sub_resource type="BoxMesh" id="Mesh_2_1p8_2_block"]
+material = SubResource("Material_block")
+size = Vector3(2, 1.8, 2)
+
+[sub_resource type="BoxShape3D" id="Shape_2_1p5_2_block"]
+size = Vector3(2, 1.5, 2)
+
+[sub_resource type="BoxMesh" id="Mesh_2_1p5_2_block"]
+material = SubResource("Material_block")
+size = Vector3(2, 1.5, 2)
+
+[sub_resource type="BoxShape3D" id="Shape_2_2_2_block"]
+size = Vector3(2, 2, 2)
+
+[sub_resource type="BoxMesh" id="Mesh_2_2_2_block"]
+material = SubResource("Material_block")
+size = Vector3(2, 2, 2)
+
+[sub_resource type="BoxShape3D" id="Shape_6_3p5_0p4_wall"]
+size = Vector3(6, 3.5, 0.4)
+
+[sub_resource type="BoxMesh" id="Mesh_6_3p5_0p4_wall"]
+material = SubResource("Material_wall")
+size = Vector3(6, 3.5, 0.4)
+
+[sub_resource type="BoxShape3D" id="Shape_3_0p6_2_low_passage"]
+size = Vector3(3, 0.6, 2)
+
+[sub_resource type="BoxMesh" id="Mesh_3_0p6_2_low_passage"]
+material = SubResource("Material_low_passage")
+size = Vector3(3, 0.6, 2)
+
+[sub_resource type="BoxShape3D" id="Shape_4_3_4_platform"]
+size = Vector3(4, 3, 4)
+
+[sub_resource type="BoxMesh" id="Mesh_4_3_4_platform"]
+material = SubResource("Material_platform")
+size = Vector3(4, 3, 4)
+
+[node name="Chase" type="Node3D"]
+script = ExtResource("1_chase")
+fall_limit = -5.0
+
+[node name="Arena" type="Node3D" parent="."]
+
+[node name="Centre" type="Marker3D" parent="Arena"]
+
+[node name="Ground" type="StaticBody3D" parent="Arena"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Arena/Ground"]
+shape = SubResource("Shape_22_1_22_ground")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Arena/Ground"]
+mesh = SubResource("Mesh_22_1_22_ground")
+
+[node name="Enclosure" type="Node3D" parent="Arena"]
+
+[node name="North" type="StaticBody3D" parent="Arena/Enclosure" groups=["no_wall_run"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4, -10.5)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Arena/Enclosure/North"]
+shape = SubResource("Shape_22_8_1_enclosure")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Arena/Enclosure/North"]
+mesh = SubResource("Mesh_22_8_1_enclosure")
+
+[node name="South" type="StaticBody3D" parent="Arena/Enclosure" groups=["no_wall_run"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4, 10.5)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Arena/Enclosure/South"]
+shape = SubResource("Shape_22_8_1_enclosure")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Arena/Enclosure/South"]
+mesh = SubResource("Mesh_22_8_1_enclosure")
+
+[node name="West" type="StaticBody3D" parent="Arena/Enclosure" groups=["no_wall_run"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -10.5, 4, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Arena/Enclosure/West"]
+shape = SubResource("Shape_1_8_20_enclosure")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Arena/Enclosure/West"]
+mesh = SubResource("Mesh_1_8_20_enclosure")
+
+[node name="East" type="StaticBody3D" parent="Arena/Enclosure" groups=["no_wall_run"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 10.5, 4, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Arena/Enclosure/East"]
+shape = SubResource("Shape_1_8_20_enclosure")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Arena/Enclosure/East"]
+mesh = SubResource("Mesh_1_8_20_enclosure")
+
+[node name="LowWalls" type="Node3D" parent="Arena"]
+
+[node name="North" type="StaticBody3D" parent="Arena/LowWalls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, -3)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Arena/LowWalls/North"]
+shape = SubResource("Shape_4_1_0p3_low_wall")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Arena/LowWalls/North"]
+mesh = SubResource("Mesh_4_1_0p3_low_wall")
+
+[node name="South" type="StaticBody3D" parent="Arena/LowWalls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 3)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Arena/LowWalls/South"]
+shape = SubResource("Shape_4_0p9_0p3_low_wall")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Arena/LowWalls/South"]
+mesh = SubResource("Mesh_4_0p9_0p3_low_wall")
+
+[node name="West" type="StaticBody3D" parent="Arena/LowWalls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 0.55, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Arena/LowWalls/West"]
+shape = SubResource("Shape_0p3_1p1_4_low_wall")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Arena/LowWalls/West"]
+mesh = SubResource("Mesh_0p3_1p1_4_low_wall")
+
+[node name="East" type="StaticBody3D" parent="Arena/LowWalls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0.6, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Arena/LowWalls/East"]
+shape = SubResource("Shape_0p3_1p2_4_low_wall")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Arena/LowWalls/East"]
+mesh = SubResource("Mesh_0p3_1p2_4_low_wall")
+
+[node name="Blocks" type="Node3D" parent="Arena"]
+
+[node name="LedgeNorthWest" type="StaticBody3D" parent="Arena/Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0.8, -7)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Arena/Blocks/LedgeNorthWest"]
+shape = SubResource("Shape_2_1p6_2_block")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Arena/Blocks/LedgeNorthWest"]
+mesh = SubResource("Mesh_2_1p6_2_block")
+
+[node name="LedgeSouthEast" type="StaticBody3D" parent="Arena/Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0.9, 7)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Arena/Blocks/LedgeSouthEast"]
+shape = SubResource("Shape_2_1p8_2_block")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Arena/Blocks/LedgeSouthEast"]
+mesh = SubResource("Mesh_2_1p8_2_block")
+
+[node name="SouthWest" type="StaticBody3D" parent="Arena/Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 0.75, 7.5)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Arena/Blocks/SouthWest"]
+shape = SubResource("Shape_2_1p5_2_block")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Arena/Blocks/SouthWest"]
+mesh = SubResource("Mesh_2_1p5_2_block")
+
+[node name="NorthEast" type="StaticBody3D" parent="Arena/Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8.5, 1, -3.5)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Arena/Blocks/NorthEast"]
+shape = SubResource("Shape_2_2_2_block")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Arena/Blocks/NorthEast"]
+mesh = SubResource("Mesh_2_2_2_block")
+
+[node name="Walls" type="Node3D" parent="Arena"]
+
+[node name="Near" type="StaticBody3D" parent="Arena/Walls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 1.75, -4.5)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Arena/Walls/Near"]
+shape = SubResource("Shape_6_3p5_0p4_wall")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Arena/Walls/Near"]
+mesh = SubResource("Mesh_6_3p5_0p4_wall")
+
+[node name="Far" type="StaticBody3D" parent="Arena/Walls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 1.75, -8)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Arena/Walls/Far"]
+shape = SubResource("Shape_6_3p5_0p4_wall")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Arena/Walls/Far"]
+mesh = SubResource("Mesh_6_3p5_0p4_wall")
+
+[node name="LowPassages" type="Node3D" parent="Arena"]
+
+[node name="West" type="StaticBody3D" parent="Arena/LowPassages"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.5, 1.5, 6.5)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Arena/LowPassages/West"]
+shape = SubResource("Shape_3_0p6_2_low_passage")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Arena/LowPassages/West"]
+mesh = SubResource("Mesh_3_0p6_2_low_passage")
+
+[node name="North" type="StaticBody3D" parent="Arena/LowPassages"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.75, 1.5, -7.5)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Arena/LowPassages/North"]
+shape = SubResource("Shape_3_0p6_2_low_passage")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Arena/LowPassages/North"]
+mesh = SubResource("Mesh_3_0p6_2_low_passage")
+
+[node name="Platforms" type="Node3D" parent="Arena"]
+
+[node name="NorthWest" type="StaticBody3D" parent="Arena/Platforms"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 1.5, -7)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Arena/Platforms/NorthWest"]
+shape = SubResource("Shape_4_3_4_platform")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Arena/Platforms/NorthWest"]
+mesh = SubResource("Mesh_4_3_4_platform")
+
+[node name="SouthEast" type="StaticBody3D" parent="Arena/Platforms"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 1.5, 7)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Arena/Platforms/SouthEast"]
+shape = SubResource("Shape_4_3_4_platform")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Arena/Platforms/SouthEast"]
+mesh = SubResource("Mesh_4_3_4_platform")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.8193, -0.4559, 0.3478, 0, 0.6066, 0.795, -0.5735, -0.6513, 0.4969, 0, 20, 0)
+shadow_enabled = true
+
+[node name="Screens" type="CanvasLayer" parent="."]
+
+[node name="Views" type="HBoxContainer" parent="Screens"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/separation = 4
+
+[node name="PlayerOne" parent="Screens/Views" instance=ExtResource("2_view")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PlayerTwo" parent="Screens/Views" instance=ExtResource("2_view")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="CountdownDisplay" parent="Screens" instance=ExtResource("3_countdown")]
+
+[node name="RoundScreen" parent="Screens" instance=ExtResource("4_round")]
+
+[node name="ResultScreen" parent="Screens" instance=ExtResource("5_result")]

@@ -7,7 +7,8 @@ extends Control
 ## out after about a second. Above them, while the trick button is held, the name of the
 ## recipe its drawing reads (? while nothing is read); then the name of the trick under
 ## way in the air, and after a landing PERFECT or CRASH, or SABOTAGED when a sabotage hit
-## the runner, which fade out the same way. Nothing takes the focus.
+## the runner, which fade out the same way. Without a weapon (the chase), no pips. Nothing
+## takes the focus.
 
 const MOVE: String = "%s +%d"
 const MULTIPLIER: String = "x%d"
@@ -41,6 +42,8 @@ const PIP_COLOR: Color = Color(1.0, 0.85, 0.3)
 ## The flow to display, and the motor whose drawing and trick under way it names.
 var flow: FlowState
 var motor: RunnerMotor
+## The ammunition shows: false where there is no weapon.
+var shows_ammo: bool = true
 
 ## What was already announced: the counts of the flow at the last refresh.
 var _moves_seen: int = 0
@@ -85,6 +88,7 @@ func refresh() -> void:
 	_gauge.value = flow.gauge
 	_gauge.self_modulate = Color.WHITE.lerp(FLASH, _flash_seconds / FLASH_SECONDS)
 	_place_the_marks(flow.tuning.flow_tier_count)
+	_ammo.visible = shows_ammo
 	_fill_the_pips(flow.tuning.flow_max_ammo, flow.ammo)
 
 
