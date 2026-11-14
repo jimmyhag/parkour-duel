@@ -1,4 +1,4 @@
-[gd_scene load_steps=55 format=3]
+[gd_scene load_steps=61 format=3]
 
 [ext_resource type="Script" path="res://game/levels/course.gd" id="1_course"]
 [ext_resource type="PackedScene" path="res://game/player/player.tscn" id="2_player"]
@@ -8,6 +8,12 @@
 [ext_resource type="PackedScene" path="res://game/ui/debug_overlay.tscn" id="6_debug_overlay"]
 [ext_resource type="PackedScene" path="res://game/ui/flow_hud.tscn" id="7_flow_hud"]
 [ext_resource type="PackedScene" path="res://game/ui/flow_sounds.tscn" id="8_flow_sounds"]
+[ext_resource type="PackedScene" path="res://game/world/falling_bridge.tscn" id="9_falling_bridge"]
+[ext_resource type="PackedScene" path="res://game/world/falling_platform.tscn" id="10_falling_platform"]
+[ext_resource type="PackedScene" path="res://game/world/rising_barrier.tscn" id="11_rising_barrier"]
+[ext_resource type="PackedScene" path="res://game/world/falling_obstacle.tscn" id="12_falling_obstacle"]
+[ext_resource type="PackedScene" path="res://game/ui/crosshair.tscn" id="13_crosshair"]
+[ext_resource type="PackedScene" path="res://game/ui/sabotage_sounds.tscn" id="14_sabotage_sounds"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_block"]
 albedo_color = Color(0.55, 0.55, 0.58, 1)
@@ -15,12 +21,19 @@ albedo_color = Color(0.55, 0.55, 0.58, 1)
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_line"]
 albedo_color = Color(0.95, 0.95, 0.95, 1)
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_run_up"]
-size = Vector3(6, 1, 28)
+[sub_resource type="BoxShape3D" id="BoxShape3D_run_up_start"]
+size = Vector3(6, 1, 8)
 
-[sub_resource type="BoxMesh" id="BoxMesh_run_up"]
+[sub_resource type="BoxMesh" id="BoxMesh_run_up_start"]
 material = SubResource("StandardMaterial3D_block")
-size = Vector3(6, 1, 28)
+size = Vector3(6, 1, 8)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_run_up_end"]
+size = Vector3(6, 1, 10)
+
+[sub_resource type="BoxMesh" id="BoxMesh_run_up_end"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(6, 1, 10)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_short_jump"]
 size = Vector3(6, 1, 4)
@@ -35,13 +48,6 @@ size = Vector3(6, 1, 12)
 [sub_resource type="BoxMesh" id="BoxMesh_long_jump_start"]
 material = SubResource("StandardMaterial3D_block")
 size = Vector3(6, 1, 12)
-
-[sub_resource type="BoxShape3D" id="BoxShape3D_long_jump"]
-size = Vector3(6, 1, 8)
-
-[sub_resource type="BoxMesh" id="BoxMesh_long_jump"]
-material = SubResource("StandardMaterial3D_block")
-size = Vector3(6, 1, 8)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_steps_start"]
 size = Vector3(6, 1, 10)
@@ -174,14 +180,23 @@ fall_limit = -8.0
 
 [node name="Blocks" type="Node3D" parent="."]
 
-[node name="RunUp" type="StaticBody3D" parent="Blocks"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, -8)
+[node name="RunUpStart" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 2)
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/RunUp"]
-shape = SubResource("BoxShape3D_run_up")
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/RunUpStart"]
+shape = SubResource("BoxShape3D_run_up_start")
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/RunUp"]
-mesh = SubResource("BoxMesh_run_up")
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/RunUpStart"]
+mesh = SubResource("BoxMesh_run_up_start")
+
+[node name="RunUpEnd" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, -17)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/RunUpEnd"]
+shape = SubResource("BoxShape3D_run_up_end")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/RunUpEnd"]
+mesh = SubResource("BoxMesh_run_up_end")
 
 [node name="ShortJump1" type="StaticBody3D" parent="Blocks"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, -26.5)
@@ -209,15 +224,6 @@ shape = SubResource("BoxShape3D_long_jump_start")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/LongJumpStart"]
 mesh = SubResource("BoxMesh_long_jump_start")
-
-[node name="LongJump1" type="StaticBody3D" parent="Blocks"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, -57.7)
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/LongJump1"]
-shape = SubResource("BoxShape3D_long_jump")
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/LongJump1"]
-mesh = SubResource("BoxMesh_long_jump")
 
 [node name="StepsStart" type="StaticBody3D" parent="Blocks"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, -70.9)
@@ -381,6 +387,24 @@ shape = SubResource("BoxShape3D_final_ledge")
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/FinalLedge"]
 mesh = SubResource("BoxMesh_final_ledge")
 
+[node name="Targets" type="Node3D" parent="."]
+
+[node name="Bridge" parent="Targets" instance=ExtResource("9_falling_bridge")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, -7)
+target_id = 1
+
+[node name="LongJump1" parent="Targets" instance=ExtResource("10_falling_platform")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, -57.7)
+target_id = 2
+
+[node name="Barrier" parent="Targets" instance=ExtResource("11_rising_barrier")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.5, -96.5)
+target_id = 3
+
+[node name="Obstacle" parent="Targets" instance=ExtResource("12_falling_obstacle")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -3.1, -144.5)
+target_id = 4
+
 [node name="Checkpoints" type="Node3D" parent="."]
 
 [node name="RunUp" type="Area3D" parent="Checkpoints"]
@@ -538,9 +562,13 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 3)
 
 [node name="FlowHud" parent="Hud" instance=ExtResource("7_flow_hud")]
 
+[node name="Crosshair" parent="Hud" instance=ExtResource("13_crosshair")]
+
 [node name="DebugOverlay" parent="Hud" instance=ExtResource("6_debug_overlay")]
 
 [node name="FlowSounds" parent="." instance=ExtResource("8_flow_sounds")]
+
+[node name="SabotageSounds" parent="." instance=ExtResource("14_sabotage_sounds")]
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.8193, -0.4559, 0.3478, 0, 0.6066, 0.795, -0.5735, -0.6513, 0.4969, 0, 20, 0)

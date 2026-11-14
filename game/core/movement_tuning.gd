@@ -1,7 +1,7 @@
 class_name MovementTuning
 extends Resource
 ## The single tuning resource of the feel: every speed, gravity, tolerance window, flow,
-## trick and camera value lives here and nowhere else. The values are in
+## trick, sabotage and camera value lives here and nowhere else. The values are in
 ## movement_tuning.tres; the zeros below are only the neutral defaults of an empty
 ## resource. Durations are in seconds: the runner applies them in fixed steps.
 
@@ -168,6 +168,35 @@ extends Resource
 @export var trick_perfect_bonus: float = 0.0
 ## Horizontal speed a perfect landing gains, in m/s.
 @export var trick_perfect_speed_gain: float = 0.0
+
+@export_group("Sabotage")
+## Share of its top speed a runner keeps on the ground while it aims (0 to 1); in the
+## air, aiming changes nothing.
+@export_range(0.0, 1.0) var aim_speed_ratio: float = 0.0
+## Farthest a target can be shot from, measured from the runner's eyes, in m.
+@export var shot_range: float = 0.0
+## How long the aim must be held without a break before a shot can go, in s.
+@export var aim_min_time: float = 0.0
+## Field of view of the camera while aiming, in degrees, and how far it moves to the
+## right of the runner, over its shoulder, in m.
+@export var aim_camera_fov: float = 0.0
+@export var aim_camera_offset: float = 0.0
+## How long the camera takes to go over the shoulder and back, in s.
+@export var aim_camera_blend_time: float = 0.0
+## How long a target hit flashes before its effect starts, in s.
+@export var sabotage_warning: float = 0.0
+## How long a target that came back rests before it can be shot again, in s.
+@export var sabotage_cooldown: float = 0.0
+## Ammunition a shot costs, by type of target.
+@export var sabotage_cost_platform: int = 0
+@export var sabotage_cost_bridge: int = 0
+@export var sabotage_cost_obstacle: int = 0
+@export var sabotage_cost_barrier: int = 0
+## How long the effect of a sabotage lasts, by type of target, in s.
+@export var sabotage_duration_platform: float = 0.0
+@export var sabotage_duration_bridge: float = 0.0
+@export var sabotage_duration_obstacle: float = 0.0
+@export var sabotage_duration_barrier: float = 0.0
 
 @export_group("Character")
 ## Dead zone of both sticks (0 to 1).

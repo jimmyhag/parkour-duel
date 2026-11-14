@@ -3,15 +3,15 @@ extends IntentSource
 ## The test pilot: a source of intents that, at every fixed step, looks at its runner
 ## and at the physical world around it, then decides. It runs in a given direction,
 ## jumps when the floor stops just ahead, when a step it can clear stands just ahead, or
-## when a ledge it can climb stands right in front of it, and holds the jump up to its
-## top unless holding it would carry it past the floor it can land on. It holds the
-## slide when a low obstacle stands just ahead, in one go until there is room to stand
-## up again, and presses it just before the floor when it falls from high enough to need
-## a roll. Along a wall, it jumps off when another wall stands across, and lets the jump
-## carry it to that wall. It never jumps in the air or on a floor that goes on but off a
-## wall, and never asks for the slide without one of its two reasons.
-## It knows no course: only what it probes, the state of the runner and the tuning,
-## from which its look-ahead distances are worked out.
+## when a ledge that a jump then a mantle climb stands right in front of it, and holds
+## the jump up to its top unless holding it would carry it past the floor it can land
+## on. It holds the slide when a low obstacle stands just ahead, in one go until there
+## is room to stand up again, and presses it just before the floor when it falls from
+## high enough to need a roll. Along a wall, it jumps off when another wall stands
+## across, and lets the jump carry it to that wall. It never jumps in the air or on a
+## floor that goes on but off a wall, and never asks for the slide without one of its
+## two reasons. It knows no course: only what it probes, the state of the runner and the
+## tuning, from which its look-ahead distances are worked out.
 
 var _runner: Player
 var _direction: Vector3
@@ -97,12 +97,14 @@ func _step_stands_ahead() -> bool:
 
 
 ## A ledge stands right in front when something would stop the runner's body before the
-## end of this step, and the same body, lifted by the highest ledge a mantle climbs,
-## would pass over it with room to stand on it. Jumping now puts the runner in the air
-## against its face, where the mantle takes it up.
+## end of this step, and the same body, lifted by the top of a jump and the highest
+## ledge a mantle climbs from there, would pass over it with room to stand on it.
+## Jumping now puts the runner in the air against its face, where the mantle takes it up
+## as soon as the top of the ledge is within its reach.
 func _ledge_stands_ahead() -> bool:
+	var tuning: MovementTuning = _runner.tuning
 	var stride: float = _speed_ahead() * _runner.get_physics_process_delta_time()
-	return _clears_what_stops_it(stride, _runner.tuning.mantle_max_height)
+	return _clears_what_stops_it(stride, tuning.jump_height + tuning.mantle_max_height)
 
 
 ## Something would stop the runner's body within `reach`, and the same body, lifted by

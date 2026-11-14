@@ -16,20 +16,22 @@ godot --path .
 ```
 
 The game starts on the test course, a short timed run made of grey blocks: a start
-platform and its start line, a straight to gather speed, a series of short jumps, a
+platform and its start line, a straight to gather speed with a bridge in its middle, a
+series of short jumps, a
 series of long jumps that need both the run-up and a held jump, steps to climb, a low
 passage (a run-up, a ramp going down, then an obstacle too low to stand under: slide),
 a big drop (higher than what a landing forgives: roll), a ledge too high to jump onto
 (mantle), a gap too long to jump with a wall along it (wall run), a void between two
 walls facing each other with its far side higher (wall jumps), and a last combination
 of a low obstacle, a gap along a wall and a ledge before the finish line. The walls
-meant to be run along are blue-grey. The timer starts at the start line and stops at the finish line; the best
+meant to be run along are blue-grey. Four blocks glow orange: they are targets (see
+"Shooting and sabotage" below). The timer starts at the start line and stops at the finish line; the best
 time of the session stays on screen (nothing is saved to disk). Each section opens with
 a checkpoint: falling off the course brings the runner back to the last one reached,
 and the timer keeps running.
 
 Every value of the feel (speeds, gravities, coyote time, jump buffer, slide, roll,
-hard landing, momentum, mantle, wall run, wall jump, flow, tricks, camera) is in
+hard landing, momentum, mantle, wall run, wall jump, flow, tricks, sabotage, camera) is in
 `game/core/movement_tuning.tres`. When the game
 runs from the project folder, F4 reads that file again without restarting.
 
@@ -60,6 +62,8 @@ below are the keys at those places on a QWERTY keyboard (Z, Q, S, D on an AZERTY
 | Jump (hold to jump higher) | Space | A, or LB |
 | Slide (hold), roll (press just before a high landing) | Left Ctrl | B, or RB |
 | Trick, in the air (hold for more turns) | Left Shift | X |
+| Aim (hold) | Right mouse button | Left trigger (LT) |
+| Shoot, while aiming | Left mouse button | Right trigger (RT) |
 | Back to the last checkpoint | R | Y |
 | Restart the course | Backspace | Back (Select) |
 | Release the mouse (a click takes it back) | Escape | none |
@@ -129,14 +133,34 @@ PERFECT (more points, and a little speed, up to the top speed plus that gain); t
 a CRASH (a hard landing that breaks the combo, and the tricks of the jump are lost). A
 high fall still asks for a roll.
 
+Shooting and sabotage: hold the aim to bring the camera over the right shoulder; a
+reticle appears in the middle of the screen. Aiming slows the runner down on the ground,
+running, sliding or rolling (to 60 % of its top speed), and starts no trick; in the air
+it changes nothing; time itself never slows down. Shooting fires at whatever is in the
+middle of the screen, once the aim has been held for a quarter of a second without a
+break, counted on the ground only and again for every shot (so every shot costs that
+much slowed running; the count waits in the air), and only at a target: one of the orange blocks, within 45 m,
+ready, and paid for with the ammunition the flow gives (the platform, the obstacle and
+the barrier cost one, the bridge two). The reticle shows a ring on a target the shot
+would hit, and a slash on one the ammunition does not pay for; otherwise a shot does
+nothing and costs nothing. A target hit flashes red for 1 s, then its effect lasts a few
+seconds: the platform of the long jumps vanishes (5 s), the bridge of the run-up falls
+away and leaves a 10 m gap no jump crosses (6 s), an obstacle falls onto the way after
+the big drop (6 s: too high to jump over, jump at it and climb over it), a barrier rises across the low passage
+(4 s: jump at it and climb over it). Then it comes back, never onto a runner (it waits
+for its place to be free), rests for 3 s and glows again. A runner where the effect
+starts is sabotaged: its combo is broken and its gauge loses a tier, as on a hard
+landing. On this course the runner shoots its own scenery, to practise; shooting the
+opponent's course comes with the duel.
+
 ## Roadmap
 
 | Step | Content | Status |
 | ---- | ------- | ------ |
 | 0 | Repository, Godot skeleton, harness and gates | done |
 | 1 | Solo movement prototype | done: validated by the owner on 2026-11-14 |
-| 2 | Tricks and flow | in progress: the flow gauge and combo (`docs/specs/flow-combo.md`), then the aerial tricks and the sounds (`docs/specs/air-tricks.md`), are built; the owner has not validated the step yet |
-| 3 | Shooting and sabotage | not started |
+| 2 | Tricks and flow | built: the flow gauge and combo (`docs/specs/flow-combo.md`), the aerial tricks and the sounds (`docs/specs/air-tricks.md`); chained without validation on the owner's delegation (2026-11-14), judged at stop point 3 |
+| 3 | Shooting and sabotage | built: aiming, shooting and the four sabotageable targets, on the runner's own course (`docs/specs/sabotage.md`); chained without validation on the owner's delegation, judged at stop point 3 |
 | 4 | Local duel (ghost, then bot) | not started |
 | 5 | Online PVP | not started |
 | 6 | Art, audio, menus, release | not started |

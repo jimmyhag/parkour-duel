@@ -19,6 +19,12 @@ const KEYBOARD_ONLY_ACTIONS: Array[StringName] = [
 	&"toggle_debug",
 	&"reload_tuning",
 ]
+## The actions of the weapon: on a mouse button, and on a gamepad button or trigger.
+const MOUSE_ACTIONS: Dictionary[StringName, MouseButton] = {
+	&"aim": MOUSE_BUTTON_RIGHT,
+	&"shoot": MOUSE_BUTTON_LEFT,
+}
+const TRIGGERS: Array[JoyAxis] = [JOY_AXIS_TRIGGER_LEFT, JOY_AXIS_TRIGGER_RIGHT]
 const BUILT_IN_PREFIX: String = "ui_"
 
 
@@ -34,6 +40,25 @@ func test_every_game_action_has_a_keyboard_mouse_input_and_a_gamepad_input() -> 
 				pad_inputs += 1
 		assert_gt(keys, 0, "%s has a keyboard key" % action)
 		assert_gt(pad_inputs, 0, "%s has a gamepad button or axis" % action)
+
+
+func test_aim_and_shoot_exist_on_keyboard_and_mouse_and_on_gamepad() -> void:
+	for action: StringName in MOUSE_ACTIONS:
+		assert_true(InputMap.has_action(action), "%s is in the input map" % action)
+		var mouse_buttons: Array[MouseButton] = []
+		var pad_inputs: int = 0
+		for event: InputEvent in InputMap.action_get_events(action):
+			if event is InputEventMouseButton:
+				mouse_buttons.append((event as InputEventMouseButton).button_index)
+			elif event is InputEventJoypadButton:
+				pad_inputs += 1
+			elif event is InputEventJoypadMotion:
+				var motion: InputEventJoypadMotion = event as InputEventJoypadMotion
+				var trigger_pulled: bool = TRIGGERS.has(motion.axis) and motion.axis_value > 0.0
+				pad_inputs += int(trigger_pulled)
+		assert_eq(mouse_buttons.size(), 1, "%s has one mouse button" % action)
+		assert_true(mouse_buttons.has(MOUSE_ACTIONS[action]), "%s has its mouse button" % action)
+		assert_gt(pad_inputs, 0, "%s has a gamepad button or trigger" % action)
 
 
 func test_keyboard_keys_are_physical_keys() -> void:

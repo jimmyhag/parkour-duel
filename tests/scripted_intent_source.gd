@@ -4,6 +4,9 @@ extends IntentSource
 ## test play a section of a course in the real physics, without a screen or a hand.
 ## Once the sequence is over, the source wants nothing.
 
+## For `aim`: the shot pressed at every step.
+const ALL_STEPS: int = -2
+
 var _intents: Array[MoveIntent] = []
 var _cursor: int = 0
 
@@ -40,6 +43,23 @@ func trick(direction: Vector3, steps: int) -> ScriptedIntentSource:
 		intent.direction = direction
 		intent.trick_held = true
 		intent.trick_pressed = i == 0
+		_intents.append(intent)
+	return self
+
+
+## Adds `steps` steps going in `direction` (in the world) with the aim held; the shot is
+## pressed at the step `shot_at` of them, if it is one, or at every step for ALL_STEPS. The
+## jump held or not, pressed at the first step where it is held.
+func aim(
+	direction: Vector3, steps: int, shot_at: int = -1, jump_held: bool = false
+) -> ScriptedIntentSource:
+	for i: int in steps:
+		var intent: MoveIntent = MoveIntent.new()
+		intent.direction = direction
+		intent.aim_held = true
+		intent.shoot_pressed = i == shot_at or shot_at == ALL_STEPS
+		intent.jump_held = jump_held
+		intent.jump_pressed = jump_held and not _last_step_holds_jump()
 		_intents.append(intent)
 	return self
 

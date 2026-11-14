@@ -5,7 +5,8 @@ extends Control
 ## only outlined), and above it the moves of the last step and their points, the tier
 ## just crossed (FLOW and its number, while the gauge flashes) or COMBO BROKEN, which fade
 ## out after about a second. Above them, the name of the trick under way in the air, and
-## after a landing PERFECT or CRASH, which fade out the same way. Nothing takes the focus.
+## after a landing PERFECT or CRASH, or SABOTAGED when a sabotage hit the runner, which
+## fade out the same way. Nothing takes the focus.
 
 const MOVE: String = "%s +%d"
 const MULTIPLIER: String = "x%d"
@@ -13,6 +14,7 @@ const TIER: String = "FLOW %d"
 const COMBO_BROKEN: String = "COMBO BROKEN"
 const PERFECT: String = "PERFECT"
 const CRASH: String = "CRASH"
+const SABOTAGED: String = "SABOTAGED"
 ## Between the moves of one step.
 const SEPARATOR: String = "   "
 const MOVE_NAMES: Dictionary[RunnerEvent.Kind, String] = {
@@ -43,6 +45,7 @@ var _tiers_seen: int = 0
 var _breaks_seen: int = 0
 var _perfects_seen: int = 0
 var _crashes_seen: int = 0
+var _sabotages_seen: int = 0
 ## What is left of the move text, of the landing text, of the tier text and of the
 ## flash, in s.
 var _move_seconds: float = 0.0
@@ -83,7 +86,8 @@ func refresh() -> void:
 
 
 ## Shows what the flow counted since the last refresh: the moves of the last step and
-## their points, a combo broken, a tier crossed, a perfect landing or a crash.
+## their points, a combo broken, a tier crossed, a perfect landing, a crash or a
+## sabotage received.
 func _announce() -> void:
 	if flow.moves_counted != _moves_seen:
 		_moves_seen = flow.moves_counted
@@ -103,6 +107,10 @@ func _announce() -> void:
 	if flow.crashes != _crashes_seen:
 		_crashes_seen = flow.crashes
 		_trick_label.text = CRASH
+		_landing_seconds = TEXT_SECONDS
+	if flow.sabotages != _sabotages_seen:
+		_sabotages_seen = flow.sabotages
+		_trick_label.text = SABOTAGED
 		_landing_seconds = TEXT_SECONDS
 	if flow.combos_broken != _breaks_seen:
 		_breaks_seen = flow.combos_broken

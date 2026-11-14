@@ -4,8 +4,9 @@ extends RefCounted
 ## that chains them and its multiplier, the style score of the run and the ammunition its
 ## style points give. It counts
 ## only from what the motor announces (RunnerEvent), the speed and the ground contact
-## the motor knows, and the orders of the course: respawn, restart, finish. Time is
-## counted in fixed steps. Nothing is saved to disk.
+## the motor knows, and the orders of the course: respawn, restart, finish, and the
+## sabotages that hit the runner. A shot spends its ammunition. Time is counted in fixed
+## steps. Nothing is saved to disk.
 
 ## The gauge, in points: from 0 to the value of a tier times the number of tiers.
 var gauge: float = 0.0
@@ -39,6 +40,8 @@ var step_points: Array[int] = []
 var tricks_landed: int = 0
 var perfect_landings: int = 0
 var crashes: int = 0
+## The sabotages that hit the runner in the session.
+var sabotages: int = 0
 var tuning: MovementTuning
 
 var _steps_per_second: int
@@ -115,6 +118,31 @@ func finish() -> void:
 		return
 	frozen = true
 	best_style_score = maxi(best_style_score, style_score)
+
+
+## A shot spends `amount` ammunition: false, and nothing spent, without enough.
+func spend(amount: int) -> bool:
+	if amount > ammo:
+		return false
+	ammo -= amount
+	return true
+
+
+## Counts the targets of the course the runner `runner` runs on, after they played their
+## step: a sabotage whose effect hit it is an error.
+func follow_targets(board: TargetBoard, runner: int) -> void:
+	if board.hit(runner):
+		sabotaged()
+
+
+## The runner was hit by a sabotage: an error, like a hard landing; the combo is broken
+## and the gauge loses one tier. It loses nothing else.
+func sabotaged() -> void:
+	if frozen:
+		return
+	sabotages += 1
+	_break_the_combo()
+	gauge = maxf(gauge - tuning.flow_tier_value, 0.0)
 
 
 func in_combo() -> bool:

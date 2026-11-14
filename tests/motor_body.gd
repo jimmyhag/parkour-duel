@@ -118,6 +118,22 @@ static func fixed_tuning() -> MovementTuning:
 	tuning.trick_perfect_window = 0.15
 	tuning.trick_perfect_bonus = 0.5
 	tuning.trick_perfect_speed_gain = 1.0
+	tuning.aim_speed_ratio = 0.6
+	tuning.shot_range = 45.0
+	tuning.aim_min_time = 0.25
+	tuning.aim_camera_fov = 50.0
+	tuning.aim_camera_offset = 0.6
+	tuning.aim_camera_blend_time = 0.12
+	tuning.sabotage_warning = 0.6
+	tuning.sabotage_cooldown = 3.0
+	tuning.sabotage_cost_platform = 1
+	tuning.sabotage_cost_bridge = 2
+	tuning.sabotage_cost_obstacle = 1
+	tuning.sabotage_cost_barrier = 1
+	tuning.sabotage_duration_platform = 5.0
+	tuning.sabotage_duration_bridge = 6.0
+	tuning.sabotage_duration_obstacle = 6.0
+	tuning.sabotage_duration_barrier = 4.0
 	return tuning
 
 
