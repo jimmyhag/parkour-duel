@@ -1,12 +1,18 @@
 # Tir et sabotage : viser, tirer, faire tomber le décor
 
-**Statut : 🟢 Implémenté**
+**Statut : 🟡 Prêt pour le dev**
 
 Session du 2026-11-14. Étape 3 de la feuille de route. Jimmy a délégué toute la
 conception (« enchaîne sur tout le reste […] fais tout jusqu'à ce que tu puisses plus
 faire ») : chaque décision ci-dessous est la recommandation de l'assistant, prise à sa
 place, et Jimmy peut rouvrir chacune après avoir joué. Son développement commence quand
 l'étape 2 (`docs/specs/flow-combo.md` et `docs/specs/air-tricks.md`) est fusionnée.
+
+Amendée le 2026-11-14 après le premier développement : viser puis tirer au même pas
+coûtait 0,002 s, si bien que « chaque tir coûte de l'avance » n'était vrai que pour une
+visée tenue ; et la barrière de 4 m, infranchissable, faisait attendre la victime 4 s
+pour une seule munition. Les décisions 4 et 6 sont amendées, deux scénarios ajoutés
+et un remplacé (marqués « amendement »), et les choix du code sont listés.
 
 ## Contexte
 
@@ -37,9 +43,9 @@ sans licence) ; la garantie à plus et moins 10 % du parcours ; la limite de 30 
 | 1 | Sur quel parcours tire-t-on à l'étape 3 ? | Sur **son propre parcours**, en entraînement : le joueur tire sur les cibles devant lui et vit leur effet. Les deux couloirs miroirs, et tirer sur celui de l'adversaire, sont l'étape 4. Le code ne suppose pas pour autant que tireur et victime sont le même coureur : le message dit qui tire. | La feuille de route met les couloirs miroirs à l'étape 4 ; l'étape 3 se juge seule : viser, tirer, l'effet, la récupération. |
 | 2 | Le ralenti de la visée | **Le coureur qui vise ralentit, pas le temps du monde.** En visée, sa vitesse de pointe au sol est multipliée par `aim_speed_ratio` (0,6) ; en l'air, rien ne change. `Engine.time_scale` n'est jamais touché par le jeu. | En duel en ligne (étape 5), on ne peut pas ralentir le temps de l'adversaire. Le plan le dit : « viser ralentit, donc chaque tir coûte de l'avance ». À rouvrir par Jimmy s'il voulait un vrai ralenti du temps en solo. |
 | 3 | Viser | Garder **clic droit** ou **gâchette gauche (LT)**. La caméra passe par-dessus l'épaule droite et resserre son champ ; un réticule apparaît au centre. Pendant la visée, aucune figure ne se lance ; une figure en cours se finit normalement. | Décision 3 du plan. La souris est libre depuis l'étape 2 pour cela. |
-| 4 | Tirer | **Clic gauche** ou **gâchette droite (RT)**, seulement en visée. Le tir part du centre de l'écran : il touche la première chose sur sa ligne. Il ne part que si le réticule est sur une **cible prête, à portée** (`shot_range`, 45 m) et si le coureur a assez de munitions pour son type : sinon rien ne se passe et rien n'est dépensé. | Cibles surlignées (décision 4 du plan) : on ne gaspille pas une munition dans le vide. Le skill est de viser vite en courant ralenti. |
+| 4 | Tirer | **Clic gauche** ou **gâchette droite (RT)**, seulement en visée. Le tir part du centre de l'écran : il touche la première chose sur sa ligne. Il ne part que si le réticule est sur une **cible prête, à portée** (`shot_range`, 45 m) et si le coureur a assez de munitions pour son type : sinon rien ne se passe et rien n'est dépensé. **Amendement** : le tir ne part qu'après `aim_min_time` (0,25 s) de visée tenue sans interruption ; avant, appuyer sur tir ne fait rien. Au sol, chaque tir coûte donc au moins un quart de seconde de course ralentie ; en l'air, rien (décision 2). | Cibles surlignées (décision 4 du plan) : on ne gaspille pas une munition dans le vide. Le skill est de viser vite en courant ralenti. |
 | 5 | Surligner | Toute cible prête est surlignée d'une couleur unique en permanence. En visée, la cible sous le réticule et tirable change d'aspect (plus vive) et le réticule le montre ; une cible trop chère pour les munitions du moment le montre aussi (réticule barré). Une cible pas prête n'est plus surlignée. | Lisible, et portable en tactile plus tard. Pas seulement la couleur : le réticule change de forme. |
-| 6 | Les types de cibles | Quatre types, chacun dans `game/world/` : **plateforme qui tombe** (une plateforme de passage disparaît), **pont qui lâche** (« corde coupée » : une passerelle tombe dans le vide), **obstacle qui chute** (un bloc tombe sur le chemin : il se franchit en mantle ou se contourne), **barrière qui se lève** (« piège » : un mur sort du sol en travers du chemin). | Les 4 à 6 du plan, sans modèle 3D : des blocs. |
+| 6 | Les types de cibles | Quatre types, chacun dans `game/world/` : **plateforme qui tombe** (une plateforme de passage disparaît), **pont qui lâche** (« corde coupée » : une passerelle tombe dans le vide), **obstacle qui chute** (un bloc tombe sur le chemin : il se franchit en mantle ou se contourne), **barrière qui se lève** (« piège » : un mur sort du sol en travers du chemin). **Amendement** : la barrière se franchit par un saut suivi d'un mantle (sa hauteur au-dessus du sol du chemin est dans la plage d'un mantle depuis le haut d'un saut) : elle coûte du temps et casse l'élan, elle ne bloque pas. | Les 4 à 6 du plan, sans modèle 3D : des blocs. |
 | 7 | Le coût | Plateforme 1 munition, pont 2, obstacle 1, barrière 1. Valeurs dans la ressource de réglage. | Le pont coupe un passage entier : il coûte plus. |
 | 8 | Le déroulé d'un sabotage | Chaque cible est un petit automate de `core` : **prête** → touchée → **alerte** (`sabotage_warning`, 0,6 s : la cible clignote, le son d'alerte joue) → **sabotée** (son effet, pendant la durée de son type) → **récupération** (elle revient à sa place) → **repos** (`sabotage_cooldown`, 3 s, pas tirable) → prête. Une cible pas prête ne peut pas être touchée. | L'alerte laisse une chance de réagir : du skill pour la victime aussi. |
 | 9 | Toujours finissable | Chaque effet a une durée : plateforme 5 s, pont 6 s, obstacle 6 s, barrière 4 s ; puis la cible revient. Aucun effet ne rend un passage infranchissable pour toujours ; l'obstacle qui chute est franchissable en mantle ou en glissade selon sa forme. Si un objet qui revient à sa place occupe l'endroit où est le coureur, il revient sans le pousser : il attend que la place soit libre. | « Réapparition ou état de secours » du plan. |
@@ -58,6 +64,7 @@ sans licence) ; la garantie à plus et moins 10 % du parcours ; la limite de 30 
 | ------- | ------ |
 | Vitesse de pointe en visée, part de la normale | 0,6 |
 | Portée du tir | 45 m |
+| Visée minimale avant un tir (amendement) | 0,25 s |
 | Champ de la caméra en visée, décalage par-dessus l'épaule | 50°, 0,6 m à droite |
 | Alerte avant l'effet | 0,6 s |
 | Repos après récupération | 3 s |
@@ -113,6 +120,18 @@ Fonctionnalité: Tir et sabotage
     Soit un coureur en visée, le réticule sur une cible prête au-delà de la portée
     Quand il tire
     Alors rien ne se passe et rien n'est dépensé
+
+  Scénario: Pas de tir avant la visée minimale
+    # amendement
+    Soit un coureur qui vient de commencer à viser, le réticule sur une cible prête, à portée et payable
+    Quand il tire avant la visée minimale, puis après
+    Alors le premier appui ne fait rien et ne dépense rien, le second part
+
+  Scénario: Chaque tir coûte de l'avance au sol
+    # amendement
+    Soit deux coureurs qui courent côte à côte à leur vitesse de pointe
+    Quand l'un vise et tire le plus vite possible, l'autre ne vise pas
+    Alors le tireur a perdu au moins le retard d'une visée minimale
 
   Scénario: Pas de tir sans viser
     Soit un coureur qui ne vise pas
@@ -170,10 +189,11 @@ Fonctionnalité: Tir et sabotage
     Quand le pilote arrive devant
     Alors il le franchit
 
-  Scénario: La barrière levée barre le passage
-    Soit une barrière levée
-    Quand le coureur arrive dessus en courant
-    Alors elle l'arrête
+  Scénario: La barrière levée se franchit en sautant et en se hissant
+    # amendement : remplace « La barrière levée barre le passage »
+    Soit une barrière levée sur le chemin
+    Quand le pilote arrive devant
+    Alors il la franchit, plus lentement qu'en passant sans barrière
 
   # --- Le parcours (vraie physique) ---
 
@@ -238,6 +258,33 @@ Fonctionnalité: Tir et sabotage
   reste.
 - **Focus** : aucun élément ne prend le focus.
 - **Libellés** (en anglais) : « SABOTAGED ».
+
+## Choix acceptés après le développement
+
+Le code a tranché ces points là où la spec se taisait ; ils sont acceptés le 2026-11-14
+et Jimmy peut rouvrir chacun après avoir joué.
+
+- **Le pont coupe la ligne droite du départ** : un vide de 6 m qu'un saut ne franchit
+  pas, enjambé par un pont de 4 m de large ; « visible depuis la section d'avant » se
+  lit « visible depuis le départ ».
+- **Les autres cibles** : la plateforme remplace `LongJump1` (même forme), la barrière
+  est sur `LowPassageStart`, l'obstacle tombe de 5 m sur `BigDropLanding`.
+- **L'obstacle et la barrière ne se posent pas sur un coureur** : celui qui est dans la
+  zone au début de l'effet est touché, et l'objet se pose dès que la place est libre.
+- **Les zones de touche** : plateforme et pont, leur volume et l'espace au-dessus ;
+  obstacle et barrière, le volume où ils arrivent.
+- **Le ralenti freine fort** (`ground_deceleration`), pas au rythme du momentum.
+- **La portée** se mesure depuis les yeux du coureur ; le rayon voit les blocs et les
+  cibles, pas les coureurs.
+- **`aim_camera_blend_time`** (0,12 s) est dans la ressource de réglage.
+- **Recommencer** remet toutes les cibles en place ; le retour au checkpoint ne les
+  touche pas. Après l'arrivée, on peut encore tirer, mais être touché ne compte plus.
+- **« SABOTAGED »** prend la place du texte de réception, puis « COMBO BROKEN » s'il y
+  avait un combo ; le palier est perdu même hors combo.
+- **Le réticule** n'est barré que sur une cible prête et à portée trop chère.
+- **La barrière** est un `StaticBody3D` déplacé d'un coup.
+- **Viser en l'air ne coûte rien** : c'est la décision 2 ; tirer pendant un saut est un
+  geste de skill. À juger en jouant.
 
 ## Hors périmètre
 
