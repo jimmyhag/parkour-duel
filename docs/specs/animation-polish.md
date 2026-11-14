@@ -1,6 +1,6 @@
 # Des animations propres : sans saccade, et un wall-run comme dans les autres jeux
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-14, avec Jimmy, après qu'il a joué le personnage Mixamo : « elles
 sont un peu toujours saccadées » ; « l'animation de wallrun, elle va pas du tout, on
