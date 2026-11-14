@@ -1,6 +1,6 @@
 # Figures aériennes : saltos, tours, vrilles et sons
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-14, avec Jimmy. Seconde des deux specs de l'étape 2 de la feuille de
 route (« Figures et flow »). Elle se construit **sur** `docs/specs/flow-combo.md` : son
