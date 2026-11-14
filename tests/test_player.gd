@@ -1,8 +1,11 @@
 extends GutTest
 ## The player layer: inputs turned into intents, the capsule that follows the state of
-## the runner, and the third-person camera.
+## the runner, the third-person camera, and the visible body without the Mixamo files.
 
 const PLAYER_SCENE: PackedScene = preload("res://game/player/player.tscn")
+const GHOST_SCENE: PackedScene = preload("res://game/player/ghost.tscn")
+## Where no character is: a project without the Mixamo files.
+const NO_CHARACTER: String = "res://assets/mixamo/no_character_here.fbx"
 const MOVE_FORWARD: StringName = &"move_forward"
 const SLIDE: StringName = &"slide"
 const FORWARD: Vector3 = Vector3.FORWARD
@@ -126,6 +129,30 @@ func test_the_camera_moves_closer_when_a_wall_passes_behind_the_runner() -> void
 	var radius: float = player.tuning.camera_collision_radius
 	assert_almost_eq(clearance, radius, 0.01, "at the radius of its sphere from the wall")
 	assert_gt(camera.global_position.z, player.global_position.z, "and stays behind the runner")
+
+
+func test_without_the_files_the_capsule_stays() -> void:
+	var player: Player = PLAYER_SCENE.instantiate() as Player
+	player.character_model = NO_CHARACTER
+	add_child_autofree(player)
+	var ghost: Ghost = GHOST_SCENE.instantiate() as Ghost
+	ghost.character_model = NO_CHARACTER
+	add_child_autofree(ghost)
+	await wait_physics_frames(FEW_STEPS)
+
+	var visual: Node3D = player.get_node("Visual") as Node3D
+	var body: MeshInstance3D = visual.get_node("Body") as MeshInstance3D
+	var visor: MeshInstance3D = visual.get_node("Visor") as MeshInstance3D
+	assert_eq(visual.get_child_count(), 2, "the visible body: the capsule and its visor")
+	assert_true(body.is_visible_in_tree(), "the capsule is seen")
+	assert_true(visor.is_visible_in_tree(), "its visor is seen")
+	assert_almost_eq(_mesh_height(player), player.tuning.capsule_height, TOLERANCE, "standing")
+	var capsule: CapsuleMesh = body.mesh as CapsuleMesh
+	assert_almost_eq(capsule.radius, player.tuning.capsule_radius, TOLERANCE, "of its radius")
+	assert_eq(ghost.get_child_count(), 2, "the ghost: the capsule and its visor")
+	for part: String in ["Body", "Visor"]:
+		var seen: MeshInstance3D = ghost.get_node(part) as MeshInstance3D
+		assert_true(seen.is_visible_in_tree(), "the ghost's %s is seen" % part)
 
 
 func _add_player() -> Player:

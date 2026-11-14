@@ -46,6 +46,9 @@ var steps: int = 0
 var events: Array[RunnerEvent] = []
 ## The share of the top speed added by the flow (0 for none); the absolute cap holds.
 var top_speed_bonus: float = 0.0
+## Fixed steps since the runner last touched the ground after a fall: LONG_AGO when it has
+## not since it was put somewhere. Only the motor changes it.
+var steps_since_landing: int = LONG_AGO
 ## A release of the trick button would start a trick now, after the step just played: in
 ## the air or along a wall, or where the jump of a trick is allowed; not while aiming, nor
 ## after the trick of this jump.
@@ -61,8 +64,6 @@ var _can_stand: bool = true
 var _steps_in_the_air: int = LONG_AGO
 var _steps_since_jump_request: int = LONG_AGO
 var _steps_since_slide_press: int = LONG_AGO
-## Steps since the runner last landed after a fall.
-var _steps_since_landing: int = LONG_AGO
 ## The slide was pressed since the last slide started: the next one counts.
 var _slide_pressed_since_the_last_slide: bool = false
 var _jump_spent: bool = true
@@ -147,7 +148,7 @@ func reset() -> void:
 	_can_stand = true
 	_aiming = false
 	events.clear()
-	_steps_since_landing = LONG_AGO
+	steps_since_landing = LONG_AGO
 	_slide_pressed_since_the_last_slide = false
 	_steps_in_the_air = LONG_AGO
 	_steps_since_jump_request = LONG_AGO
@@ -317,7 +318,7 @@ func _remember_requests(intent: MoveIntent) -> void:
 
 func _observe_floor(facts: RunnerFacts) -> void:
 	var was_low: bool = is_low()
-	_steps_since_landing = mini(_steps_since_landing + 1, LONG_AGO)
+	steps_since_landing = mini(steps_since_landing + 1, LONG_AGO)
 	if state == State.MANTLING:
 		# A mantle is a contact with the ground: what follows it starts from there.
 		_touch_the_ground(facts)
@@ -364,7 +365,7 @@ func _touch_the_ground(facts: RunnerFacts) -> void:
 func _land(fall_height: float, low: bool) -> void:
 	_landing_steps = 0
 	if is_finite(fall_height):
-		_steps_since_landing = 0
+		steps_since_landing = 0
 	var posed: bool = false
 	if _trick != null:
 		posed = _steps_since_slide_press <= _window_steps(tuning.trick_landing_window)
@@ -424,7 +425,7 @@ func _start_slide() -> void:
 		return
 	_slide_pressed_since_the_last_slide = false
 	var window: int = _window_steps(tuning.perfect_slide_window)
-	if _steps_since_landing > window or _steps_since_slide_press > window:
+	if steps_since_landing > window or _steps_since_slide_press > window:
 		_announce(RunnerEvent.Kind.SLIDE)
 		return
 	var horizontal: Vector3 = Vector3(velocity.x, 0.0, velocity.z)

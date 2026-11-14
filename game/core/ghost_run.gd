@@ -1,15 +1,18 @@
 class_name GhostRun
 extends RefCounted
 ## A solo run as the ghost replays it: where the visible body was (its transform in its
-## lane) at every fixed step, from the step before the runner first acted to its finish;
-## the frame at which it reached each checkpoint; its finish, its time and its style
-## score. Frame n is where the body was after n steps of the run: the ghost of a duel
-## shows it n steps after GO. Positions, not intents, are replayed: a replay that does not
-## depend on the physics. Nothing is saved to disk.
+## lane) and the animation it showed (RunnerAnimation) at every fixed step, from the step
+## before the runner first acted to its finish; the frame at which it reached each
+## checkpoint; its finish, its time and its style score. Frame n is where the body was
+## after n steps of the run: the ghost of a duel shows it n steps after GO. Positions, not
+## intents, are replayed: a replay that does not depend on the physics. Nothing is saved
+## to disk.
 
 const NOT_FINISHED: int = -1
 
 var frames: Array[Transform3D] = []
+## The animation of each frame.
+var animations: Array[RunnerAnimation] = []
 var checkpoint_frames: Dictionary[int, int] = {}
 var finish_frame: int = NOT_FINISHED
 ## Its time from the start line to the finish line, and its style score.
@@ -20,15 +23,20 @@ var style_score: int = 0
 var _begun: bool = false
 
 
-## Where the body is after one more fixed step, and whether the runner acted at it.
-## Until it first acts, only the last frame is kept: the run begins where it waited.
-func record(frame: Transform3D, acted: bool) -> void:
+## Where the body is after one more fixed step, whether the runner acted at it, and the
+## animation the body shows. Until it first acts, only the last frame is kept: the run
+## begins where it waited.
+func record(
+	frame: Transform3D, acted: bool, animation: RunnerAnimation = RunnerAnimation.new()
+) -> void:
 	if is_finished():
 		return
 	if not _begun and not acted:
 		frames.clear()
+		animations.clear()
 	_begun = _begun or acted
 	frames.append(frame)
+	animations.append(animation)
 
 
 ## The runner reached the checkpoint `index` at the last frame recorded.
@@ -54,3 +62,8 @@ func is_finished() -> bool:
 ## Where the body was at frame `index`; past the end, where it finished.
 func frame(index: int) -> Transform3D:
 	return frames[clampi(index, 0, frames.size() - 1)]
+
+
+## The animation the body showed at frame `index`; past the end, as it finished.
+func animation(index: int) -> RunnerAnimation:
+	return animations[clampi(index, 0, animations.size() - 1)]

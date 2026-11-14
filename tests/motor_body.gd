@@ -86,6 +86,10 @@ static func fixed_tuning() -> MovementTuning:
 	tuning.wall_jump_grace_time = 0.10
 	tuning.capsule_height = 1.8
 	tuning.capsule_radius = 0.35
+	tuning.animation_blend_time = 0.1
+	tuning.animation_run_speed = 6.0
+	tuning.animation_still_speed = 0.5
+	tuning.animation_landing_time = 0.25
 	tuning.flow_points_jump = 50
 	tuning.flow_points_slide = 50
 	tuning.flow_points_perfect_slide = 150

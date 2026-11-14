@@ -3,8 +3,10 @@ extends CharacterBody3D
 ## The runner's body. At every fixed step it asks its intent source for an intent,
 ## gives it to the motor of game/core with the facts it observes (RunnerFacts), and
 ## applies what the motor decides: the velocity it wants, a capsule as low as its state
-## says, a visible body that faces the push, leans towards the wall it runs along and
-## turns with the trick under way. While it aims, it observes what is under the reticle
+## says, a visible body that faces the push, leans towards the wall it runs along, turns
+## with the trick under way and shows the animation of the motor's state (the Mixamo
+## character, RunnerCharacter, when its files are there; the capsule and its visor
+## otherwise). While it aims, it observes what is under the reticle
 ## (AimFacts), or on the line from its head that its intent gives (the bot's aim), and
 ## puts the camera over its shoulder. Held (a countdown), it follows no intent. It decides
 ## nothing about the movement or the shot itself.
@@ -35,11 +37,18 @@ var intent_source: IntentSource
 var aim_facts: AimFacts = AimFacts.new()
 ## The runner waits: at every step it wants nothing, whatever its intent source.
 var held: bool = false
+## The character its visible body takes, if its files are there; a path where there is
+## none keeps the capsule. To set before the runner enters the tree.
+var character_model: String = RunnerCharacter.MODEL
+## The animation of the state of the runner at its last step: what its body shows.
+var animation: RunnerAnimation = RunnerAnimation.new()
 
 ## Where the visible body looks, as a rotation around the vertical axis, and how far it
 ## leans to its left, in radians.
 var _yaw: float = 0.0
 var _lean: float = 0.0
+## The Mixamo character in the visible body; null with the capsule.
+var _character: RunnerCharacter = null
 
 @onready var camera_rig: CameraRig = $CameraRig as CameraRig
 @onready var _collider: CollisionShape3D = $CollisionShape3D as CollisionShape3D
@@ -53,6 +62,11 @@ func _ready() -> void:
 	intent_source = InputIntentSource.new(camera_rig)
 	camera_rig.target = self
 	apply_tuning(tuning)
+	_character = RunnerCharacter.create(character_model, tuning.capsule_height)
+	if _character != null:
+		_visual.add_child(_character)
+		_body.visible = false
+		_visor.visible = false
 
 
 func _physics_process(delta: float) -> void:
@@ -65,6 +79,9 @@ func _physics_process(delta: float) -> void:
 	_turn(intent, delta)
 	_lean_towards_the_wall(delta)
 	_pose()
+	animation = RunnerAnimation.of(motor, delta)
+	if _character != null:
+		_character.play(animation)
 	stepped.emit(intent)
 
 
@@ -84,11 +101,14 @@ func apply_tuning(new_tuning: MovementTuning) -> void:
 	_visor.position.z = -tuning.capsule_radius
 
 
-## Gives the capsule one sees the colour `colour` (the opponent's, in a duel).
+## Gives the capsule one sees the colour `colour`, or tints the character with it (the
+## opponent's, in a duel).
 func paint(colour: Color) -> void:
 	var material: StandardMaterial3D = StandardMaterial3D.new()
 	material.albedo_color = colour
 	_body.material_override = material
+	if _character != null:
+		_character.tint(colour)
 
 
 ## Shows the world through this runner's camera, or not: a duel shows the player's only,

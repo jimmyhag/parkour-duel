@@ -287,6 +287,19 @@ extends Resource
 ## How fast the character turns towards its movement, in rad/s.
 @export var turn_speed: float = 0.0
 
+@export_group("Animation")
+## How long the body takes to go from one animation to the next, in s; a hard landing (or
+## a crash) starts at once.
+@export var animation_blend_time: float = 0.0
+## The horizontal speed at which Running plays at its own pace, in m/s: faster or slower,
+## it plays in proportion.
+@export var animation_run_speed: float = 0.0
+## Under this horizontal speed, a runner on its feet stands: Idle, in m/s.
+@export var animation_still_speed: float = 0.0
+## How long Landing plays after a landing that is neither hard nor rolled, in s; shorter
+## than a hard landing.
+@export var animation_landing_time: float = 0.0
+
 @export_group("Camera")
 ## Distance between the camera and the point it looks at, in m.
 @export var camera_distance: float = 0.0

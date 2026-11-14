@@ -34,3 +34,7 @@ __pycache__/
 # Claude Code local settings and the worktrees of delegated agents
 .claude/settings.local.json
 .claude/worktrees/
+
+# Mixamo character and animations: free to use in a game, not to redistribute, and the
+# repository is public. `just mixamo <folder>` copies them here (README).
+assets/mixamo/

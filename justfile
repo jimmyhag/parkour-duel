@@ -64,6 +64,10 @@ preflight: typecheck lint _test-edit-loop deadcode
 build:
     {{ python }} tools/export.py {{ godot }}
 
+# Copy the Mixamo files the game uses from a download folder into assets/mixamo/ (README)
+mixamo folder:
+    {{ python }} tools/mixamo.py "{{ folder }}"
+
 # Download the pinned export templates the build needs (once per machine, about 1 GB)
 fetch-templates:
     {{ python }} tools/fetch_godot.py templates

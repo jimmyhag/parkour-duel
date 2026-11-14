@@ -1,7 +1,8 @@
 extends GutTest
 ## A solo run as the ghost replays it (game/core): where the visible body was at every
 ## fixed step from the one before the runner first acted, the checkpoints and the finish
-## of the run; and the session, which keeps the best finished one.
+## of the run, with the animation the body showed at each of them; and the session, which
+## keeps the best finished one.
 
 const STEPS_PER_SECOND: int = 60
 
@@ -31,6 +32,20 @@ func test_a_run_is_recorded_from_the_step_before_the_runner_first_acts() -> void
 	assert_eq(run.frame(99).origin.z, -15.0, "past its end, the ghost stays at its finish")
 
 
+func test_the_ghost_replays_the_animation_recorded_with_each_frame() -> void:
+	var run: GhostRun = GhostRun.new()
+	run.record(_at(0.0), false, _showing(RunnerAnimation.Clip.FALLING_IDLE))
+	run.record(_at(0.0), false, _showing(RunnerAnimation.Clip.IDLE))
+	run.record(_at(-1.0), true, _showing(RunnerAnimation.Clip.RUNNING))
+	run.record(_at(-2.0), true, _showing(RunnerAnimation.Clip.JUMP))
+	run.finish(2, 0)
+
+	assert_eq(run.animation(0).clip, RunnerAnimation.Clip.IDLE, "frame 0: as it waited")
+	assert_eq(run.animation(1).clip, RunnerAnimation.Clip.RUNNING, "frame 1: running")
+	assert_eq(run.animation(2).clip, RunnerAnimation.Clip.JUMP, "frame 2: jumping")
+	assert_eq(run.animation(99).clip, RunnerAnimation.Clip.JUMP, "past its end, as it finished")
+
+
 func test_the_session_keeps_the_best_solo_run() -> void:
 	var session: Session = Session.new()
 	assert_false(session.has_solo_run(), "no solo run finished yet")
@@ -48,6 +63,12 @@ func test_the_session_keeps_the_best_solo_run() -> void:
 
 func _at(z: float) -> Transform3D:
 	return Transform3D(Basis.IDENTITY, Vector3(0.0, 0.0, z))
+
+
+func _showing(clip: RunnerAnimation.Clip) -> RunnerAnimation:
+	var animation: RunnerAnimation = RunnerAnimation.new()
+	animation.clip = clip
+	return animation
 
 
 func _finished(race_steps: int) -> GhostRun:

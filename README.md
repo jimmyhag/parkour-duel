@@ -38,6 +38,46 @@ hard landing, momentum, mantle, wall run, wall jump, flow, tricks, sabotage, cam
 `game/core/movement_tuning.tres`. When the game
 runs from the project folder, F4 reads that file again without restarting.
 
+## The animated character
+
+The runners are capsules until the Mixamo character is installed: then an animated
+character replaces the capsule (and its visor) of the player, the bot (tinted orange)
+and the ghost (orange, half transparent). Mixamo's files may be used in a game, not
+redistributed, and this repository is public: they are never committed. `assets/mixamo/`
+is ignored by Git; each owner downloads the files and copies them there. Without them,
+everything works as before, the tests included.
+
+On [mixamo.com](https://www.mixamo.com) (free, with an Adobe account), download in one
+folder, as FBX Binary (.fbx), "With Skin", with the default settings (In Place or not:
+the game removes the movement of the root):
+
+| File | What it is |
+| ---- | ---------- |
+| `Ch08_nonPBR.fbx` | the character (the only file whose mesh the game uses) |
+| `Idle.fbx`, `Running.fbx`, `Jump.fbx`, `Falling Idle.fbx`, `Landing.fbx`, `Hard Landing.fbx`, `Falling To Roll.fbx`, `Running Slide.fbx`, `Sprint To Wall Climb.fbx`, `Wall Run.fbx`, `Backflip.fbx` | the animations, on that character |
+| `Pistol_Handgun Locomotion Pack.zip` | the pistol pack (as one zip); only `pistol idle.fbx` is used |
+
+Then, from the repository root:
+
+```sh
+just mixamo "C:\path\to\the\download\folder"
+```
+
+It copies the character and the animations into `assets/mixamo/` under fixed names,
+takes `pistol idle.fbx` out of the zip, and writes the import settings Godot reads (the
+character with its mesh; of every other file, only the skeleton and the animation). The
+next start of Godot imports them (about a minute and a half, once). A missing file is
+named, and nothing is copied.
+
+Each state of the runner has its animation: Idle standing, Running (faster or slower
+with the speed), Jump rising, Falling Idle falling, Landing briefly after a small fall,
+Hard Landing, the roll of Falling To Roll, Running Slide, the hoist of Sprint To Wall
+Climb in a mantle, Wall Run (mirrored along a wall at the right); during a trick, a
+tucked pose taken from Backflip, the body turning as before; while aiming, the upper
+body holds Pistol Idle. The blend time, the speed at which Running plays at its own
+pace, the speed under which a runner stands still and how long Landing plays are in the
+tuning file (group Animation).
+
 ## Working on the project
 
 The rules, the commands and the architecture are in [AGENTS.md](AGENTS.md); the way
