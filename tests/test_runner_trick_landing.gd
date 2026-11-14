@@ -23,7 +23,7 @@ func test_a_finished_trick_pays_at_the_landing() -> void:
 
 	assert_eq(body.motor.state, RunnerMotor.State.GROUNDED, "it lands")
 	_assert_kinds(body, [TRICK])
-	if body.motor.events.is_empty():
+	if body.motor.events.is_empty() or body.motor.events[0].trick == null:
 		return
 	var event: RunnerEvent = body.motor.events[0]
 	assert_eq(event.step, body.motor.steps, "dated by the step of the landing")
@@ -63,22 +63,51 @@ func test_an_unfinished_trick_on_the_ground_is_a_crash() -> void:
 	assert_null(body.motor.current_trick(), "nothing is left of it")
 
 
+func test_a_crash_does_not_pay_the_tricks_already_finished_in_the_jump() -> void:
+	var flow: FlowState = _flow()
+	_count(flow, RunnerEvent.Kind.WALL_RUN)
+	var body: MotorBody = _launched()
+	var landing: int = _landing_step(_launched, Vector3.ZERO)
+	var second: int = TURN_STEPS + 1
+	assert_gt(second + TURN_STEPS, landing, "a second turn does not fit before the ground")
+
+	for step: int in landing + 1:
+		var press: bool = step == 0 or step == second
+		_follow(
+			body, flow, _trick(BACK if step == 0 else FORWARD) if press else _push(Vector3.ZERO)
+		)
+		if step == second:
+			assert_eq(body.motor.current_trick().rank, 2, "a finished trick, then a second one")
+
+	_assert_kinds(body, [RunnerEvent.Kind.CRASH])
+	assert_eq(flow.style_score, 150, "neither trick earns anything")
+	assert_eq(flow.tricks_landed, 0, "none is counted")
+
+
 func test_a_trick_finished_just_before_the_ground_is_perfect() -> void:
 	var landing: int = _landing_step(_launched, Vector3.ZERO)
 	# Finished at the edge of the window, the perfect window before the ground.
 	var start: int = landing - TURN_STEPS - PERFECT_STEPS
-	for speed: float in [_tuning.top_speed, _tuning.max_horizontal_speed - 0.5]:
-		var context: String = "at %.1f m/s" % speed
+	var top: float = _tuning.top_speed
+	var gain: float = _tuning.trick_perfect_speed_gain
+	# At the top speed: the whole gain; a little faster: up to the top speed plus the gain;
+	# much faster: no gain; under an absolute cap close above the top speed: up to the cap.
+	# A spin, pressed without a push: the speed in the air does not change.
+	var speeds: Array[float] = [top, top + 0.5, top + 5.0, top]
+	var caps: Array[float] = [_tuning.max_horizontal_speed, 22.0, 22.0, top + 0.4]
+	var gains: Array[float] = [gain, 0.5, 0.0, 0.4]
+	for index: int in speeds.size():
+		_tuning.max_horizontal_speed = caps[index]
+		var context: String = "at %.1f m/s, cap %.1f m/s" % [speeds[index], caps[index]]
 		var flow: FlowState = _flow()
-		var tricking: MotorBody = _launched(speed)
-		var plain: MotorBody = _launched(speed)
+		var tricking: MotorBody = _launched(speeds[index])
+		var plain: MotorBody = _launched(speeds[index])
 		for step: int in landing + 1:
-			var push: Vector3 = BACK if step == start else Vector3.ZERO
-			var intent: MoveIntent = _push(push)
+			var intent: MoveIntent = _push(Vector3.ZERO)
 			intent.trick_pressed = step == start
 			intent.trick_held = intent.trick_pressed
 			_follow(tricking, flow, intent)
-			plain.step(_push(push))
+			plain.step(_push(Vector3.ZERO))
 
 		_assert_kinds(tricking, [TRICK])
 		if tricking.motor.events.is_empty():
@@ -86,15 +115,32 @@ func test_a_trick_finished_just_before_the_ground_is_perfect() -> void:
 		assert_true(tricking.motor.events[0].trick.perfect, context + ": a perfect landing")
 		assert_eq(flow.last_points, 300, context + ": the bonus on top")
 		var gained: float = tricking.horizontal_speed() - plain.horizontal_speed()
-		var cap: float = _tuning.max_horizontal_speed
-		var gain: float = _tuning.trick_perfect_speed_gain
-		if speed + gain <= cap:
-			assert_almost_eq(gained, gain, TOLERANCE, context + ": the speed gains the gain")
-		else:
-			assert_lt(gained, gain, context + ": a gain held back")
-			var landed: float = cap - _tuning.ground_deceleration / STEPS_PER_SECOND
-			var speed_now: float = tricking.horizontal_speed()
-			assert_almost_eq(speed_now, landed, TOLERANCE, context + ": by the absolute cap")
+		assert_almost_eq(gained, gains[index], TOLERANCE, context + ": the speed gained")
+
+
+func test_only_the_last_trick_of_the_jump_is_perfect() -> void:
+	var flow: FlowState = _flow()
+	var body: MotorBody = _high()
+	var landing: int = _landing_step(_high, Vector3.ZERO)
+	# The second finished within the window before the ground, the first right before it.
+	var second: int = landing - TURN_STEPS - 3
+	var first: int = second - TURN_STEPS - 1
+	for step: int in landing + 1:
+		var press: bool = step == first or step == second
+		var intent: MoveIntent = _trick(Vector3.ZERO) if press else _push(Vector3.ZERO)
+		if step == first:
+			intent.direction = BACK
+		intent.slide_pressed = step == landing - 1
+		intent.slide_held = step >= landing - 1
+		_follow(body, flow, intent)
+
+	_assert_kinds(body, [TRICK, TRICK, RunnerEvent.Kind.ROLL])
+	if body.motor.events.size() < 2:
+		return
+	assert_false(body.motor.events[0].trick.perfect, "the first is not perfect")
+	assert_true(body.motor.events[1].trick.perfect, "the second, the last, is")
+	var points: Array[int] = [200, 450, 100]
+	assert_eq(flow.step_points, points, "the bonus on the last one only")
 
 
 func test_a_trick_finished_too_early_is_not_perfect() -> void:
@@ -132,10 +178,32 @@ func test_a_trick_pays_at_the_start_of_a_wall_run() -> void:
 
 	assert_eq(body.motor.state, RunnerMotor.State.WALL_RUNNING, "finished, the runner wall runs")
 	_assert_kinds(body, [TRICK, RunnerEvent.Kind.WALL_RUN])
-	if body.motor.events.is_empty():
+	if body.motor.events.is_empty() or body.motor.events[0].trick == null:
 		return
 	assert_false(body.motor.events[0].trick.perfect, "no perfect along a wall")
 	assert_eq(flow.style_score, 200 + 150, "the trick pays, then the wall run")
+
+
+func test_a_trick_pays_at_the_start_of_a_mantle() -> void:
+	var flow: FlowState = _flow()
+	var body: MotorBody = _high()
+	var reach: float = _tuning.mantle_min_height * 1.5
+	_follow(body, flow, _trick(FORWARD))
+	# A ledge within reach right in front, all along the trick.
+	for step: int in range(1, TURN_STEPS):
+		body.put_ledge_ahead(reach)
+		_follow(body, flow, _push(FORWARD))
+	assert_true(body.motor.is_in_a_trick(), "a trick in front of a ledge within reach")
+	body.put_ledge_ahead(reach)
+
+	_follow(body, flow, _push(FORWARD))
+
+	assert_eq(body.motor.state, RunnerMotor.State.MANTLING, "finished, the runner climbs")
+	_assert_kinds(body, [TRICK, RunnerEvent.Kind.MANTLE])
+	if body.motor.events.is_empty() or body.motor.events[0].trick == null:
+		return
+	assert_false(body.motor.events[0].trick.perfect, "no perfect on a ledge")
+	assert_eq(flow.style_score, 200 + 100, "the trick pays, then the mantle")
 
 
 func test_the_points_of_a_composed_trick() -> void:
@@ -156,7 +224,7 @@ func test_the_points_of_a_composed_trick() -> void:
 		_follow(body, flow, intent)
 
 	_assert_kinds(body, [TRICK, RunnerEvent.Kind.ROLL])
-	if body.motor.events.is_empty():
+	if body.motor.events.is_empty() or body.motor.events[0].trick == null:
 		return
 	var trick: AirTrick = body.motor.events[0].trick
 	assert_eq(trick.name(), "DOUBLE BACKFLIP FULL")
@@ -219,7 +287,7 @@ func test_the_big_fall_still_asks_for_a_roll() -> void:
 
 	assert_eq(body.motor.state, RunnerMotor.State.HARD_LANDING, "no roll: a hard landing")
 	_assert_kinds(body, [TRICK, RunnerEvent.Kind.HARD_LANDING])
-	if body.motor.events.is_empty():
+	if body.motor.events.is_empty() or body.motor.events[0].trick == null:
 		return
 	assert_true(body.motor.events[0].trick.perfect, "even after a perfect trick")
 	assert_eq(flow.style_score, 150 + 300, "which pays")

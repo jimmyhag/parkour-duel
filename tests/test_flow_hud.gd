@@ -10,9 +10,9 @@ const ROLL: RunnerEvent.Kind = RunnerEvent.Kind.ROLL
 const MANTLE: RunnerEvent.Kind = RunnerEvent.Kind.MANTLE
 const WALL_RUN: RunnerEvent.Kind = RunnerEvent.Kind.WALL_RUN
 const HARD_LANDING: RunnerEvent.Kind = RunnerEvent.Kind.HARD_LANDING
-## The turn of the fixed tuning (0.45 s) in fixed steps, and a height a flight lasts long
+## The turn of the fixed tuning (0.65 s) in fixed steps, and a height a flight lasts long
 ## from.
-const TURN_STEPS: int = 27
+const TURN_STEPS: int = 39
 const HIGH: float = 40.0
 
 var _tuning: MovementTuning

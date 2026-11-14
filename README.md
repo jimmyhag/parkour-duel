@@ -114,14 +114,15 @@ Jumping from one wall to the one facing it, again and again, climbs between them
 Tricks: in the air, after a jump, a wall jump or a fall from a ledge, press the trick
 button. The direction pushed at that moment, measured against where the runner is
 going, chooses the flip: ahead a front flip, behind a backflip, to a side a side flip,
-no push a flat spin. One turn takes a little less than half a second; while the button
-is held when a turn ends, another one starts, and once it is released the body finishes
+no push a flat spin. One turn takes about two thirds of a second, longer than a jump on
+the flat: a trick asks for height (a drop of a metre or more, a wall jump, a big fall).
+While the button is held when a turn ends, another one starts, and once it is released the body finishes
 the turn under way. During a front flip or a backflip, each press of jump adds a twist
 (two at most per turn); during a trick, jump never makes the runner jump. A trick
 changes nothing to the flight, but no wall run and no mantle starts before it is over.
 Another press after a trick starts another one in the same jump, worth more. The tricks
 pay at the landing, as moves of the flow: a trick finished just before the ground is
-PERFECT (more points, a little speed); touching the ground before the end of a turn is
+PERFECT (more points, and a little speed, up to the top speed plus that gain); touching the ground before the end of a turn is
 a CRASH (a hard landing that breaks the combo, and the tricks of the jump are lost). A
 high fall still asks for a roll.
 

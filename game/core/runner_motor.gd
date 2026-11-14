@@ -721,7 +721,9 @@ func _turn_the_trick(intent: MoveIntent) -> void:
 ## The tricks of the jump are paid: each one is announced, dated by this step. On the
 ## ground, the landing is perfect if the last one finished within the perfect window
 ## before it: that trick is worth more, and the horizontal speed gains the tuned speed
-## the way it goes, up to the absolute cap.
+## the way it goes, but never beyond the top speed of the moment plus that gain, so that
+## perfect landings in a row do not add up; a runner already faster keeps its speed. The
+## absolute cap holds too.
 func _pay_the_tricks(on_the_ground: bool) -> void:
 	if _tricks.is_empty():
 		return
@@ -729,10 +731,13 @@ func _pay_the_tricks(on_the_ground: bool) -> void:
 	if on_the_ground and steps - last.finished_at <= _window_steps(tuning.trick_perfect_window):
 		last.perfect = true
 		var horizontal: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
-		horizontal += horizontal.normalized() * tuning.trick_perfect_speed_gain
-		horizontal = horizontal.limit_length(tuning.max_horizontal_speed)
-		velocity.x = horizontal.x
-		velocity.z = horizontal.z
+		var speed: float = horizontal.length()
+		var gain: float = tuning.trick_perfect_speed_gain
+		var gained: float = minf(speed + gain, top_speed() + gain)
+		if gained > speed:
+			horizontal = horizontal.normalized() * minf(gained, tuning.max_horizontal_speed)
+			velocity.x = horizontal.x
+			velocity.z = horizontal.z
 	for trick: AirTrick in _tricks:
 		events.append(RunnerEvent.new(RunnerEvent.Kind.TRICK, steps, trick))
 	_tricks.clear()
@@ -748,15 +753,17 @@ func _crash() -> void:
 	_announce(RunnerEvent.Kind.CRASH)
 
 
-## A trick pressed in the air, rising or falling (not along a wall), starts, chosen by
-## the push and the velocity of this step, unless one is under way.
+## A trick pressed in the air, rising or falling (not along a wall), starts, unless one
+## is under way. It is chosen by the push against the velocity the runner had as the step
+## started: the push of this step does not bend what it is measured against.
 func _start_a_trick(intent: MoveIntent) -> void:
 	if not intent.trick_pressed or is_in_a_trick():
 		return
 	if state != State.RISING and state != State.FALLING:
 		return
 	var turn_steps: int = _window_steps(tuning.trick_turn_duration)
-	_tricks.append(AirTrick.new(intent.direction, velocity, turn_steps, _tricks.size() + 1))
+	var rank: int = _tricks.size() + 1
+	_tricks.append(AirTrick.new(intent.direction, _real_velocity, turn_steps, rank))
 
 
 ## Tells, dated by this step, that `kind` happened.

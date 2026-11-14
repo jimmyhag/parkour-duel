@@ -4,7 +4,7 @@ extends GutTest
 
 const SOUNDS_SCENE: PackedScene = preload("res://game/ui/flow_sounds.tscn")
 const STEPS_PER_SECOND: int = 60
-const TURN_STEPS: int = 27
+const TURN_STEPS: int = 39
 ## The players of the scene, and the sound each one plays.
 const SOUNDS: Dictionary[String, String] = {
 	"TrickLanded": "res://assets/sounds/confirmation_001.ogg",
