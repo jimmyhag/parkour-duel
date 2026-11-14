@@ -304,7 +304,9 @@ et Jimmy peut rouvrir chacun après avoir joué.
 
 - **Le pont coupe la ligne droite du départ** : un vide enjambé par un pont de 4 m de
   large ; **second amendement** : le vide est assez large pour qu'aucun saut, même
-  suivi d'un mantle au bord, ne le franchisse, bonus du palier 3 compris ; « visible depuis la section d'avant » se
+  suivi d'un mantle au bord, ne le franchisse, bonus du palier 3 compris ; il fait 10 m (un saut
+  suivi d'un mantle franchit au plus 9,18 m au palier 3) ; une glissade parfaite juste
+  avant le saut le franchirait : c'est une échappatoire de skill, acceptée ; « visible depuis la section d'avant » se
   lit « visible depuis le départ ».
 - **Les autres cibles** : la plateforme remplace `LongJump1` (même forme), la barrière
   est sur `LowPassageStart`, l'obstacle tombe de 5 m sur `BigDropLanding`.
@@ -326,6 +328,8 @@ et Jimmy peut rouvrir chacun après avoir joué.
   sol (second amendement).
 - **Le retour d'une cible** regarde seulement le volume de son corps ; sa zone, plus
   large, ne sert qu'à savoir qui est touché (second amendement).
+- **L'alerte de 1 s** laisse environ 0,2 s de marge pour quitter une plateforme en
+  venant de s'y poser à la vitesse de pointe.
 - **Les tests de soutien** : huit tests sans scénario du même nom prouvent les
   décisions 3, 10 et 15 ou des choix de cette liste (la touche en vraie physique, les
   vrais événements de souris et de gâchettes, la caméra par-dessus l'épaule,
