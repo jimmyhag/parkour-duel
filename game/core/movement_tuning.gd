@@ -79,6 +79,25 @@ extends Resource
 ## Speed at which a mantle leaves the runner on its ledge, forwards, in m/s.
 @export var mantle_exit_speed: float = 0.0
 
+@export_group("Vault")
+## Least horizontal speed on the ground for a vault, in m/s.
+@export var vault_min_speed: float = 0.0
+## Farthest the face of an obstacle can be from the front of the runner for a vault, in m.
+@export var vault_reach: float = 0.0
+## Lowest and highest height of the top of an obstacle above the feet that a vault passes
+## over, in m.
+@export var vault_min_height: float = 0.0
+@export var vault_max_height: float = 0.0
+## Deepest obstacle a vault passes over, the way the runner goes, in m.
+@export var vault_max_depth: float = 0.0
+## How long a vault lasts, from the ground before the obstacle to the ground behind it, in s.
+@export var vault_duration: float = 0.0
+## Share of its horizontal speed the runner keeps out of a vault (0 to 1).
+@export_range(0.0, 1.0) var vault_speed_kept: float = 0.0
+## Deeper than this, the obstacle is vaulted with both hands (Vault Two Hands); one
+## otherwise, in m.
+@export var vault_two_hands_depth: float = 0.0
+
 @export_group("Wall run")
 ## Farthest a wall can be from the runner's side for a wall run, in m.
 @export var wall_run_distance: float = 0.0
@@ -116,6 +135,7 @@ extends Resource
 @export var flow_points_mantle: int = 0
 @export var flow_points_wall_run: int = 0
 @export var flow_points_wall_jump: int = 0
+@export var flow_points_vault: int = 0
 ## Least horizontal speed of a jump that counts, as a share of the top speed (0 to 1).
 @export_range(0.0, 1.0) var flow_jump_min_speed_share: float = 0.0
 ## How many of the last moves of a combo a move is judged against.

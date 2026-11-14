@@ -3,10 +3,11 @@ extends RefCounted
 ## The runner's state machine. At every fixed step the player layer gives it an intent
 ## and the facts it observed (RunnerFacts); it answers with the state of the runner and
 ## the velocity it wants, and announces the moves it starts and the tricks its landings
-## pay (RunnerEvent). It plays the aerial trick (AirTrick) of each jump: the recipe drawn
-## starts as the trick button is released, in the air, on the ground with a full jump
-## that carries it, or along a wall (or just off it) with a full wall jump, and a landing
-## poses it only with the slide pressed just before the ground. A runner that aims is
+## pay (RunnerEvent). On the ground, running towards a low and thin obstacle, it vaults
+## over it on its own (Vault). It plays the aerial trick (AirTrick) of each jump: the
+## recipe drawn starts as the trick button is released, in the air, on the ground with a
+## full jump that carries it, or along a wall (or just off it) with a full wall jump, and a
+## landing poses it only with the slide pressed just before the ground. A runner that aims is
 ## slower on the ground, sliding and rolling included, and starts no trick. It uses
 ## nothing but its arguments, the tuning and the speed bonus the flow gives it: no input,
 ## no clock, no scene.
@@ -20,6 +21,7 @@ enum State {
 	HARD_LANDING,
 	MANTLING,
 	WALL_RUNNING,
+	VAULTING,
 }
 
 ## How the runner got into the air it is in: what the trick of the context depends on.
@@ -53,6 +55,8 @@ var steps_since_landing: int = LONG_AGO
 ## the air or along a wall, or where the jump of a trick is allowed; not while aiming, nor
 ## after the trick of this jump.
 var trick_ready: bool = false
+## The vault under way, or the last one; null before the first. Only the motor changes it.
+var vault: Vault = null
 
 var _step_seconds: float = 0.0
 ## The runner aims at this step.
@@ -127,11 +131,17 @@ func step(intent: MoveIntent, facts: RunnerFacts, delta: float) -> Vector3:
 	_remember_requests(intent)
 	_turn_the_trick()
 	_observe_floor(facts)
-	if state != State.MANTLING:
+	_end_the_vault(facts)
+	if state != State.MANTLING and state != State.VAULTING:
 		_choose_floor_state(intent, facts)
 		_choose_air_state(intent, facts)
+		if _can_vault(intent, facts):
+			_start_vault(facts)
 	if state == State.MANTLING:
 		_mantle(facts, delta)
+	elif state == State.VAULTING:
+		velocity = vault.step(facts, delta)
+		_cap_horizontal_speed()
 	else:
 		_move(intent, facts, delta)
 	_start_a_trick(intent)
@@ -168,6 +178,7 @@ func reset() -> void:
 	_ledge_top = 0.0
 	_onto_the_ledge = Vector3.ZERO
 	_mantle_steps = 0
+	vault = null
 	_trick = null
 	_take_off = TakeOff.FALL
 	_drawing = false
@@ -192,13 +203,13 @@ func real_speed() -> float:
 
 
 ## The runner is on its feet on the ground: neither in the air, nor along a wall, nor in
-## a mantle, a slide or a roll.
+## a mantle, a vault, a slide or a roll.
 func is_on_foot() -> bool:
 	return state == State.GROUNDED or state == State.HARD_LANDING
 
 
 ## The runner is on the ground: on its feet, sliding or rolling; neither in the air,
-## nor along a wall, nor in a mantle.
+## nor along a wall, nor in a mantle or a vault.
 func is_on_the_ground() -> bool:
 	return is_on_foot() or state == State.SLIDING or state == State.ROLLING
 
@@ -279,7 +290,7 @@ func _can_start_a_trick() -> bool:
 		return false
 	if _is_in_the_air():
 		return true
-	if state == State.ROLLING or state == State.MANTLING:
+	if state == State.ROLLING or state == State.MANTLING or state == State.VAULTING:
 		return false
 	return _may_jump(_can_stand)
 
@@ -298,11 +309,11 @@ func wall_run_normal() -> Vector3:
 	return _away_from_the_wall
 
 
-## A press of the jump or of the slide is remembered, except during a mantle, which
-## ignores them. During a trick, a press of the jump does nothing: it is never
+## A press of the jump or of the slide is remembered, except during a mantle or a vault,
+## which ignore them. During a trick, a press of the jump does nothing: it is never
 ## remembered. The drawing of the trick is noted.
 func _remember_requests(intent: MoveIntent) -> void:
-	var heeded: bool = state != State.MANTLING
+	var heeded: bool = state != State.MANTLING and state != State.VAULTING
 	_drawing = intent.trick_held
 	_drawn = intent.trick_recipe if intent.trick_held else null
 	if intent.jump_pressed and heeded and not is_in_a_trick():
@@ -319,8 +330,9 @@ func _remember_requests(intent: MoveIntent) -> void:
 func _observe_floor(facts: RunnerFacts) -> void:
 	var was_low: bool = is_low()
 	steps_since_landing = mini(steps_since_landing + 1, LONG_AGO)
-	if state == State.MANTLING:
-		# A mantle is a contact with the ground: what follows it starts from there.
+	if state == State.MANTLING or state == State.VAULTING:
+		# A mantle and a vault are a contact with the ground: what follows them starts
+		# from there.
 		_touch_the_ground(facts)
 		return
 	# A jump that just started may still be reported on the floor: it has left it.
@@ -507,6 +519,34 @@ func _mantle(facts: RunnerFacts, delta: float) -> void:
 	if _mantle_steps >= steps:
 		state = State.GROUNDED if facts.on_floor else State.FALLING
 		_take_off = TakeOff.FALL
+
+
+## On its feet on the ground (not in a hard landing), an obstacle ahead that a vault
+## passes over (Vault.fits), and the runner pushes towards it: it vaults. A jump asked for
+## at this step comes first.
+func _can_vault(intent: MoveIntent, facts: RunnerFacts) -> bool:
+	if state != State.GROUNDED or not Vault.fits(facts, real_speed(), tuning):
+		return false
+	if not _pushes_into(intent.direction, _horizontal_unit(facts.obstacle_normal)):
+		return false
+	return not _can_jump(facts) and not _can_trick_jump(intent, facts)
+
+
+func _start_vault(facts: RunnerFacts) -> void:
+	state = State.VAULTING
+	vault = Vault.new(facts, tuning, _window_steps(tuning.vault_duration))
+	_jump_spent = true
+	_announce(RunnerEvent.Kind.VAULT)
+
+
+## A vault is over once it has lasted its time: the runner stands on the ground behind its
+## obstacle, or falls if that ground is lower, at the speed it kept, the way it went.
+func _end_the_vault(facts: RunnerFacts) -> void:
+	if state != State.VAULTING or not vault.is_over():
+		return
+	state = State.GROUNDED if facts.on_floor else State.FALLING
+	_take_off = TakeOff.FALL
+	velocity = vault.exit_velocity()
 
 
 ## A wall beside the runner that can be run along, not refused, high enough above the
@@ -835,38 +875,14 @@ func _along(vector: Vector3, normal: Vector3) -> Vector3:
 	return horizontal - normal * horizontal.dot(normal)
 
 
-## The angle of a push off a surface whose horizontal normal is `normal`, in radians:
-## 0 along the surface, positive away from it, negative towards it; NAN without a push.
-func _push_angle(direction: Vector3, normal: Vector3) -> float:
-	var wish: Vector3 = Vector3(direction.x, 0.0, direction.z)
-	if wish.is_zero_approx():
-		return NAN
-	var across: float = wish.dot(normal)
-	return atan2(across, (wish - normal * across).length())
-
-
-## Pushing into a surface: towards it by the split angle at least, the limit included.
+## Pushing into a surface whose horizontal normal is `normal` (Push).
 func _pushes_into(direction: Vector3, normal: Vector3) -> bool:
-	var angle: float = -_push_angle(direction, normal)
-	if is_nan(angle):
-		return false
-	return _on_the_split(angle) or not _within_the_split(angle)
+	return Push.into(direction, normal, tuning.push_split_angle)
 
 
-## Pushing away from a surface: beyond the split angle, the limit excluded.
+## Pushing away from a surface whose horizontal normal is `normal` (Push).
 func _pushes_away(direction: Vector3, normal: Vector3) -> bool:
-	var angle: float = _push_angle(direction, normal)
-	return not is_nan(angle) and not _within_the_split(angle)
-
-
-## The angle is at most the split angle of the tuning, or on it (a push exactly on the
-## limit, as the keyboard diagonal, computed with rounding errors).
-func _within_the_split(angle: float) -> bool:
-	return angle < deg_to_rad(tuning.push_split_angle) or _on_the_split(angle)
-
-
-func _on_the_split(angle: float) -> bool:
-	return is_equal_approx(angle, deg_to_rad(tuning.push_split_angle))
+	return Push.away(direction, normal, tuning.push_split_angle)
 
 
 ## The horizontal direction of `vector`, of length 1; ZERO if it has none.

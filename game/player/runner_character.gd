@@ -13,7 +13,10 @@ extends Node3D
 ## frame, even one cut short by another (Crossfade, docs/specs/animation-polish.md), and
 ## the keys of the clips are followed on curves, not on straight lines from one to the
 ## next. Along a wall it runs, and the runner rolls its visible body against the wall as its
-## run allows (WallRunPose). Presentation only: nothing the runner observes depends on it.
+## run allows (WallRunPose). In a vault and a mantle, its hands are put on the real top
+## (HandPlant) by inverse kinematics (TwoBoneIK3D) while the clip plants them; in a vault,
+## its body follows the real height of the obstacle (docs/specs/vault.md). Presentation
+## only: nothing the runner observes depends on it.
 
 ## The character, the only file whose mesh the game uses.
 const MODEL: String = "res://assets/mixamo/ch08_nonpbr.fbx"
@@ -29,22 +32,61 @@ const CLIP_FILES: Dictionary[RunnerAnimation.Clip, String] = {
 	RunnerAnimation.Clip.HARD_LANDING: "res://assets/mixamo/hard_landing.fbx",
 	RunnerAnimation.Clip.FALLING_TO_ROLL: "res://assets/mixamo/falling_to_roll.fbx",
 	RunnerAnimation.Clip.RUNNING_SLIDE: "res://assets/mixamo/running_slide.fbx",
-	RunnerAnimation.Clip.SPRINT_TO_WALL_CLIMB: "res://assets/mixamo/sprint_to_wall_climb.fbx",
+	RunnerAnimation.Clip.LEDGE_PULL_UP: "res://assets/mixamo/ledge_pull_up.fbx",
+	RunnerAnimation.Clip.VAULT_ONE_HAND: "res://assets/mixamo/vault_one_hand.fbx",
+	RunnerAnimation.Clip.VAULT_TWO_HANDS: "res://assets/mixamo/vault_two_hands.fbx",
 	RunnerAnimation.Clip.TUCK: "res://assets/mixamo/backflip.fbx",
 }
 const PISTOL_IDLE: String = "res://assets/mixamo/pistol_idle.fbx"
 ## The part of each clip that is played, from its start to its end, in s (an end of 0: to
-## the end of the file): the part of Falling To Roll that rolls, of Sprint To Wall Climb
-## that hoists, of Landing from the contact with the ground. A state that lasts less than
-## its part at the fastest pace the tuning allows plays its first part only.
+## the end of the file): the part of Falling To Roll that rolls, of Ledge Pull Up that
+## hoists, of the vaults from the take-off to the landing, of Landing from the contact with
+## the ground. A state that lasts less than its part at the fastest pace the tuning allows
+## plays its first part only.
 const CUTS: Dictionary[RunnerAnimation.Clip, Vector2] = {
 	RunnerAnimation.Clip.JUMP: Vector2(0.05, 0.42),
 	RunnerAnimation.Clip.LANDING: Vector2(0.35, 0.8),
 	RunnerAnimation.Clip.HARD_LANDING: Vector2(0.0, 0.5),
 	RunnerAnimation.Clip.FALLING_TO_ROLL: Vector2(0.3, 1.1),
 	RunnerAnimation.Clip.RUNNING_SLIDE: Vector2(0.1, 0.8),
-	RunnerAnimation.Clip.SPRINT_TO_WALL_CLIMB: Vector2(0.74, 1.4),
+	RunnerAnimation.Clip.LEDGE_PULL_UP: Vector2(1.7, 2.33),
+	RunnerAnimation.Clip.VAULT_ONE_HAND: Vector2(0.3, 0.93),
+	RunnerAnimation.Clip.VAULT_TWO_HANDS: Vector2(0.2, 0.9),
 }
+## The hands, and of each one the upper arm and the forearm it hangs from, with the axis of
+## the forearm that points out of the bend of the elbow (measured on the clips: +X for the
+## left one, -X for the right one).
+const LEFT_HAND: String = "mixamorig7_LeftHand"
+const RIGHT_HAND: String = "mixamorig7_RightHand"
+const UPPER_ARMS: Dictionary[String, String] = {
+	LEFT_HAND: "mixamorig7_LeftArm",
+	RIGHT_HAND: "mixamorig7_RightArm",
+}
+const FOREARMS: Dictionary[String, String] = {
+	LEFT_HAND: "mixamorig7_LeftForeArm",
+	RIGHT_HAND: "mixamorig7_RightForeArm",
+}
+const ELBOWS_OUT: Dictionary[String, SkeletonModifier3D.SecondaryDirection] = {
+	LEFT_HAND: SkeletonModifier3D.SECONDARY_DIRECTION_PLUS_X,
+	RIGHT_HAND: SkeletonModifier3D.SECONDARY_DIRECTION_MINUS_X,
+}
+## The part of the clips of a vault and of a mantle where they plant hands on the top, in s
+## of their files, and those that plant both hands there (the others, the left one).
+const PLANTS: Dictionary[RunnerAnimation.Clip, Vector2] = {
+	RunnerAnimation.Clip.VAULT_ONE_HAND: Vector2(0.43, 0.7),
+	RunnerAnimation.Clip.VAULT_TWO_HANDS: Vector2(0.57, 0.7),
+	RunnerAnimation.Clip.LEDGE_PULL_UP: Vector2(1.7, 2.33),
+}
+const BOTH_HANDS: Array[RunnerAnimation.Clip] = [
+	RunnerAnimation.Clip.VAULT_TWO_HANDS,
+	RunnerAnimation.Clip.LEDGE_PULL_UP,
+]
+## How long a hand takes to go onto the top before the clip plants it, and to leave it, in
+## s of the clip; how far above the top the wrist of a hand lying on it is, in m; and how
+## far out of the bend of the arm the point the elbow points to is, in m.
+const PLANT_RAMP: float = 0.15
+const WRIST_HEIGHT: float = 0.03
+const POLE_DISTANCE: float = 0.3
 ## The clips that loop; the others hold their last pose.
 const LOOPED: Array[RunnerAnimation.Clip] = [
 	RunnerAnimation.Clip.IDLE,
@@ -71,7 +113,7 @@ const WALL_RUN_CLIPS: Array[RunnerAnimation.Clip] = [
 ## roll, a crouch), not their way forward.
 const RAISED: Array[RunnerAnimation.Clip] = [
 	RunnerAnimation.Clip.JUMP,
-	RunnerAnimation.Clip.SPRINT_TO_WALL_CLIMB,
+	RunnerAnimation.Clip.LEDGE_PULL_UP,
 ]
 ## The animation of a Mixamo file, the root bone of its skeleton, the first bone of the
 ## upper body, the bone whose bend shows the tuck, the head and feet, and the toe that
@@ -86,7 +128,17 @@ const LEFT_FOOT: String = "mixamorig7_LeftFoot"
 const RIGHT_FOOT: String = "mixamorig7_RightFoot"
 const LEFT_TOE: String = "mixamorig7_LeftToeBase"
 ## The bones the character must have for the clips to move it.
-const RIG: Array[String] = [HIPS, SPINE, KNEE, HEAD, LEFT_FOOT, RIGHT_FOOT, LEFT_TOE]
+const RIG: Array[String] = [
+	HIPS,
+	SPINE,
+	KNEE,
+	HEAD,
+	LEFT_FOOT,
+	RIGHT_FOOT,
+	LEFT_TOE,
+	LEFT_HAND,
+	RIGHT_HAND,
+]
 ## The turn that makes the model, which faces +Z, face -Z as the runner does.
 const FACING: Basis = Basis(Vector3.UP, PI)
 ## The rate at which the clips are sampled, as in the files.
@@ -111,6 +163,7 @@ const RESUME_REQUEST: StringName = &"parameters/resume/seek_request"
 const STRIDE_SCALE: StringName = &"parameters/stride/scale"
 const STRIDE_POSITION: String = "parameters/moving/%s/current_position"
 const AIM_AMOUNT: StringName = &"parameters/aim/blend_amount"
+const CLIP_POSITION: String = "parameters/%s/current_position"
 ## The colour a tint adds over the character, as a share of it.
 const TINT_SHARE: float = 0.5
 
@@ -128,11 +181,35 @@ static var _cycles: Dictionary[RunnerAnimation.Clip, PackedVector2Array] = {}
 ## the clips are made, in the frame of the model facing -Z, across and up, before it is put
 ## to its size.
 static var _run_places: Array[PackedVector2Array] = []
+## Of each clip that plants hands (PLANTS), measured as it is made: the height of its
+## planted wrists as it plants them, in the space of the skeleton, before it is put to its
+## size: the height of the top it shows.
+static var _plant_heights: Dictionary[RunnerAnimation.Clip, float] = {}
 
 var _model: Node3D
 var _skeleton: Skeleton3D
 var _tree: AnimationTree
 var _hold: AimHold
+## The top the hands go on in the vault or the mantle shown, or the last one (null before
+## the first); the clip that plants them, where it is in its file, in s, and whether it has
+## yet to start again (its seek not played yet, it shows where it was before); where each
+## hand planted goes, once the clip has planted it, the last time of the clip it was within
+## the reach of its arm, and whether its arm let go of it since, out of reach; the height of
+## the top each clip shows, at this size, in m; and of each hand, its inverse kinematics and
+## the nodes it reaches for and points its elbow to.
+var _plant: HandPlant = null
+var _plant_clip: RunnerAnimation.Clip = RunnerAnimation.Clip.VAULT_ONE_HAND
+var _clip_time: float = 0.0
+var _clip_restarting: bool = false
+var _planted: Dictionary[String, Vector3] = {}
+var _held: Dictionary[String, float] = {}
+var _let_go: Dictionary[String, bool] = {}
+## The hands whose target was put at the frame before.
+var _aimed: Dictionary[String, bool] = {}
+var _tops: Dictionary[RunnerAnimation.Clip, float] = {}
+var _arms: Dictionary[String, TwoBoneIK3D] = {}
+var _reached: Dictionary[String, Node3D] = {}
+var _elbow_poles: Dictionary[String, Node3D] = {}
 ## The tuning whose speeds of the strides it follows.
 var _tuning: MovementTuning
 ## Its size, and how its run lies against a wall at that size.
@@ -142,6 +219,8 @@ var _wall_run: WallRunPose
 ## each one shows.
 var _states: Array[StringName] = []
 var _fade: Crossfade = Crossfade.new()
+## The state of the tree asked for last.
+var _shown_state: StringName = &""
 ## The blend of the locomotion at the last two fixed steps: how much the clips that stride
 ## show over Idle, and where on their axis; shown in between at every frame.
 var _walk_before: Vector2 = Vector2.ZERO
@@ -175,6 +254,21 @@ class AimHold:
 		var hips: Quaternion = skeleton.get_bone_pose_rotation(_hips)
 		var turn: Quaternion = Quaternion.IDENTITY.slerp(hips.inverse() * _aim_hips, weight)
 		skeleton.set_bone_pose_rotation(_spine, turn * skeleton.get_bone_pose_rotation(_spine))
+
+
+## Before the arms reach for the top: lifts the body of a vault to the real height of its
+## obstacle, and puts where each planted hand reaches and where its elbow points
+## (RunnerCharacter._put_the_hands_on_the_top).
+class HandsOnTheTop:
+	extends SkeletonModifier3D
+
+	var character: RunnerCharacter
+
+	func _init(of: RunnerCharacter) -> void:
+		character = of
+
+	func _process_modification_with_delta(_delta: float) -> void:
+		character._put_the_hands_on_the_top()
 
 
 ## The character, as tall as the capsule of `tuning`, made from `model` and the clips;
@@ -221,6 +315,7 @@ static func fits(model: Node3D) -> bool:
 func play(animation: RunnerAnimation) -> void:
 	var state: StringName = _state_of(animation.clip)
 	var fresh: bool = _fade.go_to(state, animation.blend_time)
+	_shown_state = state
 	if fresh:
 		if state == LOCOMOTION_NODE:
 			_tree.set(RESUME_REQUEST, _resume_phase(animation.locomotion))
@@ -234,8 +329,19 @@ func play(animation: RunnerAnimation) -> void:
 		if animation.duration > 0.0:
 			pace = RunnerAnimation.fitted_pace(length, animation.duration, _tuning)
 		_tree.set(PACE % state, pace)
+		if animation.clip in PLANTS:
+			_follow_the_plant(animation.clip, fresh)
 	_aim_wanted = 1.0 if animation.aiming else 0.0
 	_aim_blend_time = animation.blend_time
+
+
+## Puts the hands on `plant` in the vault or the mantle that starts: the top the runner
+## observed.
+func plant_hands(plant: HandPlant) -> void:
+	_plant = plant
+	_planted.clear()
+	_held.clear()
+	_let_go.clear()
 
 
 ## Where the character's body is put against the wall of a wall run, in the frame of the
@@ -301,6 +407,121 @@ func _process(delta: float) -> void:
 	_hold.weight = _aim
 
 
+## The clip `clip`, which plants hands, is shown: from its start when it starts again
+## (`fresh`), its hands not planted yet.
+func _follow_the_plant(clip: RunnerAnimation.Clip, fresh: bool) -> void:
+	if fresh or clip != _plant_clip:
+		_plant_clip = clip
+		_clip_restarting = true
+		_planted.clear()
+		_held.clear()
+		_let_go.clear()
+
+
+## While the clip that plants hands is asked for, fully, and as much as it shows while it
+## goes: the body of a vault is lifted
+## to the real height of its obstacle, and each hand the clip plants reaches for the top
+## (HandPlant), from a little before the clip plants it to a little after it leaves it, then
+## stays where it was planted, until the body has gone out of the reach of its arm; its elbow
+## keeps the bend of the clip. Everything is measured where the body is shown: between two
+## fixed steps, in between (the arms reach for their targets there).
+func _put_the_hands_on_the_top() -> void:
+	for hand: String in _arms:
+		_arms[hand].influence = 0.0
+	if _plant == null:
+		return
+	var plant_state: StringName = _state_of(_plant_clip)
+	var shown: float = 1.0 if _shown_state == plant_state else _fade.weight(plant_state)
+	if shown <= 0.0:
+		_aimed.clear()
+		return
+	_read_the_clip_time()
+	var seen: Transform3D = _skeleton.get_global_transform_interpolated()
+	if _plant_clip not in RAISED:
+		_lift_to_the_top(seen, shown)
+	for hand: String in _planting_hands(_plant_clip):
+		var wrist: Vector3 = seen * _bone_pose(hand).origin
+		var shoulder: Vector3 = seen * _bone_pose(UPPER_ARMS[hand]).origin
+		var elbow: Vector3 = seen * _bone_pose(FOREARMS[hand]).origin
+		var reached: Vector3 = _planted.get(hand, _plant.target(wrist) + Vector3.UP * WRIST_HEIGHT)
+		if _clip_time >= PLANTS[_plant_clip].x:
+			_planted[hand] = reached
+		var reach: float = shoulder.distance_to(elbow) + elbow.distance_to(wrist)
+		if _planted.has(hand) and not _let_go.has(hand):
+			if shoulder.distance_to(reached) <= reach:
+				_held[hand] = _clip_time
+			else:
+				_let_go[hand] = true
+		var released: float = INF
+		if _let_go.has(hand):
+			released = _held.get(hand, PLANTS[_plant_clip].x)
+		var share: float = _share_planted(released) * shown
+		# An arm reaches for where its target was put at the frame before: not before it was.
+		_arms[hand].influence = share if _aimed.has(hand) else 0.0
+		if share <= 0.0:
+			_aimed.erase(hand)
+			continue
+		_aimed[hand] = true
+		_reached[hand].global_position = reached
+		var out: Vector3 = (elbow - (shoulder + wrist) / 2.0).normalized()
+		_elbow_poles[hand].global_position = elbow + out * POLE_DISTANCE
+
+
+## Where the clip that plants hands is in its file, as the tree shows it: at its start while
+## its seek has not played yet.
+func _read_the_clip_time() -> void:
+	var played: float = _tree.get(CLIP_POSITION % _clip_name(_plant_clip))
+	if _clip_restarting and is_zero_approx(played):
+		_clip_restarting = false
+	_clip_time = CUTS[_plant_clip].x + (0.0 if _clip_restarting else played)
+
+
+## Lifts the hips so that the feet stand on the ground the vault left, plus, as the clip
+## goes to the plant of its hands and back, the difference between the real height of the
+## obstacle and the height of the top the clip shows; as much as the clip shows (`shown`).
+## The character is `seen` there.
+func _lift_to_the_top(seen: Transform3D, shown: float) -> void:
+	var cut: Vector2 = CUTS[_plant_clip]
+	var plant: Vector2 = PLANTS[_plant_clip]
+	var share: float = 1.0
+	if _clip_time < plant.x:
+		share = smoothstep(cut.x, plant.x, _clip_time)
+	elif _clip_time > plant.y:
+		share = 1.0 - smoothstep(plant.y, cut.y, _clip_time)
+	var top: float = _plant.top - _plant.ground - _tops[_plant_clip]
+	var feet: float = get_global_transform_interpolated().origin.y
+	var rise: float = (_plant.ground + share * top - feet) * shown
+	var hips: int = _skeleton.find_bone(HIPS)
+	var up: Vector3 = seen.basis.inverse() * Vector3.UP * rise
+	_skeleton.set_bone_pose_position(hips, _skeleton.get_bone_pose_position(hips) + up)
+
+
+## The hands `clip` plants on the top: both, or the left one.
+static func _planting_hands(clip: RunnerAnimation.Clip) -> PackedStringArray:
+	if clip in BOTH_HANDS:
+		return [LEFT_HAND, RIGHT_HAND]
+	return [LEFT_HAND]
+
+
+## Where the bone `bone` is in the space of the skeleton, as the clips and the modifiers
+## before put it.
+func _bone_pose(bone: String) -> Transform3D:
+	return _skeleton.get_bone_global_pose(_skeleton.find_bone(bone))
+
+
+## How much a hand the clip plants is on the top, from 0 to 1: from a little before the clip
+## plants it to a little after it leaves the top, or after the last time of the clip it was
+## within the reach of its arm, `released`, if its arm let go of it (INF: it did not).
+func _share_planted(released: float) -> float:
+	var plant: Vector2 = PLANTS[_plant_clip]
+	var leaves: float = minf(plant.y, released)
+	if _clip_time < plant.x:
+		return clampf(1.0 - (plant.x - _clip_time) / PLANT_RAMP, 0.0, 1.0)
+	if _clip_time <= leaves:
+		return 1.0
+	return clampf(1.0 - (_clip_time - leaves) / PLANT_RAMP, 0.0, 1.0)
+
+
 func _build(model: Node3D, height: float) -> void:
 	_model = model
 	add_child(_model)
@@ -333,6 +554,38 @@ func _build(model: Node3D, height: float) -> void:
 	var aim_hips: Quaternion = _aim_hips_rotation()
 	_hold = AimHold.new(hips, _skeleton.find_bone(SPINE), aim_hips)
 	_skeleton.add_child(_hold)
+	for clip: RunnerAnimation.Clip in _plant_heights:
+		_tops[clip] = (_plant_heights[clip] - bounds.position.y) * _scale
+	_skeleton.add_child(HandsOnTheTop.new(self))
+	for hand: String in UPPER_ARMS:
+		_add_the_arm(hand)
+
+
+## The inverse kinematics of the arm of `hand`, off until a clip plants it, and the nodes, in
+## the world, it reaches for and points its elbow to.
+func _add_the_arm(hand: String) -> void:
+	var arm: TwoBoneIK3D = TwoBoneIK3D.new()
+	arm.influence = 0.0
+	_skeleton.add_child(arm)
+	arm.set_setting_count(1)
+	arm.set_root_bone_name(0, UPPER_ARMS[hand])
+	arm.set_middle_bone_name(0, FOREARMS[hand])
+	arm.set_end_bone_name(0, hand)
+	arm.set_pole_direction(0, ELBOWS_OUT[hand])
+	_arms[hand] = arm
+	_reached[hand] = _world_point()
+	arm.set_target_node(0, arm.get_path_to(_reached[hand]))
+	_elbow_poles[hand] = _world_point()
+	arm.set_pole_node(0, arm.get_path_to(_elbow_poles[hand]))
+
+
+## A node of the character placed in the world, as it is told, at every frame.
+func _world_point() -> Node3D:
+	var point: Node3D = Node3D.new()
+	point.top_level = true
+	point.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+	add_child(point)
+	return point
 
 
 func _meshes() -> Array[MeshInstance3D]:
@@ -530,10 +783,24 @@ static func _make_library(skeleton: Skeleton3D) -> AnimationLibrary:
 			_measure_the_stride(clip, made, skeleton)
 		if clip in WALL_RUN_CLIPS:
 			_run_places.append(_places_across(made, skeleton))
+		if clip in PLANTS:
+			_plant_heights[clip] = _planted_height(clip, made, skeleton)
 		library.add_animation(_clip_name(clip), made)
 	var aim: Animation = in_place(_take(PISTOL_IDLE), Vector2.ZERO, false, hips_rest, true)
 	library.add_animation(AIM, aim)
 	return library
+
+
+## The height of the wrists `clip` plants, made into `made`, as it plants them, in the
+## space of `skeleton`: the height of the top it shows.
+static func _planted_height(
+	clip: RunnerAnimation.Clip, made: Animation, skeleton: Skeleton3D
+) -> float:
+	var places: PackedVector3Array = bone_places(made, PLANTS[clip].x - CUTS[clip].x, skeleton)
+	var height: float = 0.0
+	for hand: String in _planting_hands(clip):
+		height += places[skeleton.find_bone(hand)].y
+	return height / _planting_hands(clip).size()
 
 
 ## Where every bone of `skeleton` goes in `clip`, at evenly spaced instants of it, across

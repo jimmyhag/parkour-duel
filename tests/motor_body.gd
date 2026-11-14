@@ -5,7 +5,8 @@ extends RefCounted
 ## above the origin: it feeds the motor with the facts it observes and moves by the
 ## velocity the motor returns. Nothing snaps it to its floor: on a slope it only stays
 ## on it if the motor asks for a velocity that follows the slope. A wall beside it is
-## only a fact the test sets; a ledge across its way is a block that stops it.
+## only a fact the test sets; a ledge across its way is a block that stops it, and that it
+## sees ahead from the floor, as an obstacle.
 
 const STEP: float = 1.0 / 60.0
 ## How close to the floor counts as standing on it, and to a face as touching it.
@@ -28,12 +29,16 @@ var wall_normal: Vector3 = Vector3.ZERO
 var wall_distance: float = INF
 var wall_height: float = 0.0
 ## A ledge across the way of a runner going along -Z: a block whose face stands at
-## `ledge_face` along Z and whose top is at the altitude `ledge_top`. The runner sees it
-## while it touches its face below its top.
+## `ledge_face` along Z, whose top is at the altitude `ledge_top`, and that goes on
+## `ledge_depth` along -Z (INF: for ever). The runner sees it as a ledge while it touches
+## its face below its top, and as an obstacle ahead while it stands on the floor before
+## its face, below its top; a standing body fits behind it unless `room_behind` is false.
 var has_ledge: bool = false
 var ledge_face: float = 0.0
 var ledge_top: float = 0.0
+var ledge_depth: float = INF
 var ledge_clear: bool = true
+var room_behind: bool = true
 
 
 func _init(tuning: MovementTuning, altitude: float = 0.0) -> void:
@@ -73,6 +78,14 @@ static func fixed_tuning() -> MovementTuning:
 	tuning.mantle_max_height = 2.2
 	tuning.mantle_duration = 0.35
 	tuning.mantle_exit_speed = 4.0
+	tuning.vault_min_speed = 4.0
+	tuning.vault_reach = 0.8
+	tuning.vault_min_height = 0.6
+	tuning.vault_max_height = 1.3
+	tuning.vault_max_depth = 1.5
+	tuning.vault_duration = 0.4
+	tuning.vault_speed_kept = 0.9
+	tuning.vault_two_hands_depth = 0.8
 	tuning.wall_run_distance = 0.6
 	tuning.wall_run_max_tilt = 15.0
 	tuning.wall_run_min_wall_height = 2.0
@@ -114,6 +127,7 @@ static func fixed_tuning() -> MovementTuning:
 	tuning.flow_points_mantle = 100
 	tuning.flow_points_wall_run = 150
 	tuning.flow_points_wall_jump = 150
+	tuning.flow_points_vault = 150
 	tuning.flow_jump_min_speed_share = 0.5
 	tuning.flow_repetition_window = 4
 	tuning.flow_second_time_share = 0.5
@@ -238,6 +252,15 @@ func put_ledge_ahead(height: float) -> void:
 	ledge_top = position.y + height
 
 
+## Puts a block across the way, its face `distance` in front of the body, its top `height`
+## above the body's feet, `depth` deep.
+func put_block_ahead(distance: float, height: float, depth: float) -> void:
+	has_ledge = true
+	ledge_face = position.z - motor.tuning.capsule_radius - distance
+	ledge_top = position.y + height
+	ledge_depth = depth
+
+
 func horizontal_speed() -> float:
 	return Vector2(velocity.x, velocity.z).length()
 
@@ -260,7 +283,20 @@ func _facts() -> RunnerFacts:
 		facts.ledge_normal = Vector3.BACK
 		facts.ledge_height = ledge_top - position.y
 		facts.ledge_clear = ledge_clear
+	if _faces_the_ledge():
+		facts.obstacle_normal = Vector3.BACK
+		facts.obstacle_distance = position.z - motor.tuning.capsule_radius - ledge_face
+		facts.obstacle_height = ledge_top - position.y
+		facts.obstacle_depth = ledge_depth
+		facts.obstacle_clear = ledge_clear and room_behind
 	return facts
+
+
+## The body stands on the floor before the face of the ledge, below its top.
+func _faces_the_ledge() -> bool:
+	if not has_ledge or not on_floor or position.y >= ledge_top - CONTACT:
+		return false
+	return position.z - motor.tuning.capsule_radius >= ledge_face - CONTACT
 
 
 ## The body's side touches the face of the ledge, below its top.
@@ -282,9 +318,10 @@ func _stop_at_the_ledge(before: Vector3) -> void:
 		velocity.z = maxf(velocity.z, 0.0)
 
 
-## The body stands over the top of the ledge: its axis is past the face.
+## The body stands over the top of the ledge: its axis is past the face, not past the
+## back of the block.
 func _is_over_the_ledge() -> bool:
-	return has_ledge and position.z < ledge_face
+	return has_ledge and position.z < ledge_face and position.z > ledge_face - ledge_depth
 
 
 func _normal_underfoot() -> Vector3:

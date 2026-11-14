@@ -27,11 +27,21 @@ const DOWNLOADED: Dictionary[String, String] = {
 	"Hard Landing.fbx": "hard_landing.fbx",
 	"Falling To Roll.fbx": "falling_to_roll.fbx",
 	"Running Slide.fbx": "running_slide.fbx",
-	"Sprint To Wall Climb.fbx": "sprint_to_wall_climb.fbx",
+	"Sprint To Wall Climb.fbx": "",
 	"Backflip.fbx": "backflip.fbx",
 	"Running Forward Flip.fbx": "",
 	"Walking.fbx": "walking.fbx",
 	"Sprint.fbx": "sprint.fbx",
+	"Vault One Hand.fbx": "vault_one_hand.fbx",
+	"Vault Two Hands.fbx": "vault_two_hands.fbx",
+	"Ledge Pull Up.fbx": "ledge_pull_up.fbx",
+}
+## The clips of the vault and of the mantle (docs/specs/vault.md), downloaded without the
+## character, and the name each one takes once copied.
+const VAULT_CLIPS: Dictionary[String, String] = {
+	"Vault One Hand.fbx": "vault_one_hand.fbx",
+	"Vault Two Hands.fbx": "vault_two_hands.fbx",
+	"Ledge Pull Up.fbx": "ledge_pull_up.fbx",
 }
 ## The walk and the sprint of the locomotion (docs/specs/locomotion-blend.md), downloaded
 ## without the character, and the name each one takes once copied.
@@ -137,6 +147,36 @@ func test_the_copy_also_puts_away_the_walk_and_the_sprint() -> void:
 	code = _copy(_absolute(DOWNLOADS), output)
 	assert_ne(code, 0, "without the walk and the sprint, the copy fails")
 	for download: String in LOCOMOTION:
+		assert_string_contains(str(output), download, false)
+	assert_false(DirAccess.dir_exists_absolute(COPY), "nothing is copied")
+
+
+func test_the_copy_puts_away_the_vault_clips() -> void:
+	_make_the_downloads()
+
+	var output: Array = []
+	var code: int = _copy(_absolute(DOWNLOADS), output)
+	assert_eq(code, 0, "the copy command succeeds: %s" % [output])
+
+	for download: String in VAULT_CLIPS:
+		var copied: String = COPY.path_join(VAULT_CLIPS[download])
+		assert_true(FileAccess.file_exists(copied), "%s is copied" % download)
+		assert_eq(FileAccess.get_file_as_string(copied), download, "%s holds it" % copied)
+		var settings: String = copied + ".import"
+		assert_true(FileAccess.file_exists(settings), "%s has its import settings" % copied)
+	assert_false(
+		FileAccess.file_exists(COPY.path_join("sprint_to_wall_climb.fbx")),
+		"Sprint To Wall Climb, which the mantle no longer plays, is not copied"
+	)
+
+	# Without them, nothing is copied: the character needs every clip.
+	_remove_folder(COPY)
+	for download: String in VAULT_CLIPS:
+		DirAccess.remove_absolute(DOWNLOADS.path_join(download))
+	output.clear()
+	code = _copy(_absolute(DOWNLOADS), output)
+	assert_ne(code, 0, "without the clips of the vault, the copy fails")
+	for download: String in VAULT_CLIPS:
 		assert_string_contains(str(output), download, false)
 	assert_false(DirAccess.dir_exists_absolute(COPY), "nothing is copied")
 

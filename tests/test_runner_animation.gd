@@ -36,8 +36,17 @@ const SPEED_STEP: float = 0.1
 const FIXED_DURATIONS: Dictionary[RunnerAnimation.Clip, RunnerMotor.State] = {
 	RunnerAnimation.Clip.HARD_LANDING: RunnerMotor.State.HARD_LANDING,
 	RunnerAnimation.Clip.FALLING_TO_ROLL: RunnerMotor.State.ROLLING,
-	RunnerAnimation.Clip.SPRINT_TO_WALL_CLIMB: RunnerMotor.State.MANTLING,
+	RunnerAnimation.Clip.LEDGE_PULL_UP: RunnerMotor.State.MANTLING,
+	RunnerAnimation.Clip.VAULT_ONE_HAND: RunnerMotor.State.VAULTING,
+	RunnerAnimation.Clip.VAULT_TWO_HANDS: RunnerMotor.State.VAULTING,
 }
+## A low wall, a thin one and one deeper than the fixed tuning vaults with one hand; where
+## it stands before the runner as it starts, out of reach; the speed of the run at it.
+const WALL_HEIGHT: float = 1.0
+const THIN: float = 0.4
+const DEEP: float = 1.2
+const WALL_DISTANCE: float = 2.0
+const RUN_SPEED: float = 6.0
 
 var _tuning: MovementTuning
 
@@ -54,7 +63,9 @@ func test_every_state_of_the_runner_has_its_animation() -> void:
 		RunnerMotor.State.HARD_LANDING: RunnerAnimation.Clip.HARD_LANDING,
 		RunnerMotor.State.ROLLING: RunnerAnimation.Clip.FALLING_TO_ROLL,
 		RunnerMotor.State.SLIDING: RunnerAnimation.Clip.RUNNING_SLIDE,
-		RunnerMotor.State.MANTLING: RunnerAnimation.Clip.SPRINT_TO_WALL_CLIMB,
+		RunnerMotor.State.MANTLING: RunnerAnimation.Clip.LEDGE_PULL_UP,
+		# Over a thin obstacle, or with none known: one hand.
+		RunnerMotor.State.VAULTING: RunnerAnimation.Clip.VAULT_ONE_HAND,
 		# Along a wall, the run (docs/specs/animation-polish.md).
 		RunnerMotor.State.WALL_RUNNING: RunnerAnimation.Clip.RUNNING,
 	}
@@ -82,6 +93,29 @@ func test_every_state_of_the_runner_has_its_animation() -> void:
 		RunnerAnimation.Clip.RUNNING,
 		"on the ground, moving"
 	)
+
+
+func test_the_gesture_follows_the_depth_of_the_obstacle() -> void:
+	var clips: Array[RunnerAnimation.Clip] = []
+	for depth: float in [THIN, DEEP]:
+		var body: MotorBody = MotorBody.running(_tuning, FORWARD, RUN_SPEED)
+		body.put_block_ahead(WALL_DISTANCE, WALL_HEIGHT, depth)
+		var steps: int = 0
+		while body.motor.state != RunnerMotor.State.VAULTING and steps < MANY_STEPS:
+			body.step(_push(FORWARD * RUN_SPEED / _tuning.top_speed))
+			steps += 1
+		var context: String = "%.1f m deep: " % depth
+		assert_eq(body.motor.state, RunnerMotor.State.VAULTING, context + "a vault")
+		var animation: RunnerAnimation = RunnerAnimation.of(body.motor, STEP)
+		clips.append(animation.clip)
+		assert_eq(animation.duration, _tuning.vault_duration, context + "as long as the vault")
+
+	assert_lt(THIN, _tuning.vault_two_hands_depth, "the thin wall is under the threshold")
+	assert_gt(DEEP, _tuning.vault_two_hands_depth, "the deep one over it")
+	var expected: Array[RunnerAnimation.Clip] = [
+		RunnerAnimation.Clip.VAULT_ONE_HAND, RunnerAnimation.Clip.VAULT_TWO_HANDS
+	]
+	assert_eq(clips, expected, "Vault One Hand, then Vault Two Hands")
 
 
 func test_an_abrupt_entry_is_made_without_a_blend() -> void:
@@ -399,6 +433,8 @@ func _fixed_durations(tuning: MovementTuning) -> Dictionary[RunnerAnimation.Clip
 		var body: MotorBody = MotorBody.new(tuning)
 		body.step(MoveIntent.new())
 		body.motor.state = FIXED_DURATIONS[clip]
+		if clip == RunnerAnimation.Clip.VAULT_TWO_HANDS:
+			body.motor.vault = _deep_vault(tuning)
 		var animation: RunnerAnimation = RunnerAnimation.of(body.motor, STEP)
 		assert_eq(animation.clip, clip, "the clip of %s" % RunnerAnimation.Clip.keys()[clip])
 		durations[clip] = animation.duration
@@ -406,6 +442,17 @@ func _fixed_durations(tuning: MovementTuning) -> Dictionary[RunnerAnimation.Clip
 	assert_eq(landing.clip, RunnerAnimation.Clip.LANDING, "a landing")
 	durations[RunnerAnimation.Clip.LANDING] = landing.duration
 	return durations
+
+
+## A vault over an obstacle deeper than one hand vaults, with `tuning`.
+func _deep_vault(tuning: MovementTuning) -> Vault:
+	var facts: RunnerFacts = RunnerFacts.new()
+	facts.velocity = FORWARD * RUN_SPEED
+	facts.obstacle_normal = Vector3.BACK
+	facts.obstacle_distance = tuning.vault_reach
+	facts.obstacle_height = WALL_HEIGHT
+	facts.obstacle_depth = tuning.vault_two_hands_depth * 1.5
+	return Vault.new(facts, tuning, roundi(tuning.vault_duration / STEP))
 
 
 ## The animation of a body that has just landed from a small fall, without moving; with

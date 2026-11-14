@@ -291,6 +291,7 @@ func _points(event: RunnerEvent) -> int:
 		RunnerEvent.Kind.MANTLE: tuning.flow_points_mantle,
 		RunnerEvent.Kind.WALL_RUN: tuning.flow_points_wall_run,
 		RunnerEvent.Kind.WALL_JUMP: tuning.flow_points_wall_jump,
+		RunnerEvent.Kind.VAULT: tuning.flow_points_vault,
 	}
 	return points[kind]
 

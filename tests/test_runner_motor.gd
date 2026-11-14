@@ -262,6 +262,14 @@ func test_the_same_intents_give_the_same_result() -> void:
 			facts.ledge_normal = face.normalized()
 			facts.ledge_height = random.randf_range(0.0, 3.0)
 			facts.ledge_clear = random.randf() < 0.5
+		# Obstacles ahead of any kind, near or far, low or high, thin or deep.
+		if random.randf() < 0.5:
+			var ahead: Vector3 = Vector3(random.randf_range(-1, 1), 0, random.randf_range(-1, 1))
+			facts.obstacle_normal = ahead.normalized()
+			facts.obstacle_distance = random.randf_range(0.0, 1.0)
+			facts.obstacle_height = random.randf_range(0.0, 1.6)
+			facts.obstacle_depth = random.randf_range(0.0, 2.0)
+			facts.obstacle_clear = random.randf() < 0.8
 		var wanted: Vector3 = first.step(intent, facts, STEP)
 		var twin: Vector3 = second.step(intent, facts, STEP)
 		if wanted != twin or first.state != second.state:
@@ -306,6 +314,13 @@ func _tuning() -> MovementTuning:
 	tuning.mantle_max_height = 2.2
 	tuning.mantle_duration = 0.35
 	tuning.mantle_exit_speed = 4.0
+	tuning.vault_min_speed = 4.0
+	tuning.vault_reach = 0.8
+	tuning.vault_min_height = 0.6
+	tuning.vault_max_height = 1.3
+	tuning.vault_max_depth = 1.5
+	tuning.vault_duration = 0.4
+	tuning.vault_speed_kept = 0.9
 	tuning.wall_run_distance = 0.6
 	tuning.wall_run_max_tilt = 15.0
 	tuning.wall_run_min_wall_height = 2.0

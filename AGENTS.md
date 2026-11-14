@@ -146,7 +146,8 @@ When one appears (the network transport, then Steam), these rules apply:
 
 ```
 game/               the game, one folder per layer (table above)
-  core/             runner motor and its aerial tricks, the drawing of a trick and
+  core/             runner motor with its aerial tricks and its vaults (and how a
+                    push goes against a surface), the drawing of a trick and
                     the recipe it reads, intents, the facts the player observes, race
                     state, the flow state and the motor's dated messages, the weapon,
                     the state machines of the sabotageable targets and their dated
@@ -161,12 +162,13 @@ game/               the game, one folder per layer (table above)
                     Mixamo character when its files are there: its clips blended frame
                     by frame, its locomotion clips kept at the same phase of their
                     stride from the measure of their feet, its body rolled along a wall
-                    and laid against it from the measure of the bones of its run; the
-                    capsule otherwise), camera rig
+                    and laid against it from the measure of the bones of its run, its
+                    hands put by inverse kinematics on what it vaults or climbs and its
+                    body at the real height of a vault; the capsule otherwise), camera rig
                     (over the shoulder while aiming, still while a trick is
                     drawn), intents read from the inputs (the mouse or the right stick
                     draw the trick), and what the body observes around it (floor,
-                    walls, ledges) and under the reticle; the pilot, the bot's intents,
+                    walls, ledges, obstacles ahead) and under the reticle; the pilot, the bot's intents,
                     and the ghost
   world/            checkpoints, race lines, and the four sabotageable target blocks
   ui/               timer, flow and debug displays, the reticle, the pad of the trick

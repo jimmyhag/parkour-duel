@@ -34,7 +34,7 @@ a checkpoint: falling off the course brings the runner back to the last one reac
 and the timer keeps running.
 
 Every value of the feel (speeds, gravities, coyote time, jump buffer, slide, roll,
-hard landing, momentum, mantle, wall run, wall jump, flow, tricks, sabotage, camera) is in
+hard landing, momentum, mantle, vault, wall run, wall jump, flow, tricks, sabotage, camera) is in
 `game/core/movement_tuning.tres`. When the game
 runs from the project folder, F4 reads that file again without restarting.
 
@@ -56,10 +56,13 @@ game moves (another character keeps the capsule):
 | File | What it is |
 | ---- | ---------- |
 | `Ch08_nonPBR.fbx` | the character (the only file whose mesh the game uses) |
-| `Idle.fbx`, `Running.fbx`, `Jump.fbx`, `Falling Idle.fbx`, `Landing.fbx`, `Hard Landing.fbx`, `Falling To Roll.fbx`, `Running Slide.fbx`, `Sprint To Wall Climb.fbx`, `Backflip.fbx` | the animations, on that character |
+| `Idle.fbx`, `Running.fbx`, `Jump.fbx`, `Falling Idle.fbx`, `Landing.fbx`, `Hard Landing.fbx`, `Falling To Roll.fbx`, `Running Slide.fbx`, `Backflip.fbx` | the animations, on that character |
 | `Pistol_Handgun Locomotion Pack.zip` | the pistol pack (as one zip), downloaded with `Ch08_nonPBR` selected as the character; only `pistol idle.fbx` is used |
 | `Walking.fbx` | Mixamo's "Standard Walk", with `Ch08_nonPBR` selected, "Without Skin", 30 frames per second, "In Place" checked |
 | `Sprint.fbx` | Mixamo's "Sprint" ("Standard Sprint"), downloaded the same way as `Walking.fbx` |
+| `Vault One Hand.fbx` | Mixamo's "Male Jumping Over An Obstacle With 1 Hand Planted", with `Ch08_nonPBR` selected, "Without Skin", 30 frames per second (In Place or not) |
+| `Vault Two Hands.fbx` | Mixamo's "Male Jumping Over An Obstacle With 2 Hands Planted", downloaded the same way as `Vault One Hand.fbx` |
+| `Ledge Pull Up.fbx` | Mixamo's "Pulling Up To A Ledge", downloaded the same way as `Vault One Hand.fbx` |
 
 Then, from the repository root:
 
@@ -82,7 +85,10 @@ one; the blend follows the speed no faster than a tuned time, so that a stop and
 go through the walk; back to the run (after a landing, a slide), the stride resumes
 where the legs already are. In the air and the other states: Jump rising, Falling Idle
 falling, Landing briefly after a small fall, Hard Landing, the roll of Falling To Roll,
-Running Slide, the hoist of Sprint To Wall Climb in a mantle; along a wall, the run of
+Running Slide, the hoist of Ledge Pull Up in a mantle, its hands put on the ledge; in a
+vault, Vault One Hand, or Vault Two Hands over an obstacle deeper than 0.8 m, its hands put
+on the real top of the obstacle (inverse kinematics) and its body at the obstacle's real
+height (`docs/specs/vault.md`); along a wall, the run of
 the blend, Running or Sprint by the speed along the wall, the whole body rolled about
 the way it runs, its feet towards the wall and its head away from it, and moved across
 once so that its feet brush the wall (`docs/specs/animation-polish.md`); during a trick,
@@ -164,6 +170,14 @@ Mantle: jump at a ledge too high to jump onto and keep pushing towards it. If it
 is within reach and free, the runner climbs onto it and stands there, setting off at
 a reduced speed whatever speed it came with. The climb goes to the end: jump and slide
 do nothing meanwhile.
+
+Vault: on the ground, run at a low and thin obstacle (its top 0.6 to 1.3 m above the
+feet, at most 1.5 m deep, with room over it and behind it) and keep pushing towards it.
+Once it is within reach, the runner passes over it by itself, without a button, and
+comes out on the other side, on the ground, the same way, with 90 % of its speed. Too
+slow (under 4 m/s), too high, too deep or blocked behind: nothing happens, jump or
+climb it as before. A jump pressed as it comes within reach jumps instead. The vault
+goes to the end: jump and slide do nothing meanwhile.
 
 Wall run: in the air, fast enough along the wall and high enough above the ground,
 push anywhere but away from a wall beside you: along it, diagonally towards it, or

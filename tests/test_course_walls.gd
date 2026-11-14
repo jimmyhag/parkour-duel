@@ -1,9 +1,10 @@
 extends CourseTest
 ## The four sections of the test course (game/levels) that ask for the wall moves: the
-## ledge, climbed by a mantle; the gap along a wall, crossed by a wall run; the zigzag
-## between two walls, crossed by wall jumps; and the final combination, which mixes the
-## moves up to the finish line. Played without a screen in the real physics by the test
-## pilot, faster than real time with the same fixed step of 1/60 s (see ReplayTest).
+## ledge, climbed by a mantle (too high for a vault); the gap along a wall, crossed by a wall
+## run; the zigzag between two walls, crossed by wall jumps; and the final combination,
+## which mixes the moves up to the finish line. Played without a screen in the real physics
+## by the test pilot, faster than real time with the same fixed step of 1/60 s (see
+## ReplayTest).
 
 const MANTLING: RunnerMotor.State = RunnerMotor.State.MANTLING
 const WALL_RUNNING: RunnerMotor.State = RunnerMotor.State.WALL_RUNNING
@@ -45,6 +46,19 @@ func test_the_ledge_can_be_cleared() -> void:
 
 	_assert_cleared(attempt)
 	assert_gt(attempt.run.steps_mantling, 0, "the runner mantled")
+
+
+func test_the_mantle_stays_for_high_ledges() -> void:
+	# The ledge of the course stands 1.9 m above the floor before it: higher than a vault
+	# passes over (docs/specs/vault.md).
+	var attempt: SectionRun = _section_run(LEDGE)
+
+	await _play([attempt.run])
+
+	_assert_cleared(attempt)
+	assert_gt(attempt.run.jumps, 0, "the pilot jumped against the ledge")
+	assert_gt(attempt.run.steps_mantling, 0, "the runner climbed it as before")
+	assert_eq(attempt.run.steps_vaulting, 0, "without a vault")
 
 
 func test_the_gap_can_be_cleared_by_wall_running() -> void:

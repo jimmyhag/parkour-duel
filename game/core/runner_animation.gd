@@ -10,7 +10,8 @@ extends RefCounted
 ## allows. Choosing it is logic; playing it is presentation (game/player), with or without
 ## the clips: the phase of the stride, and how the rolled body lies against the wall,
 ## depend on the clips, and are chosen there. The clips are the Mixamo ones of
-## docs/specs/character-animations.md, plus the tuck pose taken out of Backflip.
+## docs/specs/character-animations.md and docs/specs/vault.md, plus the tuck pose taken out
+## of Backflip.
 
 enum Clip {
 	IDLE,
@@ -23,7 +24,9 @@ enum Clip {
 	HARD_LANDING,
 	FALLING_TO_ROLL,
 	RUNNING_SLIDE,
-	SPRINT_TO_WALL_CLIMB,
+	LEDGE_PULL_UP,
+	VAULT_ONE_HAND,
+	VAULT_TWO_HANDS,
 	TUCK,
 }
 
@@ -65,11 +68,11 @@ var locomotion_position: Vector2 = Vector2.ZERO
 ## (null: none). On its feet: the locomotion, its clips weighted by its real speed and
 ## played so that the feet keep up with the ground; Landing for a moment after a simple
 ## landing; along a wall, the run, as fast as the runner goes along it; in the air: Jump
-## rising, Falling Idle falling, the tuck pose while a trick is under way; each other state
-## its clip. The locomotion follows the speed from the locomotion before, no faster than
-## the tuning allows (docs/specs/animation-polish.md, decision 9). A new clip blends in as
-## the table of the tuning says for the pair; a hard landing (a crash too) without a
-## blend.
+## rising, Falling Idle falling, the tuck pose while a trick is under way; in a vault, the
+## gesture its obstacle asks for (vault_clip); each other state its clip. The locomotion
+## follows the speed from the locomotion before, no faster than the tuning allows
+## (docs/specs/animation-polish.md, decision 9). A new clip blends in as the table of the
+## tuning says for the pair; a hard landing (a crash too) without a blend.
 static func of(
 	motor: RunnerMotor, step_seconds: float, before: RunnerAnimation = null
 ) -> RunnerAnimation:
@@ -97,8 +100,11 @@ static func of(
 		RunnerMotor.State.SLIDING:
 			animation.clip = Clip.RUNNING_SLIDE
 		RunnerMotor.State.MANTLING:
-			animation.clip = Clip.SPRINT_TO_WALL_CLIMB
+			animation.clip = Clip.LEDGE_PULL_UP
 			animation.duration = tuning.mantle_duration
+		RunnerMotor.State.VAULTING:
+			animation.clip = vault_clip(motor.vault, tuning)
+			animation.duration = tuning.vault_duration
 		RunnerMotor.State.WALL_RUNNING:
 			animation._run_along_the_wall(motor, before, step_seconds, tuning)
 	if motor.is_in_a_trick():
@@ -108,6 +114,14 @@ static func of(
 	var from: Clip = animation.clip if before == null else before.clip
 	animation.blend_time = blend_time_between(from, animation.clip, tuning)
 	return animation
+
+
+## The clip of the vault `vault` (null: none known): Vault Two Hands over an obstacle
+## deeper than the tuning vaults with one hand, Vault One Hand otherwise.
+static func vault_clip(vault: Vault, tuning: MovementTuning) -> Clip:
+	if vault != null and vault.depth > tuning.vault_two_hands_depth:
+		return Clip.VAULT_TWO_HANDS
+	return Clip.VAULT_ONE_HAND
 
 
 ## The weight of each clip of the locomotion (LOCOMOTION) for a runner on its feet at the

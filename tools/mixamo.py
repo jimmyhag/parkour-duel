@@ -45,12 +45,15 @@ ANIMATIONS = {
     "Hard Landing.fbx": "hard_landing.fbx",
     "Falling To Roll.fbx": "falling_to_roll.fbx",
     "Running Slide.fbx": "running_slide.fbx",
-    "Sprint To Wall Climb.fbx": "sprint_to_wall_climb.fbx",
     "Backflip.fbx": "backflip.fbx",
     # The walk and the sprint of the locomotion (docs/specs/locomotion-blend.md),
     # downloaded without the character ("Without Skin"): only their animation is used.
     "Walking.fbx": "walking.fbx",
     "Sprint.fbx": "sprint.fbx",
+    # The vault and the mantle (docs/specs/vault.md), downloaded without the character.
+    "Vault One Hand.fbx": "vault_one_hand.fbx",
+    "Vault Two Hands.fbx": "vault_two_hands.fbx",
+    "Ledge Pull Up.fbx": "ledge_pull_up.fbx",
 }
 # The pistol pack, and the clips taken out of it (skeleton and animation only).
 PACK = "Pistol_Handgun Locomotion Pack.zip"
