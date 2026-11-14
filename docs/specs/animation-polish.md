@@ -1,12 +1,18 @@
 # Des animations propres : sans saccade, et un wall-run comme dans les autres jeux
 
-**Statut : 🟢 Implémenté**
+**Statut : 🟡 Prêt pour le dev**
 
 Session du 2026-11-14, avec Jimmy, après qu'il a joué le personnage Mixamo : « elles
 sont un peu toujours saccadées » ; « l'animation de wallrun, elle va pas du tout, on
 dirait il s'écrase contre le mur et il court bizarrement. Ce serait bien […] que ce soit
 propre comme d'autres jeux ». Il a délégué la façon de faire. Le développement commence
 quand `docs/specs/locomotion-blend.md` est fusionnée.
+
+Amendée le 2026-11-14 après l'inspection de la pull request n° 48 : la table des fondus
+était écrasée par le défaut à chaque pas, l'interpolation cubique faisait ralentir la
+course au bouclage de chaque cycle, l'arrêt et le départ tournaient les hanches de 15°
+par image, et le pied glissait encore de 10 à 20 % selon la mesure de l'inspecteur.
+Décisions 7 à 9, scénarios marqués « second passage ».
 
 ## Contexte
 
@@ -36,6 +42,9 @@ ce que le coureur constate ne dépend jamais du corps visible ; le moteur et ses
 | 3 | Plus de changement d'un coup | Tout changement visible passe par un fondu ou une interpolation : clip, miroir, décalage, inclinaison, échelle. Seuls le crash et la réception dure restent sans fondu. Un clip n'est jamais lu plus de 1,5 fois (**amendement** : 1,8 fois, `animation_max_pace`, avec le blend space amendé de `docs/specs/locomotion-blend.md`) plus vite que sa vitesse propre : s'il le faudrait, on garde une partie plus courte du clip. | Les sauts de pose se voient plus que des fondus courts. |
 | 4 | Le wall-run, refait | Le clip « Wall Run » n'est plus utilisé. En wall-run, le personnage joue la **course** du blend space (course ou sprint selon la vitesse le long du mur) et **tout le corps est incliné** autour de la direction de course, **pieds vers le mur, tête vers l'extérieur**, de `wall_run_body_roll` (**35°**, ressource de réglage). Le corps est placé pour que ses pieds effleurent la surface du mur (un décalage fixe, calculé depuis l'inclinaison et la distance au mur que le moteur connaît), **sans balancement** d'une clé à l'autre. L'inclinaison monte et redescend en douceur (`wall_run_roll_time`, **0,15 s**) à l'entrée et à la sortie. Les règles de la décision 12 de `docs/specs/character-animations.md` restent vraies : la tête plus loin du mur que les pieds, aucun os derrière la surface du mur. | La façon de faire des jeux à wall-run : une course qui boucle, un corps incliné, une entrée et une sortie douces. |
 | 5 | La logique testable | L'angle d'inclinaison du wall-run à chaque instant (montée, tenue, descente), le décalage qui pose les pieds au mur, le choix de la course ou du sprint le long du mur et la limite de vitesse de lecture sont des fonctions pures testées sans les fichiers. La mesure des saccades et des os est faite localement avec les fichiers, et rapportée. | Les tests tournent dans la CI sans Mixamo. |
+| 7 | Les fondus vraiment par paire | **Second passage.** Redemander l'état déjà demandé ne relance pas de fondu : le temps de la paire s'applique en entier. | Mesuré : glissade → course durait 0,10 s au lieu de 0,2 s. |
+| 8 | Le bouclage sans accroc | **Second passage.** Un clip en boucle n'a pas de clé finale égale à sa clé 0 : l'interpolation passe le bouclage à vitesse constante. | Mesuré : un creux à 18-27 % de la vitesse des os environ trois fois par seconde à 144 Hz. |
+| 9 | Arrêt et départ en douceur | **Second passage.** La position dans le blend space de locomotion suit la vitesse avec un lissage réglé (`animation_start_stop_time`, **0,18 s**) : l'arrêt et le départ passent par la marche au lieu de la sauter en deux images. Le pied d'appui suit le sol à ±10 % de la marche au sprint, mesuré par la même méthode que l'inspecteur (os le plus bas du pied, sous 2 cm de son point le plus bas, vitesse vers l'arrière), pour les deux pieds. | Mesuré : hanches 14-16° par image à l'arrêt ; pied droit qui glisse de 10 à 21 %. |
 | 6 | Les réglages | `wall_run_body_roll`, `wall_run_roll_time` et toute autre valeur nouvelle vivent dans la ressource de réglage (groupe Animation). | Règle d'`AGENTS.md`. |
 
 ## Scénarios
@@ -67,7 +76,25 @@ Fonctionnalité: Des animations propres
   Scénario: Aucun clip n'est lu trop vite
     Soit chaque état à durée fixe et chaque vitesse au sol
     Quand on calcule la vitesse de lecture de son clip
-    Alors elle ne dépasse jamais 1,5 fois la vitesse propre du clip
+    Alors elle ne dépasse jamais 1,8 fois la vitesse propre du clip
+
+  Scénario: Un fondu demandé de nouveau garde son temps
+    # second passage
+    Soit un coureur qui sort d'une glissade vers la course
+    Quand l'état de course est redemandé à chaque pas pendant le fondu
+    Alors le fondu dure le temps de la paire glissade → course
+
+  Scénario: Une boucle passe son bouclage sans ralentir
+    # second passage
+    Soit un clip en boucle préparé pour l'arbre d'animation
+    Quand on le lit autour de son bouclage
+    Alors la vitesse des os ne creuse pas au bouclage
+
+  Scénario: L'arrêt passe par la marche
+    # second passage
+    Soit un coureur qui court puis s'arrête net, puis repart
+    Quand on suit la position dans le blend space de locomotion
+    Alors elle redescend et remonte en douceur sur la durée réglée, sans sauter la marche
 
   Scénario: Le corps visible n'avance pas par paliers
     Soit un coureur qui court, l'affichage à 144 images par seconde et le pas fixe à 60

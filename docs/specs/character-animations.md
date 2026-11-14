@@ -13,6 +13,12 @@ côté […] il rentre sa tête dans le mur. Il faut qu'il soit bien attaché au
 pieds ne rentrent pas aussi dans le mur ». Décision 12 ajoutée, scénario marqué « pose de
 wall-run ».
 
+**Note** : depuis `docs/specs/animation-polish.md`, le wall-run ne joue plus le clip
+`Wall Run` et n'est plus en miroir ; c'est la course, le corps incliné (décision 4 de
+cette spec-là). Les décisions 4, 11 et 12 et les scénarios du clip `Wall Run` et du
+miroir de cette spec-ci sont **remplacés** par elle ; les fichiers exigés sont onze
+clips et non douze.
+
 ## Contexte
 
 Jimmy a choisi **Mixamo** (Adobe), pour la fluidité de la capture de mouvement. La FAQ
