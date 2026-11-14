@@ -340,6 +340,16 @@ et Jimmy peut rouvrir chacun après avoir joué.
 - **Les endroits pour les figures** : avec un tour de 0,65 s, le parcours n'offre que
   peu de descentes (la grande chute, les bords de blocs plus hauts que la suite). Des
   endroits faits pour les figures viendront avec le dessin des niveaux.
+- **Crasher exprès remet la répétition à zéro** (règle du flow : une erreur vide les
+  quatre derniers moves) : sur le plat, sauter, crasher, attendre 0,5 s et ressauter
+  rapporte environ 2 100 points de style et 2 munitions par minute, aucune figure ne
+  paie, et chaque crash coûte de la vitesse et du temps. Accepté : c'est jouer mal pour
+  peu.
+- **La durée d'un tour ne descend pas sous environ 0,62 s** avec le saut du projet : en
+  dessous, un salto tient de nouveau dans un saut à plat. Le test « Un salto ne tient
+  pas dans un saut à plat » lit le réglage du projet et le refuse.
+- **La descente qui permet un salto** se calcule depuis le réglage, avec deux pas de
+  marge : 1,37 m aujourd'hui.
 
 ## Hors périmètre
 
