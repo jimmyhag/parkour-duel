@@ -45,6 +45,28 @@ class Moment:
 	var on_wall: bool
 
 
+## The intents of a written sequence, except that once the runner mantles, it pushes
+## `elsewhere`. The state read is the one of the step before: the step that starts the
+## mantle still follows the sequence.
+class PushElsewhereInTheMantle:
+	extends IntentSource
+
+	var _runner: Player
+	var _sequence: IntentSource
+	var _elsewhere: Vector3
+
+	func _init(runner: Player, sequence: IntentSource, elsewhere: Vector3) -> void:
+		_runner = runner
+		_sequence = sequence
+		_elsewhere = elsewhere
+
+	func next_intent() -> MoveIntent:
+		var intent: MoveIntent = _sequence.next_intent()
+		if _runner.motor.state == MANTLING:
+			intent.direction = _elsewhere
+		return intent
+
+
 ## One runner on blocks of its own, watched at every step.
 class Track:
 	extends Node3D
@@ -330,18 +352,29 @@ func test_in_a_mantle_the_runner_does_not_turn() -> void:
 	track.add_block_ahead(_ledge_height(tuning), FACE)
 	var intents: ScriptedIntentSource = ScriptedIntentSource.new()
 	intents.hold(push, false, APPROACH_STEPS).hold(push, true, JUMP_STEPS)
+	# Once the mantle has started, the runner pushes elsewhere: neither where it climbs
+	# nor where it looked.
+	var elsewhere: Vector3 = Vector3.LEFT
+	var turning: PushElsewhereInTheMantle = PushElsewhereInTheMantle.new(
+		track.runner, intents, elsewhere
+	)
 	track.start(track.near_the_face(), intents)
+	track.runner.intent_source = turning
 
 	await _steps(APPROACH_STEPS + JUMP_STEPS)
 
 	var mantling: Array[Moment] = track.moments_in(MANTLING)
 	assert_gt(mantling.size(), 1, "the runner mantled")
-	if mantling.is_empty():
+	if mantling.size() < 2:
 		return
 	var first: int = track.moments.find(mantling[0])
 	var at_the_start: Vector3 = track.moments[first - 1].look
 	var started: float = rad_to_deg(at_the_start.angle_to(push))
 	assert_lt(started, ANGLE_TOLERANCE, "the mantle started looking at the push")
+	var pushed_elsewhere: Array[Moment] = mantling.slice(1).filter(
+		func(moment: Moment) -> bool: return moment.push.is_equal_approx(elsewhere)
+	)
+	assert_eq(pushed_elsewhere.size(), mantling.size() - 1, "then pushed elsewhere")
 	var widest: float = _widest_angle(mantling, at_the_start, false)
 	assert_lt(widest, ANGLE_TOLERANCE, "it kept that look all along the mantle")
 
