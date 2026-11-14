@@ -209,6 +209,8 @@ extends Resource
 @export var bot_sabotage_lead: float = 0.0
 ## How long the bot aims before it shoots, in s.
 @export var bot_aim_time: float = 0.0
+## The ammunition each runner of a duel has at the start of a round.
+@export var duel_start_ammo: int = 0
 
 @export_group("Character")
 ## Dead zone of both sticks (0 to 1).

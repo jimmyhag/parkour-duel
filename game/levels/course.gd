@@ -3,16 +3,12 @@ extends Lane
 ## The course of solo practice: one lane, its runner, its own targets to shoot, and the
 ## displays and the sounds of its runner (game/ui). It records each run as the ghost of a
 ## duel replays it (GhostRun) and gives the session its finished runs; the best time and
-## the best style score shown are the session's. The menu action asks to leave it.
+## the best style score shown are the session's.
 ## Expected children, besides the lane's: Player, Hud/RaceHud, Hud/FlowHud,
 ## Hud/Crosshair, Hud/DebugOverlay, FlowSounds and SabotageSounds.
 
-## The menu action was pressed: whoever started the course may close it.
-signal menu_requested
-
 ## The identity of the runner of the course: the player.
 const RUNNER: int = 0
-const MENU: StringName = &"menu"
 
 ## What the game remembers from one mode to the next; to set before the course enters the
 ## tree, a session of its own otherwise.
@@ -51,11 +47,6 @@ func _ready() -> void:
 	checkpoint_reached.connect(_on_checkpoint_reached_by_the_run)
 	restarted.connect(_on_restarted)
 	finished.connect(_on_finished)
-
-
-func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed(MENU):
-		menu_requested.emit()
 
 
 ## Where the visible body is after this step, in the lane, until the finish line.

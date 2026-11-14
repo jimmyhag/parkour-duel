@@ -138,6 +138,7 @@ static func fixed_tuning() -> MovementTuning:
 	tuning.round_time_limit = 180.0
 	tuning.bot_sabotage_lead = 25.0
 	tuning.bot_aim_time = 0.8
+	tuning.duel_start_ammo = 2
 	return tuning
 
 

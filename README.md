@@ -165,13 +165,15 @@ opponent's.
 Local duel: two identical copies of the course side by side, 4 m apart, the player's on
 the left. Choose DUEL VS BOT, or DUEL VS GHOST once a solo run is finished in the
 session. A countdown (3, 2, 1, GO) holds both runners at their start; both timers start
-at GO. The first over the finish line wins; at the same step, the higher style score;
-the same score is a draw. After 3 minutes, if nobody finished, the farthest checkpoint
-wins, then the style score. The ghost, half transparent, replays the best solo run of
+at GO, and both runners start with 2 ammunition (a rematch gives them again). The first
+over the finish line wins; at the same step, the higher style score; the same score is a
+draw. Against the bot, after 3 minutes, if nobody finished, the farthest checkpoint
+wins, then the style score. Against the ghost there is no time limit: the round ends
+when the ghost crosses the finish line, and a player not finished by then loses. The ghost, half transparent, replays the best solo run of
 the session step by step: it touches nothing and shoots nothing. The bot, orange, runs
 the course with the pilot the tests use, towards the next checkpoint, does no trick,
 and sabotages a target of your lane when it has the ammunition, the target is within
-its range and you are less than 25 m before it and getting closer: it aims for 0.8 s,
+its range and on a clear line from its head and you are less than 25 m before it and getting closer: it aims for 0.8 s,
 slowed like any runner that aims, then shoots. It never sabotages the same target twice
 before you reach a new checkpoint, and does not start an aim when a jump comes before
 the aim would end. Only the

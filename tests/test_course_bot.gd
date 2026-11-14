@@ -100,10 +100,18 @@ func test_the_bot_does_not_sabotage_a_stopped_player_twice() -> void:
 	var shooter: Shooter = duel.opponent_lane.shooter
 	player.intent_source = IntentSource.new()
 	await _put(player, BEFORE_THE_PLATFORM)
+	bot.held = true
 	await _put(bot, _checkpoint_of(duel.opponent_lane, LONG_JUMPS).global_position)
 	duel.opponent_lane.flow.ammo = 3
-	await _wait_steps(SETTLE_STEPS)
-	assert_eq(shooter.shots, 0, "a stopped player: no sabotage")
+	var aimed_at_a_stopped_player: Array[bool] = [false]
+	bot.stepped.connect(
+		func(intent: MoveIntent) -> void:
+			aimed_at_a_stopped_player[0] = aimed_at_a_stopped_player[0] or intent.aim_held
+	)
+	bot.held = false
+	await _wait_steps(WATCH_STEPS)
+	assert_false(aimed_at_a_stopped_player[0], "a stopped player: the bot does not even aim")
+	assert_eq(shooter.shots, 0, "nor sabotage")
 
 	# The player walks towards the platform for a moment, then stops. The bot waits at the
 	# start of its long jumps, where an aim ends before the void, and sets off with it.
@@ -166,6 +174,32 @@ func test_the_bot_does_not_aim_before_a_jump() -> void:
 
 	assert_true(jumped[0], "the bot jumped over the void")
 	assert_false(aimed_before_the_jump[0], "it did not start aiming before the jump")
+
+
+func test_the_bot_sabotages_in_a_real_round() -> void:
+	var duel: Duel = _add_duel(Duel.Opponent.BOT)
+	var player: Player = duel.player_lane.player
+	var shooter: Shooter = duel.opponent_lane.shooter
+	await _wait_for_go(duel)
+	# The player sets off half a second after GO, led by the pilot: a little behind the
+	# bot. Nobody gives anyone ammunition by hand.
+	player.intent_source = IntentSource.new()
+	await _wait_steps(STEPS_PER_SECOND / 2)
+	player.intent_source = PilotIntentSource.new(player, Vector3.FORWARD)
+	var limit: int = roundi(duel.player_lane.tuning.round_time_limit * STEPS_PER_SECOND)
+	var steps: int = 0
+	while shooter.shots == 0 and duel.round_state.phase == RoundState.Phase.RUNNING:
+		await get_tree().physics_frame
+		steps += 1
+		if steps > limit:
+			break
+
+	var warned: int = 0
+	for block: TargetBlock in duel.player_lane.target_blocks():
+		warned += block.target.warnings
+	gut.p("the bot shot after %.2f s, %d target(s) hit" % [steps / 60.0, warned])
+	assert_gt(shooter.shots, 0, "the bot sabotaged")
+	assert_gt(warned, 0, "a target of the player's lane")
 
 
 func test_the_bot_sabotages_when_the_player_nears_a_target() -> void:

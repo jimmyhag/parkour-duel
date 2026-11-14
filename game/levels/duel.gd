@@ -4,15 +4,17 @@ extends Node3D
 ## opponent's, the same way and 4 m of void between their nearest blocks. The opponent is
 ## the ghost of the best solo run of the session (Ghost) or the bot (a full runner led by
 ## BotIntentSource). Each runner's shots go to the opposing lane's targets. The round
-## (RoundClock, RoundState, game/core) counts down with both runners held, starts both
-## timers at GO, and ends at the first finish or at the time limit; it only learns what
-## happens from dated messages. Then the result shows, with the rematch and the way back
-## to the menu. It decides the bot's sabotage by the rule of game/core (BotSaboteur), and
-## feeds the displays and the sounds of the player (game/ui). The menu action leaves it.
+## (RoundClock, RoundState, game/core) counts down, starts both timers at GO, and ends at
+## the first finish, or at the time limit against the bot (against the ghost, at its
+## finish at the latest); it only learns what happens from dated messages, and the
+## runners move only while it says they may. Each runner starts a round with the starting
+## ammunition of the tuning. Then the result shows, with the rematch and the way back to
+## the menu. It gives the rule of game/core (BotSaboteur) what the bot sees, and feeds
+## the displays and the sounds of the player (game/ui).
 ## Expected children: Hud/RaceHud, Hud/FlowHud, Hud/Crosshair, Hud/DebugOverlay,
 ## Hud/CountdownDisplay, Hud/ResultScreen, FlowSounds and SabotageSounds.
 
-## The player wants to leave the duel for the start screen.
+## The player chose MENU on the result screen: back to the start screen.
 signal menu_requested
 
 enum Opponent { GHOST, BOT }
@@ -24,11 +26,11 @@ const OPPONENT: int = 1
 const LANE_GAP: float = 4.0
 ## The colour of the opponent, bot or ghost.
 const OPPONENT_COLOUR: Color = Color(1.0, 0.5, 0.1)
-const OPPONENT_NAMES: Dictionary[Opponent, String] = {
-	Opponent.GHOST: "GHOST",
-	Opponent.BOT: "BOT",
+## What the result screen calls the opponent.
+const RESULT_OPPONENTS: Dictionary[Opponent, ResultScreen.Opponent] = {
+	Opponent.GHOST: ResultScreen.Opponent.GHOST,
+	Opponent.BOT: ResultScreen.Opponent.BOT,
 }
-const MENU: StringName = &"menu"
 const LANE_SCENE: PackedScene = preload("res://game/levels/lane.tscn")
 const PLAYER_SCENE: PackedScene = preload("res://game/player/player.tscn")
 const GHOST_SCENE: PackedScene = preload("res://game/player/ghost.tscn")
@@ -54,6 +56,8 @@ var _over: bool = false
 ## The bot's rule of sabotage, and its shots already counted, for the round.
 var _saboteur: BotSaboteur
 var _bot_shots_seen: int = 0
+## What the round said at the last step: whether the runners may move.
+var _runners_may_move: bool = false
 
 @onready var _race_hud: RaceHud = $Hud/RaceHud as RaceHud
 @onready var _flow_hud: FlowHud = $Hud/FlowHud as FlowHud
@@ -110,48 +114,52 @@ func _ready() -> void:
 
 
 ## The round of the duel: GO after the countdown, then the race until a finish or the
-## time limit; then its end is shown. The ghost and the bot follow the race.
+## time limit; then its end is shown. The ghost and the bot follow the race, and the
+## runners move only while the round says they may.
 func _physics_process(_delta: float) -> void:
-	if round_state.phase == RoundState.Phase.FINISHED:
-		if not _over:
-			_end_the_round()
-		return
+	if round_state.phase != RoundState.Phase.FINISHED:
+		_play_the_round()
+	elif not _over:
+		_end_the_round()
+	_follow_the_round()
+
+
+func _play_the_round() -> void:
 	var event: RoundClock.Event = clock.tick()
 	if event == RoundClock.Event.GO:
 		round_state.receive(RoundMessage.start(clock.race_steps()))
 		for runner: int in RoundState.RUNNERS:
 			_lane(runner).race.cross_start_line()
-		_hold_the_runners(false)
 	if round_state.phase != RoundState.Phase.RUNNING:
 		return
 	_follow_the_ghost()
 	_direct_the_bot()
-	if event == RoundClock.Event.TIME_UP:
+	# Against the ghost, the round ends at its finish: no time limit.
+	if event == RoundClock.Event.TIME_UP and opponent == Opponent.BOT:
 		for runner: int in RoundState.RUNNERS:
 			round_state.receive(
 				RoundMessage.time_limit(runner, clock.race_steps(), _style_score(runner))
 			)
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed(MENU) and not _result.visible:
-		menu_requested.emit()
-
-
-## Both lanes, their targets, flows, ammunition and timers from zero, and the countdown
-## again; the ghost replays the same run.
+## Both lanes, their targets, flows and timers from zero, the starting ammunition again,
+## and the countdown again; the ghost replays the same run.
 func rematch() -> void:
 	_begin_the_round()
 
 
 func _begin_the_round() -> void:
 	for runner: int in RoundState.RUNNERS:
-		_lane(runner).restart_the_run()
+		var lane: Lane = _lane(runner)
+		lane.restart_the_run()
+		if lane.player != null:
+			lane.flow.ammo = lane.tuning.duel_start_ammo
 	var steps_per_second: int = player_lane.steps_per_second
 	clock = RoundClock.new(player_lane.tuning, steps_per_second)
 	round_state = RoundState.new(steps_per_second)
 	_over = false
-	_hold_the_runners(true)
+	_runners_may_move = round_state.runners_may_move()
+	_hold_the_runners(not _runners_may_move)
 	if opponent == Opponent.BOT:
 		bot_source = BotIntentSource.new(opponent_lane.player, opponent_lane.way_forward(0))
 		_saboteur = BotSaboteur.new()
@@ -180,6 +188,15 @@ func _add_lane(runner: int, with_a_runner: bool, at: Vector3) -> Lane:
 
 func _lane(runner: int) -> Lane:
 	return player_lane if runner == PLAYER else opponent_lane
+
+
+## The runners move only while the round says they may: they are held, or let go, when
+## its answer changes.
+func _follow_the_round() -> void:
+	var may_move: bool = round_state.runners_may_move()
+	if may_move != _runners_may_move:
+		_runners_may_move = may_move
+		_hold_the_runners(not may_move)
 
 
 func _hold_the_runners(held: bool) -> void:
@@ -215,8 +232,8 @@ func _follow_the_ghost() -> void:
 
 ## The bot runs towards the next checkpoint (the finish line in the last section); the
 ## rule of game/core (BotSaboteur) chooses a target of the player's lane for it to
-## sabotage, and it aims at it unless it already aims or its pilot sees a jump to make
-## before the aim would end.
+## sabotage, from what the bot sees (the distances, its line of fire, a jump ahead), and
+## it aims at it unless it already aims.
 func _direct_the_bot() -> void:
 	if bot_source == null:
 		return
@@ -237,15 +254,19 @@ func _direct_the_bot() -> void:
 		var point: Vector3 = block.aim_point()
 		var to_it: Vector3 = point - player.global_position
 		to_it.y = 0.0
+		var line: AimFacts = bot.aim_facts_towards(point - eyes)
+		var clear: bool = line.target == block.target_id and line.lane == PLAYER
 		candidates.append(
-			BotSaboteur.Candidate.new(block.target, eyes.distance_to(point), to_it.dot(forward))
+			BotSaboteur.Candidate.new(
+				block.target, eyes.distance_to(point), to_it.dot(forward), clear
+			)
 		)
 		blocks[block.target_id] = block
 	# Asked at every step, aiming or not: the approach of the player is step to step.
-	var chosen: int = _saboteur.choose(candidates, opponent_lane.flow.ammo, tuning)
-	if chosen == SabotageTarget.NO_TARGET or bot_source.is_aiming():
-		return
-	if not bot_source.sees_a_jump_before_an_aim_ends():
+	var jump_ahead: bool = bot_source.sees_a_jump_before_an_aim_ends()
+	var ammo: int = opponent_lane.flow.ammo
+	var chosen: int = _saboteur.choose(candidates, ammo, tuning, jump_ahead)
+	if chosen != SabotageTarget.NO_TARGET and not bot_source.is_aiming():
 		bot_source.aim_at(blocks[chosen].aim_point())
 
 
@@ -274,13 +295,12 @@ func _on_finished(runner: int) -> void:
 ## The round is over: both runners stop, their flows freeze, and the result shows.
 func _end_the_round() -> void:
 	_over = true
-	_hold_the_runners(true)
 	var styles: Array[int] = []
 	for runner: int in RoundState.RUNNERS:
 		var lane: Lane = _lane(runner)
 		lane.flow.finish()
 		styles.append(_style_score(runner))
-	_result.show_round(round_state, OPPONENT_NAMES[opponent], styles)
+	_result.show_round(round_state, RESULT_OPPONENTS[opponent], styles)
 
 
 func _on_menu_chosen() -> void:

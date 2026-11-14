@@ -25,7 +25,7 @@ func test_the_result_screen_shows_the_round() -> void:
 	var screen: ResultScreen = _add_screen()
 	assert_false(screen.visible, "hidden during the round")
 
-	screen.show_round(round_state, "BOT", [2500, 700] as Array[int])
+	screen.show_round(round_state, ResultScreen.Opponent.BOT, [2500, 700] as Array[int])
 
 	assert_true(screen.visible, "shown at the end of the round")
 	assert_eq(_text(screen, "%Verdict"), "YOU WIN")
@@ -46,7 +46,7 @@ func test_the_verdict_of_a_lost_round_and_of_a_draw() -> void:
 	var lost: RoundState = RoundState.new(STEPS_PER_SECOND)
 	lost.receive(RoundMessage.start(0))
 	lost.receive(RoundMessage.finish(OPPONENT, PLAYER_STEPS, 0))
-	screen.show_round(lost, "GHOST", [0, 0] as Array[int])
+	screen.show_round(lost, ResultScreen.Opponent.GHOST, [0, 0] as Array[int])
 	assert_eq(_text(screen, "%Verdict"), "YOU LOSE")
 	assert_string_contains(_text(screen, "%YouLine"), "DNF")
 	assert_string_contains(_text(screen, "%ThemLine"), "GHOST")
@@ -55,7 +55,7 @@ func test_the_verdict_of_a_lost_round_and_of_a_draw() -> void:
 	drawn.receive(RoundMessage.start(0))
 	drawn.receive(RoundMessage.finish(PLAYER, PLAYER_STEPS, 10))
 	drawn.receive(RoundMessage.finish(OPPONENT, PLAYER_STEPS, 10))
-	screen.show_round(drawn, "BOT", [10, 10] as Array[int])
+	screen.show_round(drawn, ResultScreen.Opponent.BOT, [10, 10] as Array[int])
 	assert_eq(_text(screen, "%Verdict"), "DRAW")
 
 
@@ -64,18 +64,18 @@ func test_the_result_screen_chooses_the_rematch_or_the_menu() -> void:
 	round_state.receive(RoundMessage.start(0))
 	round_state.receive(RoundMessage.finish(PLAYER, PLAYER_STEPS, 0))
 	var screen: ResultScreen = _add_screen()
-	screen.show_round(round_state, "BOT", [0, 0] as Array[int])
+	screen.show_round(round_state, ResultScreen.Opponent.BOT, [0, 0] as Array[int])
 
 	await _tap(&"jump")
 	assert_eq(_rematches, 1, "jump on REMATCH: the rematch")
 
-	screen.show_round(round_state, "BOT", [0, 0] as Array[int])
+	screen.show_round(round_state, ResultScreen.Opponent.BOT, [0, 0] as Array[int])
 	await _tap(&"menu_down")
 	assert_eq(screen.selected(), ResultScreen.Choice.MENU, "down: MENU")
 	await _tap(&"jump")
 	assert_eq(_menus, 1, "jump on MENU: the start screen")
 
-	screen.show_round(round_state, "BOT", [0, 0] as Array[int])
+	screen.show_round(round_state, ResultScreen.Opponent.BOT, [0, 0] as Array[int])
 	await _tap(&"menu")
 	assert_eq(_menus, 2, "Esc or Back: the start screen too")
 	assert_eq(_rematches, 1, "and no rematch")

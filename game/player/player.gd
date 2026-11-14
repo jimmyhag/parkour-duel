@@ -102,6 +102,13 @@ func watch(watched: bool) -> void:
 	camera_rig.process_mode = Node.PROCESS_MODE_INHERIT if watched else Node.PROCESS_MODE_DISABLED
 
 
+## What the first block or target is on the line from the runner's eyes in `direction`:
+## what a shot that way would reach (the bot sees through it whether a target is hidden).
+func aim_facts_towards(direction: Vector3) -> AimFacts:
+	var eyes: Vector3 = global_position + Vector3.UP * tuning.camera_look_height
+	return _aim_facts_on_the_line(eyes, direction.normalized())
+
+
 ## Where the visible body is and how it is turned, in the world: what a ghost replays.
 func visual_transform() -> Transform3D:
 	return _visual.global_transform
@@ -280,14 +287,17 @@ func _fits_standing_at(feet: Vector3) -> bool:
 func _observe_the_aim(intent: MoveIntent) -> AimFacts:
 	if not intent.aim_held:
 		return AimFacts.new()
+	if not intent.aim_direction.is_zero_approx():
+		return aim_facts_towards(intent.aim_direction)
+	var eye: Transform3D = camera_rig.camera().global_transform
+	return _aim_facts_on_the_line(eye.origin, -eye.basis.z)
+
+
+## The first block or target on the line from `from` in `towards`, as far as twice the
+## range of a shot beyond the camera's arm, its distance measured from the runner's eyes.
+func _aim_facts_on_the_line(from: Vector3, towards: Vector3) -> AimFacts:
 	var eyes: Vector3 = global_position + Vector3.UP * tuning.camera_look_height
 	var reach: float = 2.0 * tuning.shot_range + tuning.camera_distance
-	var from: Vector3 = eyes
-	var towards: Vector3 = intent.aim_direction.normalized()
-	if intent.aim_direction.is_zero_approx():
-		var eye: Transform3D = camera_rig.camera().global_transform
-		from = eye.origin
-		towards = -eye.basis.z
 	var ray: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
 		from, from + towards * reach, AIM_MASK, [get_rid()]
 	)
