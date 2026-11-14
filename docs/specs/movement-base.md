@@ -237,6 +237,7 @@ Fonctionnalité: Déplacement de base
   # --- Parcours (levels, world, ui) ---
 
   Scénario: La scène principale est le parcours test
+    # remplacé par docs/specs/local-duel.md : la scène principale est l'écran de départ
     Soit le projet
     Quand on charge sa scène principale
     Alors c'est le parcours test, avec un coureur, une ligne de départ, des checkpoints et une ligne d'arrivée

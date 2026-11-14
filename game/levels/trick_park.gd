@@ -4,14 +4,10 @@ extends Node3D
 ## walls face to face and a wall to run along, to try the tricks at every height. No
 ## timer, no target, no opponent: it owns the flow of its runner and shows it, and brings
 ## the runner back to its start point when it falls off or asks for it (the rule of
-## RaceState). The menu action asks to leave it. It reads no input of the game itself.
+## RaceState). It reads no input of the game itself: the menu action is the game's
+## (Main).
 ## Expected children: Spawn, Blocks, Walls, Player, Hud/FlowHud, Hud/DebugOverlay and
 ## FlowSounds.
-
-## The menu action was pressed: whoever started the park may close it.
-signal menu_requested
-
-const MENU: StringName = &"menu"
 
 ## The altitude under which a runner has fallen off the park.
 @export var fall_limit: float = 0.0
@@ -41,11 +37,6 @@ func _ready() -> void:
 	_debug_overlay.flow = flow
 	player.stepped.connect(_on_player_stepped)
 	respawn()
-
-
-func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed(MENU):
-		menu_requested.emit()
 
 
 ## Brings the runner back to the start point, at rest.

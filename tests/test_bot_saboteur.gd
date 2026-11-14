@@ -102,6 +102,34 @@ func test_the_bot_does_not_sabotage_a_target_twice_before_a_new_checkpoint() -> 
 	assert_eq(saboteur.choose(after, 3, _tuning), OBSTACLE, "after a new checkpoint, again")
 
 
+func test_the_bot_leaves_a_target_hidden_from_it() -> void:
+	var saboteur: BotSaboteur = BotSaboteur.new()
+	var obstacle: SabotageTarget = _target(OBSTACLE, SabotageTarget.Kind.OBSTACLE)
+	saboteur.choose(_one(BotSaboteur.Candidate.new(obstacle, IN_RANGE, NEAR, false)), 3, _tuning)
+	var hidden: BotSaboteur.Candidate = BotSaboteur.Candidate.new(
+		obstacle, IN_RANGE, NEAR - STEP_CLOSER, false
+	)
+	var chosen: int = saboteur.choose(_one(hidden), 3, _tuning)
+	assert_eq(chosen, SabotageTarget.NO_TARGET, "a block between its head and the target")
+	var seen: BotSaboteur.Candidate = BotSaboteur.Candidate.new(
+		obstacle, IN_RANGE, NEAR - 2.0 * STEP_CLOSER, true
+	)
+	assert_eq(saboteur.choose(_one(seen), 3, _tuning), OBSTACLE, "a clear line of fire")
+
+
+func test_the_bot_starts_no_aim_with_a_jump_ahead() -> void:
+	var saboteur: BotSaboteur = BotSaboteur.new()
+	var ahead: float = NEAR
+	saboteur.choose(_one(_candidate(IN_RANGE, ahead)), 3, _tuning)
+	for step: int in 5:
+		ahead -= STEP_CLOSER
+		var jump: int = saboteur.choose(_one(_candidate(IN_RANGE, ahead)), 3, _tuning, true)
+		assert_eq(jump, SabotageTarget.NO_TARGET, "a jump before the aim would end")
+	ahead -= STEP_CLOSER
+	var after: int = saboteur.choose(_one(_candidate(IN_RANGE, ahead)), 3, _tuning, false)
+	assert_eq(after, OBSTACLE, "the jump made, the player still approaching: chosen")
+
+
 func _target(id: int, kind: SabotageTarget.Kind) -> SabotageTarget:
 	return SabotageTarget.new(id, kind, _tuning, STEPS_PER_SECOND)
 

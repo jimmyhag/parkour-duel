@@ -126,6 +126,37 @@ func _top_of_the_platform_in_its_lane() -> Vector3:
 	return on_it
 
 
+func test_the_ghost_duel_ends_at_its_finish() -> void:
+	# A ghost run of 4 s, longer than a time limit of 2 s.
+	var frames: Array[Transform3D] = []
+	for step: int in 240:
+		frames.append(Transform3D(Basis.IDENTITY, Vector3(0.0, 0.0, 3.0 - step * 0.1)))
+	var session: Session = _session_with_a_run(frames)
+	var duel: Duel = _add_duel(Duel.Opponent.GHOST, session)
+	var tuning: MovementTuning = _tuning_copy()
+	tuning.round_time_limit = 2.0
+	_retune(duel, tuning)
+	await _wait_for_go(duel)
+	var limit: int = roundi(tuning.round_time_limit * STEPS_PER_SECOND)
+	# The player stays behind, at the start.
+	duel.player_lane.player.intent_source = IntentSource.new()
+	var steps: int = 0
+	while duel.round_state.phase == RoundState.Phase.RUNNING and steps < 400:
+		await get_tree().physics_frame
+		steps += 1
+	await _wait_steps(FEW_STEPS)
+
+	var end: int = duel.round_state.end_step
+	gut.p("the round ended at step %d, the time limit is %d" % [end, limit])
+	assert_eq(duel.round_state.phase, RoundState.Phase.FINISHED, "the round ends")
+	assert_eq(end, session.best_run.finish_frame, "as the ghost crosses the finish line")
+	assert_gt(end, limit, "no time limit against the ghost")
+	assert_eq(duel.round_state.winner, OPPONENT, "the player loses")
+	assert_false(duel.round_state.has_finished(PLAYER), "it had not finished")
+	var verdict: Label = duel.get_node("Hud/ResultScreen").get_node("%Verdict") as Label
+	assert_eq(verdict.text, "YOU LOSE", "the result says it")
+
+
 ## A session whose best run is made of `frames`, finished long after them.
 func _session_with_a_run(frames: Array[Transform3D]) -> Session:
 	var run: GhostRun = GhostRun.new()

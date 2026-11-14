@@ -15,6 +15,12 @@ chaque course dans la dernière section, tirait deux fois la même cible sur un 
 arrêté, et pouvait viser juste avant un saut long. Les décisions 7, 8 et 17 sont
 amendées, des scénarios ajoutés (marqués « amendement »), les choix du code listés.
 
+Amendée une seconde fois le même jour après l'inspection, qui a mesuré avec le vrai
+moteur que dans une vraie manche **le bot ne sabote jamais** : il gagne sa première
+munition après la dernière cible. Les deux coureurs partent désormais avec des
+munitions ; le duel contre le fantôme se termine à son arrivée (marqués « second
+amendement »).
+
 ## Contexte
 
 Le plan (étape 4) : « Deux couloirs miroirs ; adversaire = fantôme enregistré, puis bot
@@ -50,6 +56,8 @@ d'`AGENTS.md` ; le mode solo d'entraînement de l'étape 3 ; la limite de 30 s d
 | 9 | La manche | **Compte à rebours** « 3 », « 2 », « 1 », « GO » d'une seconde chacun, coureurs immobiles à leur départ ; la course démarre pour les deux au même pas. Le **premier qui franchit l'arrivée** gagne. Arrivés au même pas : le plus haut score de style gagne ; même score : égalité. Limite de **3 minutes** : si personne n'a fini, celui qui a atteint le checkpoint le plus loin gagne, puis le score de style, puis égalité. Contre le fantôme, le joueur gagne s'il arrive avant la fin de la course du fantôme. | Le plan : premier arrivé, le style départage, manches de 1 à 3 minutes. |
 | 10 | Pendant la manche | Retour au checkpoint et chute fonctionnent comme en solo, le chrono ne s'arrête pas. **Recommencer** (Backspace / Back) n'existe pas en duel : il est remplacé par la revanche, à l'écran de résultat. | On ne recommence pas seul une manche à deux. |
 | 11 | L'écran de résultat | À la fin de la manche : **« YOU WIN »**, **« YOU LOSE »** ou **« DRAW »** ; le temps et le score de style de chacun (« DNF » pour qui n'a pas fini) ; deux choix : **« REMATCH »** (même adversaire, même couloir) et **« MENU »** (l'écran de départ). Saut (Espace / A) choisit, la direction change de choix. | Le plan : « écran de résultat, revanche ». |
+| 18 | Les munitions de départ | **Second amendement.** En duel, chaque coureur, joueur et bot, part avec `duel_start_ammo` (**2**) munitions ; la revanche les redonne. En solo, rien ne change. | La même règle pour les deux ; sans elle, le bot ne sabote jamais avant la fin du parcours. |
+| 19 | La fin d'un duel contre le fantôme | **Second amendement.** La manche contre le fantôme se termine quand le fantôme franchit l'arrivée ; le joueur qui n'a pas fini à ce moment perd. La limite de 3 minutes ne s'applique pas à ce duel. | Battre son fantôme, c'est arriver avant lui ; on ne le bat pas au checkpoint. |
 | 12 | La revanche | Remet les deux couloirs, leurs cibles, flows, munitions et chronos à zéro, puis relance le compte à rebours. Le fantôme d'une revanche est la meilleure course solo, inchangée. | |
 | 13 | Le réseau, plus tard | Chaque coureur a un identifiant de joueur (0 et 1). Les messages de sabotage portent l'identifiant du tireur. L'état de la manche (compte à rebours, en cours, finie, résultat) est un état de `core`, sans scène, qui ne voit que des messages datés : départ, checkpoint atteint, arrivée, limite de temps. | Règles d'`AGENTS.md` ; l'étape 5 fera passer ces messages par le réseau. |
 | 14 | Le HUD en duel | En haut, le chrono ; à côté, l'écart avec l'adversaire au dernier checkpoint commun (« +1.24 » ou « -0.80 », en secondes). Le HUD du flow est celui du joueur. Le flow et les munitions du bot ne s'affichent pas, sauf dans l'affichage de debug. | Savoir si on est devant, sans encombrer. |
@@ -65,6 +73,7 @@ d'`AGENTS.md` ; le mode solo d'entraînement de l'étape 3 ; la limite de 30 s d
 | Limite d'une manche | 180 s |
 | Bot : avance du joueur sur une cible pour la saboter | 25 m |
 | Bot : temps de visée avant de tirer | 0,8 s |
+| Munitions de départ en duel (second amendement) | 2 |
 
 ## Scénarios
 
@@ -189,6 +198,24 @@ Fonctionnalité: Duel local
     Quand le saut arrive avant la fin d'une visée
     Alors il ne commence pas à viser
 
+  Scénario: Le bot sabote dans une vraie manche
+    # second amendement
+    Soit un duel contre le bot, le joueur mené par le pilote un peu derrière le bot, sans munition donnée à la main
+    Quand la manche se déroule
+    Alors le bot sabote au moins une cible du couloir du joueur
+
+  Scénario: Les deux coureurs partent avec les mêmes munitions
+    # second amendement
+    Soit un duel qui commence, puis une revanche
+    Quand le compte à rebours se termine
+    Alors le joueur et l'adversaire ont chacun les munitions de départ
+
+  Scénario: Le duel contre le fantôme se termine à son arrivée
+    # second amendement
+    Soit un duel contre le fantôme où le joueur est derrière
+    Quand le fantôme franchit l'arrivée
+    Alors la manche se termine et le joueur perd
+
   Scénario: Le bot ne tire pas sans munitions
     Soit le bot sans munition, et le joueur près d'une cible prête
     Quand des pas s'écoulent
@@ -260,6 +287,10 @@ et Jimmy peut rouvrir chacun après avoir joué.
 - **Le couloir adverse est à droite**, à 28 m.
 - **La visée du bot ne fait pas briller la cible** : seule celle du joueur le fait.
 - **La session garde BEST et BEST STYLE du solo** d'une visite du menu à l'autre.
+- **Les tests de soutien** : une vingtaine de tests sans scénario du même nom prouvent
+  des décisions ou des choix de cette liste (la manche en vraie physique, la règle du
+  bot dans `core`, l'enregistrement d'une course, les écrans, l'écart, le recommencement
+  refusé, la limite de temps, la ligne de tir du bot). Acceptés comme tests de soutien.
 - **Le test de la scène principale** : la scène principale est l'écran de départ ;
   le test du parcours garde ses assertions sur le parcours lui-même.
 

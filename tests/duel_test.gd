@@ -27,6 +27,21 @@ func _add_duel(
 	return duel
 
 
+## Makes every runner and lane of `duel` obey `tuning`, then starts its round again.
+func _retune(duel: Duel, tuning: MovementTuning) -> void:
+	for lane: Lane in [duel.player_lane, duel.opponent_lane] as Array[Lane]:
+		lane.tuning = tuning
+		if lane.player != null:
+			lane.player.apply_tuning(tuning)
+	duel.rematch()
+
+
+## A copy of the tuning of the project, to change for a test.
+func _tuning_copy() -> MovementTuning:
+	var tuning: MovementTuning = load("res://game/core/movement_tuning.tres") as MovementTuning
+	return tuning.duplicate() as MovementTuning
+
+
 ## Waits for GO: the race of the round is on.
 func _wait_for_go(duel: Duel) -> void:
 	for step: int in COUNTDOWN_STEPS:

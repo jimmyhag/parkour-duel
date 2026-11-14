@@ -10,12 +10,18 @@ signal rematch_chosen
 signal menu_chosen
 
 enum Choice { REMATCH, MENU }
+## Who the player ran against.
+enum Opponent { GHOST, BOT }
 
 const YOU_WIN: String = "YOU WIN"
 const YOU_LOSE: String = "YOU LOSE"
 const DRAW: String = "DRAW"
 const YOU: String = "YOU"
 const DNF: String = "DNF"
+const OPPONENT_NAMES: Dictionary[Opponent, String] = {
+	Opponent.GHOST: "GHOST",
+	Opponent.BOT: "BOT",
+}
 const LINE: String = "%s   %s   STYLE %d"
 const PLAYER: int = 0
 const OPPONENT: int = 1
@@ -35,7 +41,7 @@ func _ready() -> void:
 
 
 ## Shows how the round ended, with the style score of each runner, REMATCH selected.
-func show_round(round_state: RoundState, opponent_name: String, styles: Array[int]) -> void:
+func show_round(round_state: RoundState, opponent: Opponent, styles: Array[int]) -> void:
 	match round_state.winner:
 		PLAYER:
 			_verdict.text = YOU_WIN
@@ -44,7 +50,7 @@ func show_round(round_state: RoundState, opponent_name: String, styles: Array[in
 		_:
 			_verdict.text = DRAW
 	_you_line.text = _line(round_state, PLAYER, YOU, styles[PLAYER])
-	_them_line.text = _line(round_state, OPPONENT, opponent_name, styles[OPPONENT])
+	_them_line.text = _line(round_state, OPPONENT, OPPONENT_NAMES[opponent], styles[OPPONENT])
 	visible = true
 	_menu.open()
 

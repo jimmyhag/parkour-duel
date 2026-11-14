@@ -111,7 +111,7 @@ func test_the_rematch_resets_everything() -> void:
 		assert_eq(lane.race.phase, RaceState.Phase.NOT_STARTED, context + "timer not started")
 		assert_eq(lane.race.elapsed_steps, 0, context + "timer at zero")
 		assert_eq(lane.race.last_checkpoint, 0, context + "back to the start")
-		assert_eq(lane.flow.ammo, 0, context + "no ammunition")
+		assert_eq(lane.flow.ammo, lane.tuning.duel_start_ammo, context + "the starting ammunition")
 		assert_eq(lane.flow.gauge, 0.0, context + "an empty gauge")
 		assert_eq(lane.flow.style_score, 0, context + "no style score")
 		for block: TargetBlock in lane.target_blocks():
@@ -119,6 +119,96 @@ func test_the_rematch_resets_everything() -> void:
 			assert_false(block.target.displaced, context + "%s in its place" % block.name)
 		var start: Vector3 = _checkpoint_of(lane, RUN_UP).global_position
 		assert_lt(lane.player.global_position.distance_to(start), NEAR, context + "at the start")
+
+
+func test_both_runners_start_with_the_same_ammunition() -> void:
+	var solo: Course = _add_course(400.0)
+	await _wait_steps(FEW_STEPS)
+	assert_eq(solo.flow.ammo, 0, "solo practice: unchanged, no ammunition")
+	var duel: Duel = _add_duel(Duel.Opponent.BOT)
+	var start: int = duel.player_lane.tuning.duel_start_ammo
+	assert_eq(start, 2, "the starting ammunition of the tuning")
+	await _wait_for_go(duel)
+	assert_eq(duel.player_lane.flow.ammo, start, "the player has it at GO")
+	assert_eq(duel.opponent_lane.flow.ammo, start, "and the bot")
+
+	duel.player_lane.flow.ammo = 0
+	duel.opponent_lane.flow.ammo = 1
+	duel.rematch()
+	await _wait_for_go(duel)
+
+	assert_eq(duel.player_lane.flow.ammo, start, "a rematch gives it again to the player")
+	assert_eq(duel.opponent_lane.flow.ammo, start, "and to the bot")
+
+
+func test_a_restart_request_does_nothing_in_a_duel() -> void:
+	var duel: Duel = _add_duel(Duel.Opponent.BOT)
+	await _wait_for_go(duel)
+	var player: Player = duel.player_lane.player
+	var race: RaceState = duel.player_lane.race
+	await _replay_in(player, ScriptedIntentSource.new().hold(FORWARD, false, 40))
+	var at: Vector3 = player.global_position
+	var steps_before: int = race.elapsed_steps
+	var start: Vector3 = _checkpoint_of(duel.player_lane, RUN_UP).global_position
+	assert_gt(at.distance_to(start), 3.0, "the player ran off the start")
+
+	await _replay_in(player, ScriptedIntentSource.new().request_restart())
+
+	assert_eq(race.phase, RaceState.Phase.RUNNING, "the race goes on")
+	assert_gt(race.elapsed_steps, steps_before, "the timer is not reset")
+	assert_gt(player.global_position.distance_to(start), 3.0, "nor the player sent back")
+
+
+func test_the_time_limit_of_a_duel_is_decided_by_checkpoint() -> void:
+	var duel: Duel = _add_duel(Duel.Opponent.BOT)
+	var tuning: MovementTuning = _tuning_copy()
+	tuning.round_time_limit = 3.0
+	_retune(duel, tuning)
+	await _wait_for_go(duel)
+	var player: Player = duel.player_lane.player
+	player.intent_source = IntentSource.new()
+	await _put(player, _checkpoint_of(duel.player_lane, STEPS).global_position)
+	assert_eq(duel.player_lane.race.last_checkpoint, STEPS, "the player farther than the bot")
+	var limit: int = roundi(tuning.round_time_limit * STEPS_PER_SECOND)
+	var steps: int = 0
+	while duel.round_state.phase == RoundState.Phase.RUNNING and steps < 2 * limit:
+		await get_tree().physics_frame
+		steps += 1
+	await _wait_steps(FEW_STEPS)
+
+	assert_eq(duel.round_state.phase, RoundState.Phase.FINISHED, "the round ends")
+	assert_eq(duel.round_state.end_step, limit, "at the time limit")
+	assert_lt(duel.opponent_lane.race.last_checkpoint, STEPS, "the bot not as far")
+	assert_eq(duel.round_state.winner, PLAYER, "the farthest checkpoint wins")
+	assert_true((duel.get_node("Hud/ResultScreen") as ResultScreen).visible, "the result shows")
+
+
+func test_the_hud_of_a_duel_shows_the_gap_at_a_checkpoint() -> void:
+	var duel: Duel = _add_duel(Duel.Opponent.BOT)
+	await _wait_for_go(duel)
+	var player: Player = duel.player_lane.player
+	var bot: Player = duel.opponent_lane.player
+	player.intent_source = IntentSource.new()
+	var reached_at: Array[int] = [-1, -1]
+	for lane: Lane in [duel.player_lane, duel.opponent_lane] as Array[Lane]:
+		lane.checkpoint_reached.connect(
+			func(index: int) -> void:
+				if index == SHORT_JUMPS:
+					reached_at[lane.runner_id] = lane.race.elapsed_steps
+		)
+	bot.teleport(_checkpoint_of(duel.opponent_lane, SHORT_JUMPS).global_transform)
+	await _wait_steps(40)
+	player.teleport(_checkpoint_of(duel.player_lane, SHORT_JUMPS).global_transform)
+	await _wait_steps(FEW_STEPS)
+	var hud: RaceHud = duel.get_node("Hud/RaceHud") as RaceHud
+	hud.refresh()
+
+	assert_gt(reached_at[PLAYER], reached_at[OPPONENT], "both passed it, the bot first")
+	@warning_ignore("integer_division")
+	var gap: int = reached_at[PLAYER] * 100 / 60 - reached_at[OPPONENT] * 100 / 60
+	var label: Label = hud.get_node("%GapLabel") as Label
+	assert_true(label.visible, "the gap shows")
+	assert_eq(label.text, "%+.2f" % (gap / 100.0), "the player behind the bot by that much")
 
 
 func test_an_opposing_target_can_be_shot_from_the_section_before() -> void:
@@ -337,6 +427,12 @@ func _distance_between(a: AABB, b: AABB) -> float:
 		maxf(maxf(b.position.z - a.end.z, a.position.z - b.end.z), 0.0)
 	)
 	return gap.length()
+
+
+## Gives `source` to `runner` and waits for it to be played.
+func _replay_in(runner: Player, source: ScriptedIntentSource) -> void:
+	runner.intent_source = source
+	await _wait_steps(source.length() + FEW_STEPS)
 
 
 func _steps_of_seconds(seconds: float) -> int:
