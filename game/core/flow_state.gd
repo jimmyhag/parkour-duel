@@ -68,10 +68,10 @@ func _init(movement_tuning: MovementTuning, steps_per_second: int) -> void:
 
 ## One fixed step of the runner: the messages its motor sent at this step, its
 ## real horizontal speed (m/s), and whether it is on its feet on the ground. On the
-## ground the delay of the combo runs, and its end keeps the last moves and the last
-## tricks that the repetition judges against; the moves are counted; a runner that stays
-## still has stopped. The gauge drops at a step spent out
-## of a combo from its start to its end.
+## ground the delay of the combo runs, and its end keeps the last moves that the
+## repetition judges against (the last tricks, only a fall and a restart forget); the
+## moves are counted; a runner that stays still has stopped. The gauge drops at a step
+## spent out of a combo from its start to its end.
 func step(events: Array[RunnerEvent], horizontal_speed: float, on_foot: bool) -> void:
 	if frozen:
 		return
@@ -95,12 +95,14 @@ func follow(motor: RunnerMotor) -> void:
 	motor.top_speed_bonus = speed_bonus()
 
 
-## The runner fell off the course or asked for its last checkpoint: the gauge empties and
-## the combo is broken; the ammunition and the style score stay.
+## The runner fell off the course or asked for its last checkpoint: the gauge empties, the
+## combo is broken and the last tricks are forgotten; the ammunition and the style score
+## stay.
 func respawn() -> void:
 	if frozen:
 		return
 	_break_the_combo()
+	_last_tricks.clear()
 	gauge = 0.0
 	_steps_stopped = 0
 
@@ -113,6 +115,7 @@ func restart() -> void:
 	ammo_progress = 0
 	style_score = 0
 	_end_the_combo()
+	_last_tricks.clear()
 	_steps_stopped = 0
 
 
@@ -320,15 +323,14 @@ func _break_the_combo() -> void:
 	_end_the_combo()
 
 
-## The combo is over: its multiplier back to x1; its last moves and its last tricks
-## forgotten, unless it ended by its delay (`forget` false): the repetition goes on across
-## combos.
+## The combo is over: its multiplier back to x1; its last moves forgotten, unless it ended
+## by its delay (`forget` false): the repetition goes on across combos. The last tricks
+## are kept either way: only a fall and a restart forget them.
 func _end_the_combo(forget: bool = true) -> void:
 	_combo_moves = 0
 	_steps_on_the_ground = 0
 	if forget:
 		_last_moves.clear()
-		_last_tricks.clear()
 	repeat_count = 0
 
 

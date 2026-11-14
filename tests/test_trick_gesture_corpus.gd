@@ -21,19 +21,23 @@ const SIDE_FLIP: String = "SIDE FLIP"
 ## The gestures of the first inspection, and of the second.
 const FIRST_INSPECTION: int = 63
 const SECOND_INSPECTION: int = 20
+## The gestures released right after the hand comes to rest.
+const QUICK_RELEASES: int = 2
 const SPIN: String = "360"
 const CONTEXT: String = "CONTEXT"
 
 
 ## One gesture of the corpus: what it is, on which device, its motions, what the hand
 ## means, and for the mouse the share of the sensitivity of the project its player set
-## the camera to.
+## the camera to; `released`, when what the hand means is the trick the release starts at
+## its end, rather than what the drawing reads.
 class Gesture:
 	var label: String
 	var on_the_stick: bool
 	var motions: Array
 	var meant: String
 	var sensitivity: float = 1.0
+	var released: bool = false
 
 	func _init(what: String, stick: bool, steps: Array, recipe: String) -> void:
 		label = what
@@ -57,6 +61,9 @@ func test_human_gestures_are_read_as_the_hand_means_them() -> void:
 	second.append_array(_second_stick_gestures())
 	assert_eq(second.size(), SECOND_INSPECTION, "the gestures of the second inspection")
 	corpus.append_array(second)
+	var quick: Array[Gesture] = _quick_releases()
+	assert_eq(quick.size(), QUICK_RELEASES, "the gestures released right away")
+	corpus.append_array(quick)
 	for gesture: Gesture in corpus:
 		var drawing: TrickGesture = TrickGesture.new(_tuning)
 
@@ -64,6 +71,13 @@ func test_human_gestures_are_read_as_the_hand_means_them() -> void:
 			GestureHand.stick(drawing, gesture.motions)
 		else:
 			GestureHand.mouse(drawing, gesture.motions, gesture.sensitivity)
+		if gesture.released:
+			var started: TrickRecipe = drawing.validated_recipe()
+			var name: String = "NOTHING" if started == null else started.name()
+			if started != null and started.context:
+				name = CONTEXT
+			assert_eq(name, gesture.meant, gesture.label + ": what the release starts")
+			continue
 
 		assert_eq(GestureHand.read(drawing), gesture.meant, gesture.label)
 
@@ -322,6 +336,21 @@ func _second_stick_gestures() -> Array[Gesture]:
 		),
 		_stick("T2b two flicks with ramps and bounces", ramp + ramp + still, DOUBLE),
 	]
+
+
+## A flick, then the button released after three steps of rest: the owner flicks and
+## releases fast, and the flick must start, not the trick of the context.
+func _quick_releases() -> Array[Gesture]:
+	var rest: Array = GestureHand.still(3)
+	var gestures: Array[Gesture] = [
+		_mouse(
+			"Q1 a flick down, released after 3 steps of rest", _bell(D, 150, 5) + rest, BACKFLIP
+		),
+		_stick("Q2 a flick up, released after 3 steps of rest", _hold(U, 4) + rest, FRONT_FLIP),
+	]
+	for gesture: Gesture in gestures:
+		gesture.released = true
+	return gestures
 
 
 func _mouse(what: String, pixels: Array, meant: String) -> Gesture:

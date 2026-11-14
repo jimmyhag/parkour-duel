@@ -139,7 +139,7 @@ stroke; it ends as the stick is back in its dead zone, or dips far under its str
 push) and an arc is the stick rolled round its rim. On the pad, each stroke read gets an
 arrow, each twist and each spin a coloured arc; the name of the recipe shows under the
 pad (and above the flow gauge), or ? while nothing reads yet. A reading that has not
-changed for 0.1 s, the hand at rest (a hand that trembles by a pixel or two is at rest),
+changed for 0.05 s, the hand at rest (a hand that trembles by a pixel or two is at rest),
 is validated: the border of the pad turns green and thickens, when the runner can start
 a trick now (not while aiming, nor after the trick of its jump). The release starts the
 last trick validated: a reading seen only for a moment (a double on the way to a twist)
@@ -178,8 +178,9 @@ twist 150 more; PERFECT 50 % more; then, as any move of the flow, the same recip
 turns, twists) again is worth less, and the combo multiplies. A trick is judged against
 the last eight tricks, whatever the moves between them (half once among them, nothing
 twice); any other move against the last ten moves. A combo that ends by its delay keeps
-both: a break on the ground does not make the same tricks new again (an error, a fall or
-a restart does). A trick changes nothing
+both: a break on the ground does not make the same tricks new again. An error (a hard
+landing, a crash, a sabotage, a stop) forgets the last moves but keeps the last tricks;
+only a fall or a restart forgets them. A trick changes nothing
 to the flight, but no wall run and no mantle starts before it is over; during a trick,
 jump never makes the runner jump.
 

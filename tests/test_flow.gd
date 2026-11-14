@@ -56,8 +56,9 @@ func test_the_same_move_repeated_in_a_row_is_worth_less_and_less() -> void:
 
 func test_the_repetition_of_tricks_survives_the_end_of_a_combo() -> void:
 	# docs/specs/trick-gestures.md, decisions 19 and 22: a trick is judged against the last
-	# tricks, whatever the moves between them, and the end of a combo by its delay forgets
-	# none of them; an error, a fall and a restart do.
+	# tricks, whatever the moves between them; neither the end of a combo by its delay nor
+	# an error (a hard landing, a crash, a sabotage, a stop) forgets them; a fall and a
+	# restart do.
 	var flow: FlowState = _flow()
 	_trick(flow, TrickRecipe.Flip.BACKFLIP)
 	for kind: RunnerEvent.Kind in VARIED + VARIED:
@@ -77,16 +78,29 @@ func test_the_repetition_of_tricks_survives_the_end_of_a_combo() -> void:
 	_trick(flow, TrickRecipe.Flip.BACKFLIP)
 	assert_eq(flow.last_points, 100, "the trick again after the end of the combo: half of it")
 
-	var forgetting: Array[String] = ["an error", "a fall", "a restart"]
-	for what: String in forgetting:
-		_trick(flow, TrickRecipe.Flip.BACKFLIP)
+	var errors: Array[String] = ["a hard landing", "a crash", "a sabotage", "a stop"]
+	for what: String in errors:
+		var erring: FlowState = _flow()
+		_trick(erring, TrickRecipe.Flip.BACKFLIP)
 		match what:
-			"an error":
-				_move(flow, HARD_LANDING)
-			"a fall":
-				flow.respawn()
+			"a hard landing":
+				_move(erring, HARD_LANDING)
+			"a crash":
+				_move(erring, RunnerEvent.Kind.CRASH)
+			"a sabotage":
+				erring.sabotaged()
 			_:
-				flow.restart()
+				_wait(erring, STOP_STEPS, true, 0.0)
+		assert_false(erring.in_combo(), "%s breaks the combo" % what)
+		_trick(erring, TrickRecipe.Flip.BACKFLIP)
+		assert_eq(erring.last_points, 100, "after %s, the trick is still a repetition" % what)
+
+	for what: String in ["a fall", "a restart"]:
+		_trick(flow, TrickRecipe.Flip.BACKFLIP)
+		if what == "a fall":
+			flow.respawn()
+		else:
+			flow.restart()
 		_trick(flow, TrickRecipe.Flip.BACKFLIP)
 		assert_eq(flow.last_points, 200, "after %s, the trick is worth all its points" % what)
 

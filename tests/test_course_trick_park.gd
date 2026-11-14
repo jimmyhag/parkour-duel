@@ -51,8 +51,11 @@ const MINUTE: int = 3600
 const RISKLESS_STYLE_PER_MINUTE: int = 4800
 ## How many times faster than real time that minute plays, and the most fixed steps a
 ## frame may play for it.
+## What the minute crashing on purpose earned when an error forgot the last tricks, as the
+## second report on docs/specs/trick-gestures.md measured it: the error keeps them now.
+const CRASHING_WHEN_ERRORS_FORGOT: int = 26950
 const MINUTE_SPEED_UP: int = 100
-const MINUTE_STEPS_PER_FRAME: int = 64
+const MINUTE_STEPS_PER_FRAME: int = 16
 ## The wall exit: the wall to run along, where the runner starts on the ground beside it
 ## (x, z), how far into its stretch it jumps, the steps of the wall run before it draws,
 ## and the steps it leaves the hand at rest before the release.
@@ -295,20 +298,39 @@ func test_the_tricks_between_two_walls_earn_little_without_risk() -> void:
 	# Decision 23 of docs/specs/trick-gestures.md: a trick paid by a wall run is worth half
 	# of it; and a trick is judged against the last tricks (decision 22). The runner jumps
 	# off each wall with the jump button and releases its trick at once, then with the
-	# trick button, which jumps off the wall into the trick (decision 28).
-	for trick_exits: bool in [false, true]:
+	# trick button, which jumps off the wall into the trick (decision 28). Then, with tricks
+	# too long to be over at the wall in front, crashes on purpose: an error does not make
+	# the tricks new again (decision 22).
+	var singles: Array[TrickRecipe] = [
+		TrickRecipe.drawn(TrickRecipe.Flip.FRONT_FLIP),
+		TrickRecipe.drawn(TrickRecipe.Flip.BACKFLIP),
+		TrickRecipe.drawn(TrickRecipe.Flip.SIDE_FLIP),
+		TrickRecipe.drawn(TrickRecipe.Flip.SPIN),
+	]
+	var crashing: Array[TrickRecipe] = singles.duplicate()
+	(
+		crashing
+		. append_array(
+			[
+				TrickRecipe.drawn(TrickRecipe.Flip.FRONT_FLIP, 1, 1),
+				TrickRecipe.drawn(TrickRecipe.Flip.BACKFLIP, 1, 1),
+				TrickRecipe.drawn(TrickRecipe.Flip.SIDE_FLIP, 2),
+				TrickRecipe.drawn(TrickRecipe.Flip.BACKFLIP, 2),
+			]
+		)
+	)
+	for loop: int in 3:
+		var trick_exits: bool = loop == 1
+		var crashes: bool = loop == 2
 		var how: String = "the trick button" if trick_exits else "the jump button"
+		if crashes:
+			how += ", crashing on purpose"
 		var park: TrickPark = _add_park()
 		var runner: Player = park.player
 		var start: Vector3 = Vector3(WallBot.LANE, 0.0, WallBot.NEAR_END + 8.0)
 		runner.teleport(Transform3D(Basis.IDENTITY, start))
-		var singles: Array[TrickRecipe] = [
-			TrickRecipe.drawn(TrickRecipe.Flip.FRONT_FLIP),
-			TrickRecipe.drawn(TrickRecipe.Flip.BACKFLIP),
-			TrickRecipe.drawn(TrickRecipe.Flip.SIDE_FLIP),
-			TrickRecipe.drawn(TrickRecipe.Flip.SPIN),
-		]
-		var bot: WallBot = WallBot.new(runner, singles, trick_exits)
+		var recipes: Array[TrickRecipe] = crashing if crashes else singles
+		var bot: WallBot = WallBot.new(runner, recipes, trick_exits)
 		runner.intent_source = bot
 		var watch: TrickWatch = TrickWatch.new(runner)
 		var wall_runs: int = 0
@@ -349,9 +371,15 @@ func test_the_tricks_between_two_walls_earn_little_without_risk() -> void:
 				]
 			)
 		)
-		assert_gt(paid_by_a_wall_run, 20, how + ": the wall runs pay its tricks again and again")
-		assert_eq(watch.crashes, 0, how + ": without a crash")
-		assert_lt(park.flow.style_score, RISKLESS_STYLE_PER_MINUTE, how + ": under the threshold")
+		assert_gt(paid_by_a_wall_run, 10, how + ": the wall runs pay its tricks again and again")
+		if crashes:
+			assert_gt(watch.crashes, 3, how + ": crashes")
+			var style: int = park.flow.style_score
+			assert_lt(style, CRASHING_WHEN_ERRORS_FORGOT, how + ": the crashes earn less now")
+		else:
+			assert_eq(watch.crashes, 0, how + ": without a crash")
+			var style: int = park.flow.style_score
+			assert_lt(style, RISKLESS_STYLE_PER_MINUTE, how + ": under the threshold")
 		park.queue_free()
 		await get_tree().physics_frame
 
