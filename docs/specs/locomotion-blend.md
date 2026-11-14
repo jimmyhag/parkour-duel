@@ -28,7 +28,7 @@ ce que le coureur constate ne dépend jamais du corps visible.
 
 | # | Question | Décision | Pourquoi |
 | - | -------- | -------- | -------- |
-| 1 | Le blend space de locomotion | Au sol, debout, un mélange continu sur la vitesse horizontale : `Idle` (0), `Walking`, `Running` (vitesse de pointe du réglage), `Sprint` (vitesse de pointe avec le bonus du palier 3 du flow et au-delà). Les points de passage sont des réglages (groupe Animation), placés chacun à la vitesse propre de son clip. Les clips mélangés jouent à une vitesse qui garde les pieds sans glisser. | Démarrages, arrêts et changements d'allure sans à-coup ; le sprint montre le flow. |
+| 1 | Le blend space de locomotion | Au sol, debout, un mélange continu sur la vitesse horizontale : `Idle` (0), `Walking`, `Running` (vitesse de pointe du réglage), `Sprint` (vitesse de pointe avec le bonus du palier 3 du flow et au-delà). **Amendement (2026-11-14, après `docs/specs/animation-polish.md`)** : les foulées Mixamo sont courtes (course 4,49 m/s, sprint 5,65 m/s) ; pour que le pied suive le sol sans cadence frénétique, `Running` est seul à sa vitesse propre multipliée par 1,3, et `Sprint` seul **dès la vitesse de pointe** ; au-delà, le sprint accélère. Le plafond de vitesse de lecture (`animation_max_pace`) est **1,8**. Les points de passage sont des réglages (groupe Animation), placés chacun à la vitesse propre de son clip. Les clips mélangés jouent à une vitesse qui garde les pieds sans glisser. | Démarrages, arrêts et changements d'allure sans à-coup ; le sprint montre le flow. |
 | 2 | Les pieds en phase | Les clips du blend space sont calés sur la même phase de foulée (pied gauche au sol au même temps relatif) ; le mélange ne fait jamais deux foulées décalées. | Sans cela, les jambes se croisent pendant le mélange. |
 | 3 | Les transitions, paire par paire | Les fondus deviennent une table (dans la ressource de réglage) : un temps par paire « de → vers », avec une valeur par défaut. Valeurs de départ : course → saut 0,05 s ; saut → chute 0,15 s ; chute → réception 0,05 s ; réception → course 0,15 s ; course → glissade 0,08 s ; glissade → course 0,2 s ; course → wall-run 0,1 s ; wall-run → chute 0,15 s ; vers la pose groupée 0,08 s ; depuis la pose groupée 0,12 s ; défaut 0,1 s. Les entrées brusques (crash, réception dure) restent sans fondu. | Chaque enchaînement a sa vitesse naturelle. |
 | 4 | La reprise de la course | En revenant à la course (après une réception, une glissade, un wall-run), le blend space reprend à la phase de foulée la plus proche de la pose d'où l'on vient, pas au début du clip. | Les pieds ne sautent pas à la reprise. |
@@ -42,9 +42,10 @@ ce que le coureur constate ne dépend jamais du corps visible.
 Fonctionnalité: Une locomotion fluide
 
   Scénario: Les poids du blend space suivent la vitesse
-    Soit un coureur au sol à l'arrêt, entre la marche et la course, à sa vitesse de pointe, puis au-delà avec le flow
+    # amendement : Running seul à 1,3 fois sa vitesse propre, Sprint seul dès la vitesse de pointe
+    Soit un coureur au sol à l'arrêt, entre la marche et la course, à 1,3 fois la vitesse propre de la course, entre celle-ci et la vitesse de pointe, puis à la vitesse de pointe
     Quand on calcule les poids de la locomotion
-    Alors c'est Idle seul, un mélange de Walking et Running, Running seul, puis un mélange de Running et Sprint
+    Alors c'est Idle seul, un mélange de Walking et Running, Running seul, un mélange de Running et Sprint, puis Sprint seul
 
   Scénario: Les poids font toujours un tout
     Soit n'importe quelle vitesse au sol

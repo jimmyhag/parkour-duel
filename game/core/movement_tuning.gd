@@ -299,17 +299,29 @@ extends Resource
 ## The horizontal speed of the stride of Walking, of Running and of Sprint, measured from
 ## their clips, in m/s: how fast the foot on the ground goes back when the clip plays at its
 ## own pace. The locomotion plays its clips so that the feet keep up with the ground.
-## Walking plays alone at its own speed; Running alone at the top speed, Sprint alone at the
-## top speed of the last tier of the flow.
+## Walking plays alone at its own speed; Running alone at its own speed times
+## animation_run_alone_pace; Sprint alone from the top speed, and beyond it.
 @export var animation_walk_speed: float = 0.0
 @export var animation_run_speed: float = 0.0
 @export var animation_sprint_speed: float = 0.0
+## How many times faster than its own pace Running plays where it is alone: its point in the
+## blend of the locomotion is its own speed times this.
+@export var animation_run_alone_pace: float = 0.0
 ## Under this horizontal speed, a runner on its feet stands: Idle alone, in m/s; from it to
 ## the speed of Walking, Idle blends into Walking.
 @export var animation_still_speed: float = 0.0
 ## How long Landing plays after a landing that is neither hard nor rolled, in s; shorter
 ## than a hard landing.
 @export var animation_landing_time: float = 0.0
+## The fastest a clip plays, as a share of its own pace: a clip that would have to play
+## faster to fit its move plays its first part only; the locomotion plays no faster, its
+## feet then slipping on the ground.
+@export var animation_max_pace: float = 0.0
+## In a wall run, how far the character's whole body rolls about the way it runs, its feet
+## towards the wall and its head away from it, in degrees; and how long the roll takes to
+## come, in s, and as long to go once the wall run is over.
+@export var wall_run_body_roll: float = 0.0
+@export var wall_run_roll_time: float = 0.0
 
 @export_group("Camera")
 ## Distance between the camera and the point it looks at, in m.

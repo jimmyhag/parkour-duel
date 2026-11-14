@@ -4,11 +4,13 @@ extends RefCounted
 ## it just played: which clip, at what playback speed or in how long, on which side the
 ## wall it runs along is, whether the upper body holds the aim, and how long the blend into
 ## it lasts. On its feet, the clip is the locomotion: a blend of Idle, Walking, Running and
-## Sprint on its horizontal speed (docs/specs/locomotion-blend.md). Choosing it is logic;
-## playing it is presentation (game/player), with or without the clips: the mirror of a
-## clip along a wall, and the phase of the stride, depend on the clips, and are chosen
-## there. The clips are the Mixamo ones of docs/specs/character-animations.md, plus the
-## tuck pose taken out of Backflip.
+## Sprint on its horizontal speed (docs/specs/locomotion-blend.md); along a wall, the run of
+## that blend, Running or Sprint by the speed along it, the whole body rolled, its feet
+## towards the wall (docs/specs/animation-polish.md). No clip plays faster than the tuning
+## allows. Choosing it is logic; playing it is presentation (game/player), with or without
+## the clips: the phase of the stride, and how the rolled body lies against the wall,
+## depend on the clips, and are chosen there. The clips are the Mixamo ones of
+## docs/specs/character-animations.md, plus the tuck pose taken out of Backflip.
 
 enum Clip {
 	IDLE,
@@ -22,7 +24,6 @@ enum Clip {
 	FALLING_TO_ROLL,
 	RUNNING_SLIDE,
 	SPRINT_TO_WALL_CLIMB,
-	WALL_RUN,
 	TUCK,
 }
 
@@ -51,8 +52,8 @@ var wall_side: WallSide = WallSide.NONE
 var aiming: bool = false
 ## How long the blend from the clip before into this one lasts, in s.
 var blend_time: float = 0.0
-## On its feet (the clip IDLE or RUNNING), the weight of each clip of the locomotion, in
-## the order of LOCOMOTION; empty otherwise.
+## On its feet or along a wall (the clip IDLE or RUNNING), the weight of each clip of the
+## locomotion, in the order of LOCOMOTION; empty otherwise.
 var locomotion: PackedFloat32Array = []
 
 
@@ -60,9 +61,10 @@ var locomotion: PackedFloat32Array = []
 ## fixed steps lasting `step_seconds`, after `before`, the animation of the step before
 ## (null: none). On its feet: the locomotion, its clips weighted by its real speed and
 ## played so that the feet keep up with the ground; Landing for a moment after a simple
-## landing; in the air: Jump rising, Falling Idle falling, the tuck pose while a trick is
-## under way; each other state its clip. A new clip blends in as the table of the tuning
-## says for the pair; a hard landing (a crash too) without a blend.
+## landing; along a wall, the run, as fast as the runner goes along it; in the air: Jump
+## rising, Falling Idle falling, the tuck pose while a trick is under way; each other state
+## its clip. A new clip blends in as the table of the tuning says for the pair; a hard
+## landing (a crash too) without a blend.
 static func of(
 	motor: RunnerMotor, step_seconds: float, before: RunnerAnimation = null
 ) -> RunnerAnimation:
@@ -93,9 +95,7 @@ static func of(
 			animation.clip = Clip.SPRINT_TO_WALL_CLIMB
 			animation.duration = tuning.mantle_duration
 		RunnerMotor.State.WALL_RUNNING:
-			animation.clip = Clip.WALL_RUN
-			animation.duration = tuning.wall_run_duration
-			animation.wall_side = _side_of_the_wall(motor)
+			animation._run_along_the_wall(motor, tuning)
 	if motor.is_in_a_trick():
 		animation.clip = Clip.TUCK
 		animation.locomotion = []
@@ -107,14 +107,15 @@ static func of(
 
 ## The weight of each clip of the locomotion (LOCOMOTION) for a runner on its feet at the
 ## horizontal speed `speed`: Idle alone up to the still speed, Walking alone at its own
-## speed, Running alone at the top speed, Sprint alone from the top speed of the last tier
-## of the flow; between two of them, those two, in proportion. They sum to 1.
+## speed, Running alone at its own speed times the pace the tuning gives it alone, Sprint
+## alone from the top speed (docs/specs/locomotion-blend.md, decision 1 as amended);
+## between two of them, those two, in proportion. They sum to 1.
 static func locomotion_weights(speed: float, tuning: MovementTuning) -> PackedFloat32Array:
 	var points: PackedFloat32Array = [
 		tuning.animation_still_speed,
 		tuning.animation_walk_speed,
+		_running_alone(tuning),
 		tuning.top_speed,
-		tuning.top_speed * (1.0 + _last_tier_bonus(tuning)),
 	]
 	var weights: PackedFloat32Array = []
 	weights.resize(points.size())
@@ -131,19 +132,18 @@ static func locomotion_weights(speed: float, tuning: MovementTuning) -> PackedFl
 	return weights
 
 
-## The speed of the stride of the clips of the locomotion weighted by `weights`, Idle
-## left out: the ground speed at which they play at their own pace, in m/s. The speed of
-## Walking when only Idle weighs.
+## The speed of the stride of the blend of the locomotion weighted by `weights`: how fast
+## its foot on the ground goes back when its clips play at their own pace, in m/s. Idle
+## strides not: as much as it weighs, the stride is shorter. The speed of Walking when only
+## Idle weighs.
 static func own_speed(weights: PackedFloat32Array, tuning: MovementTuning) -> float:
 	var speeds: PackedFloat32Array = stride_speeds(tuning)
-	var moving: float = 0.0
 	var speed: float = 0.0
-	for clip: int in range(1, weights.size()):
-		moving += weights[clip]
+	for clip: int in weights.size():
 		speed += weights[clip] * speeds[clip]
-	if moving <= 0.0:
+	if speed <= 0.0:
 		return tuning.animation_walk_speed
-	return speed / moving
+	return speed
 
 
 ## The speed of the stride of each clip of the locomotion (LOCOMOTION), in m/s: none for
@@ -178,6 +178,33 @@ static func blend_time_between(from: Clip, to: Clip, tuning: MovementTuning) -> 
 	return tuning.animation_blend_time
 
 
+## How fast a clip `length` s long plays to last `duration` s (its own pace without a
+## duration), never faster than the tuning allows: a clip too long for its move plays its
+## first part only.
+static func fitted_pace(length: float, duration: float, tuning: MovementTuning) -> float:
+	if duration <= 0.0:
+		return 1.0
+	return minf(length / duration, tuning.animation_max_pace)
+
+
+## The roll of the body about the way it runs, in radians (positive: its head to its left),
+## `step` s after it was `roll`, the wall the runner runs along at `wall_side`: towards the
+## tuned roll, its feet towards the wall and its head away from it, or back to upright
+## along no wall; at a pace that goes from upright to the tuned roll in the tuned time.
+static func wall_run_roll(
+	roll: float, wall_side: WallSide, step: float, tuning: MovementTuning
+) -> float:
+	var full: float = deg_to_rad(tuning.wall_run_body_roll)
+	var wanted: float = 0.0
+	if wall_side == WallSide.LEFT:
+		wanted = -full
+	elif wall_side == WallSide.RIGHT:
+		wanted = full
+	if tuning.wall_run_roll_time <= 0.0:
+		return wanted
+	return move_toward(roll, wanted, full / tuning.wall_run_roll_time * step)
+
+
 ## The locomotion of a runner on its feet at the horizontal speed `ground_speed`: its
 ## weights, Idle when it stands, and the pace of the clips that move, the feet keeping up
 ## with the ground.
@@ -187,7 +214,26 @@ func _walk(ground_speed: float, tuning: MovementTuning) -> void:
 		clip = Clip.IDLE
 		return
 	clip = Clip.RUNNING
-	speed = ground_speed / own_speed(locomotion, tuning)
+	_keep_up_with(ground_speed, tuning)
+
+
+## The run of a runner along a wall, as fast as it goes along it: Running up to where it
+## plays alone on the ground, then as on the ground, blended into Sprint up to the top speed;
+## its feet keep up with the wall.
+func _run_along_the_wall(motor: RunnerMotor, tuning: MovementTuning) -> void:
+	wall_side = _side_of_the_wall(motor)
+	var away: Vector3 = motor.wall_run_normal()
+	var motion: Vector3 = Vector3(motor.velocity.x, 0.0, motor.velocity.z)
+	var along: float = (motion - away * motion.dot(away)).length()
+	locomotion = locomotion_weights(maxf(along, _running_alone(tuning)), tuning)
+	clip = Clip.RUNNING
+	_keep_up_with(along, tuning)
+
+
+## The pace of the locomotion whose foot goes back at `ground_speed`, never faster than the
+## tuning allows.
+func _keep_up_with(ground_speed: float, tuning: MovementTuning) -> void:
+	speed = minf(ground_speed / own_speed(locomotion, tuning), tuning.animation_max_pace)
 
 
 ## The name of `clip` in the table of blend times: the locomotion is "running".
@@ -197,11 +243,9 @@ static func _table_name(clip: Clip) -> String:
 	return name.to_lower()
 
 
-## The share of the top speed the last tier of the flow adds.
-static func _last_tier_bonus(tuning: MovementTuning) -> float:
-	var bonuses: Array[float] = tuning.flow_tier_speed_bonus
-	var last: int = mini(tuning.flow_tier_count, bonuses.size())
-	return 0.0 if last <= 0 else bonuses[last - 1]
+## The speed at which Running plays alone, in m/s.
+static func _running_alone(tuning: MovementTuning) -> float:
+	return tuning.animation_run_speed * tuning.animation_run_alone_pace
 
 
 ## The side of the wall the runner runs along, the way it moves: the way away from it

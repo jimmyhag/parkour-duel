@@ -15,7 +15,8 @@ const DOWNLOADS: String = "user://mixamo_downloads"
 const COPY: String = "user://mixamo_copy"
 ## The files of a download folder, as mixamo.com names them, and the name each one the
 ## game uses takes once copied. Running Forward Flip is downloaded, but the tuck pose comes
-## from Backflip: it is not copied.
+## from Backflip: it is not copied. Wall Run is not needed: along a wall the character runs
+## (docs/specs/animation-polish.md), and a folder without it is enough.
 const DOWNLOADED: Dictionary[String, String] = {
 	"Ch08_nonPBR.fbx": "ch08_nonpbr.fbx",
 	"Idle.fbx": "idle.fbx",
@@ -27,7 +28,6 @@ const DOWNLOADED: Dictionary[String, String] = {
 	"Falling To Roll.fbx": "falling_to_roll.fbx",
 	"Running Slide.fbx": "running_slide.fbx",
 	"Sprint To Wall Climb.fbx": "sprint_to_wall_climb.fbx",
-	"Wall Run.fbx": "wall_run.fbx",
 	"Backflip.fbx": "backflip.fbx",
 	"Running Forward Flip.fbx": "",
 	"Walking.fbx": "walking.fbx",

@@ -3,10 +3,12 @@ extends CharacterBody3D
 ## The runner's body. At every fixed step it asks its intent source for an intent,
 ## gives it to the motor of game/core with the facts it observes (RunnerFacts), and
 ## applies what the motor decides: the velocity it wants, a capsule as low as its state
-## says, a visible body that faces the push, leans towards the wall it runs along, turns
+## says, a visible body that faces the push, leans along the wall it runs along, turns
 ## with the trick under way and shows the animation of the motor's state (the Mixamo
 ## character, RunnerCharacter, when its files are there; the capsule and its visor
-## otherwise). While it aims, it observes what is under the reticle
+## otherwise). The visible body is placed at each fixed step; between two of them, the
+## physics interpolation of the project shows it in between. While it aims, it observes
+## what is under the reticle
 ## (AimFacts), or on the line from its head that its intent gives (the bot's aim), and
 ## puts the camera over its shoulder. Held (a countdown), it follows no intent. It decides
 ## nothing about the movement or the shot itself.
@@ -48,8 +50,11 @@ var animation: RunnerAnimation = RunnerAnimation.new()
 var _yaw: float = 0.0
 var _lean: float = 0.0
 ## How far the wall beside the runner was from the side of its capsule at its last step,
-## in m: INF without a wall.
+## in m: INF without a wall; and at the last step of its last wall run, with the weights
+## of the run it showed then.
 var _wall_distance: float = INF
+var _wall_run_distance: float = 0.0
+var _wall_run_locomotion: PackedFloat32Array = []
 ## The Mixamo character in the visible body; null with the capsule.
 var _character: RunnerCharacter = null
 
@@ -80,12 +85,11 @@ func _physics_process(delta: float) -> void:
 	camera_rig.aiming = intent.aim_held
 	aim_facts = _observe_the_aim(intent)
 	_turn(intent, delta)
-	_lean_towards_the_wall(delta)
-	_pose()
 	animation = RunnerAnimation.of(motor, delta, animation)
+	_lean_along_the_wall(delta)
+	_pose()
 	if _character != null:
 		_character.play(animation)
-		_lean_the_character_on_the_wall()
 	stepped.emit(intent)
 
 
@@ -140,13 +144,10 @@ func drawing() -> TrickGesture:
 	return null if source == null else source.drawing
 
 
-## Where the visible body is and how it is turned, in the world, the character moved
-## across against the wall of a wall run: what a ghost replays.
+## Where the visible body is and how it is turned, in the world, at the last step: what a
+## ghost replays.
 func visual_transform() -> Transform3D:
-	var frame: Transform3D = _visual.global_transform
-	if _character != null:
-		frame.origin += _character.wall_shift()
-	return frame
+	return _visual.global_transform
 
 
 ## Reads the tuning file again, so that a value changed on disk applies without
@@ -428,12 +429,20 @@ func _heading(intent: MoveIntent) -> Vector3:
 	return Vector3(intent.direction.x, 0.0, intent.direction.z)
 
 
-## In a wall run, the capsule one sees leans towards the wall, at the pace it turns; it
-## straightens up when the wall run is over. The character does not: its clip leans.
-func _lean_towards_the_wall(delta: float) -> void:
+## In a wall run, the character rolls its whole body, its feet towards the wall and its
+## head away from it, as RunnerAnimation says, and straightens up when the wall run is
+## over; the capsule one sees leans towards the wall instead, at the pace it turns.
+func _lean_along_the_wall(delta: float) -> void:
+	if _character != null:
+		_lean = RunnerAnimation.wall_run_roll(_lean, animation.wall_side, delta, tuning)
+		if motor.state == RunnerMotor.State.WALL_RUNNING:
+			_wall_run_locomotion = animation.locomotion
+			if is_finite(_wall_distance):
+				_wall_run_distance = _wall_distance
+		return
 	var away: Vector3 = motor.wall_run_normal()
 	var lean: float = 0.0
-	if not away.is_zero_approx() and _character == null:
+	if not away.is_zero_approx():
 		# Rolling the body to the left (a positive angle) leans it towards a wall at its
 		# left, whose normal points to its right.
 		var right: Vector3 = _facing().cross(Vector3.UP)
@@ -441,25 +450,22 @@ func _lean_towards_the_wall(delta: float) -> void:
 	_lean = rotate_toward(_lean, lean, tuning.turn_speed * delta)
 
 
-## Places the visible body: where it looks, how it leans; in a trick, read from the
-## motor, twisted around its own axis and turned around the axis of the flip, through the
-## middle of the body. A trick over leaves it upright, and so does a crash, at once.
+## Places the visible body: where it looks, how it leans (the capsule about its feet; the
+## character rolled about the middle of its body and moved across against the wall of the
+## wall run, WallRunPose); in a trick, read from the motor, twisted around its own axis
+## and turned around the axis of the flip, through the middle of the body. A trick over
+## leaves it upright, and so does a crash, at once.
 func _pose() -> void:
-	var pose: Basis = Basis.from_euler(Vector3(0.0, _yaw, _lean))
-	var origin: Vector3 = Vector3.ZERO
+	var leaning: Transform3D = Transform3D(Basis(Vector3.BACK, _lean), Vector3.ZERO)
+	if _character != null:
+		leaning = _character.placed_against_the_wall(
+			_lean, _wall_run_distance, _wall_run_locomotion
+		)
+	var body: Transform3D = Transform3D(Basis(Vector3.UP, _yaw), Vector3.ZERO) * leaning
 	var trick: AirTrick = motor.current_trick()
 	if trick != null:
-		pose = pose * Basis(Vector3.UP, trick.twist_angle())
+		body = body * Transform3D(Basis(Vector3.UP, trick.twist_angle()), Vector3.ZERO)
 		var flip: Basis = Basis(trick.axis, trick.flip_angle())
 		var middle: Vector3 = Vector3.UP * _capsule_height() / 2.0
-		pose = flip * pose
-		origin = middle - flip * middle
-	_visual.transform = Transform3D(pose, origin)
-
-
-## In a wall run, leans the character on the wall: towards it as far as its clip asks
-## for its feet to almost touch it (WallRunPose), as much as its clip is blended in.
-func _lean_the_character_on_the_wall() -> void:
-	var away: Vector3 = motor.wall_run_normal()
-	if not away.is_zero_approx():
-		_character.lean_on_the_wall(-away, _wall_distance)
+		body = Transform3D(flip, middle - flip * middle) * body
+	_visual.transform = body

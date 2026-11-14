@@ -94,16 +94,18 @@ static func fixed_tuning() -> MovementTuning:
 		"landing>running": 0.15,
 		"running>running_slide": 0.08,
 		"running_slide>running": 0.2,
-		"running>wall_run": 0.1,
-		"wall_run>falling_idle": 0.15,
 		"*>tuck": 0.08,
 		"tuck>*": 0.12,
 	}
 	tuning.animation_walk_speed = 1.4
 	tuning.animation_run_speed = 6.0
 	tuning.animation_sprint_speed = 7.0
+	tuning.animation_run_alone_pace = 1.3
 	tuning.animation_still_speed = 0.5
 	tuning.animation_landing_time = 0.25
+	tuning.animation_max_pace = 1.8
+	tuning.wall_run_body_roll = 35.0
+	tuning.wall_run_roll_time = 0.15
 	tuning.flow_points_jump = 50
 	tuning.flow_points_slide = 50
 	tuning.flow_points_perfect_slide = 150

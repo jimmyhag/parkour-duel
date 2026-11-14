@@ -1,88 +1,83 @@
 class_name WallRunPose
 extends RefCounted
-## How the clip of the wall run is laid against the wall the runner runs along
-## (docs/specs/character-animations.md, decision 12), from the bones of the clip, measured,
-## not assumed. Its wall is on the side of its feet, its head leaning away. At each frame,
-## its body is moved across, towards that side, so that its bone nearest the wall stays on
-## one plane, the clip's own wall: a foot planted on it, most of the time. The clip is
-## mirrored along a wall on the other side, and the character is moved across so that
-## this plane stands a few centimetres from the real wall: no bone behind it, the feet
-## almost touching it, as much as its clip is blended in. Only measures are given to it: it
-## reads no file.
+## How the character's body lies against the wall it runs along
+## (docs/specs/animation-polish.md, decision 4): it runs, its whole body rolled about the
+## way it runs, through the middle of the body, its feet towards the wall and its head away
+## from it; and it is moved across by one offset, from the roll, from how far the wall is
+## and from the run it plays (a blend of clips, as fast as the runner goes along the wall),
+## that puts the part of its run nearest the wall WALL_GAP from the wall's face: its feet
+## brush the wall, no part of it goes behind. The offset follows the roll as it comes and
+## goes, and nothing else: no sway from one key of the run to the next. Measured from the
+## places of the bones of the clips of the run, it reads no file.
 
-## How far the bone nearest the wall stays from its face, in m: the feet almost touch it.
+## How far the part of the body nearest the wall stays from its face, in m.
 const WALL_GAP: float = 0.05
 
-## The side of the clip's wall, the side of its feet: NONE when they are not on one side
-## of the head.
-var side: RunnerAnimation.WallSide = RunnerAnimation.WallSide.NONE
-## At each frame of the clip, how far its body is moved towards its wall.
-var shifts: PackedFloat32Array = []
-## How far from the middle of the body, once moved, the clip's wall is.
-var reach: float = 0.0
+## For each clip of the run, every place a bone goes through, in the frame of the body
+## (across, positive at its right, and up from its feet), in m.
+var _runs: Array[PackedVector2Array] = []
 
 
-## The pose measured from `frames`: at each frame of the clip, the position across of each
-## of its bones, positive at the runner's right; `feet` and `head` are bone indices. The
-## side of its wall is the side where its feet are, on average over the clip, from its
-## head.
-static func measure(
-	frames: Array[PackedFloat32Array], feet: PackedInt32Array, head: int
-) -> WallRunPose:
+## The pose of a body whose clips of the run go each through the places of `runs`, each one
+## across (positive at the runner's right) and up from its feet, in m.
+static func measure(runs: Array[PackedVector2Array]) -> WallRunPose:
 	var pose: WallRunPose = WallRunPose.new()
-	var feet_from_the_head: float = 0.0
-	for across: PackedFloat32Array in frames:
-		var feet_across: float = 0.0
-		for foot: int in feet:
-			feet_across += across[foot]
-		feet_from_the_head += feet_across / feet.size() - across[head]
-	if is_zero_approx(feet_from_the_head):
-		return pose
-	var at_the_right: bool = feet_from_the_head > 0.0
-	pose.side = RunnerAnimation.WallSide.RIGHT if at_the_right else RunnerAnimation.WallSide.LEFT
-	var towards: float = way(pose.side)
-	var nearest: PackedFloat32Array = []
-	for across: PackedFloat32Array in frames:
-		var farthest: float = -INF
-		for bone: float in across:
-			farthest = maxf(farthest, bone * towards)
-		nearest.append(farthest)
-		pose.reach = maxf(pose.reach, farthest)
-	for farthest: float in nearest:
-		pose.shifts.append(pose.reach - farthest)
+	pose._runs = runs
 	return pose
 
 
-## Whether the clip plays mirrored along a wall at `wall_side`: when its own wall is on the
-## other side.
-func mirrors(wall_side: RunnerAnimation.WallSide) -> bool:
-	if wall_side == RunnerAnimation.WallSide.NONE or side == RunnerAnimation.WallSide.NONE:
-		return false
-	return wall_side != side
+## Where the body is put, in the frame of the runner facing -Z, rolled by `roll` (radians,
+## positive: its head to its left) about the way it runs, through the middle of the
+## standing body, and moved across towards the wall its feet point to, the wall being
+## `wall_distance` m from the side of the capsule (as far as a wall run allows at most),
+## its clips of the run weighed by `weights`. Upright and in place without a roll.
+func placed(
+	roll: float, wall_distance: float, weights: PackedFloat32Array, tuning: MovementTuning
+) -> Transform3D:
+	var middle: Vector3 = Vector3.UP * tuning.capsule_height / 2.0
+	var turn: Basis = Basis(Vector3.BACK, roll)
+	var across: Vector3 = Vector3.RIGHT * offset(roll, wall_distance, weights, tuning)
+	return Transform3D(turn, middle - turn * middle + across)
 
 
-## How far towards the wall the character is moved, in m, the clip being `scale` times as
-## large as measured, beside a wall `wall_distance` m from the side of the capsule (as far
-## as a wall run allows at most): what puts the clip's wall WALL_GAP from the real one.
-## Nothing without a side.
-func offset(scale: float, wall_distance: float, tuning: MovementTuning) -> float:
-	if side == RunnerAnimation.WallSide.NONE:
+## How far the body is moved across, in m, positive to the runner's right: towards the wall
+## its feet point to, as far as puts the part of its run nearest the wall WALL_GAP from it
+## once the body has wholly rolled, and as much of that as it has rolled.
+func offset(
+	roll: float, wall_distance: float, weights: PackedFloat32Array, tuning: MovementTuning
+) -> float:
+	var full: float = deg_to_rad(tuning.wall_run_body_roll)
+	if is_zero_approx(roll) or full <= 0.0:
 		return 0.0
+	var way: float = signf(roll)
 	var gap: float = clampf(wall_distance, 0.0, tuning.wall_run_distance)
-	return tuning.capsule_radius + gap - WALL_GAP - reach * scale
+	var reached: float = reach(way * full, weights, tuning)
+	var room: float = tuning.capsule_radius + gap - WALL_GAP - reached
+	return way * minf(absf(roll) / full, 1.0) * room
 
 
-## The share of its move across (offset) the character makes, Wall Run being blended in by
-## `weight` (0 to 1): as much as its clip shows, in and out, so that the body slides to the
-## wall and back with the clip, and no bone of the clip blended goes behind the wall. A move
-## `away` from the wall is made at once while the runner runs `along` it: the pose it comes
-## from may already reach behind the wall (a fall beside a wall the capsule touches).
-static func shift_share(weight: float, away: bool, along: bool) -> float:
-	if away and along:
-		return 1.0
-	return clampf(weight, 0.0, 1.0)
+## How far the run weighed by `weights` reaches, across, towards the wall its feet point
+## to, the body rolled by `roll` (not 0) about the middle of the standing body, in place, in
+## m from the middle of the runner: the reach of each clip, weighed (the first clip alone
+## when nothing weighs).
+func reach(roll: float, weights: PackedFloat32Array, tuning: MovementTuning) -> float:
+	var total: float = 0.0
+	var reached: float = 0.0
+	for run: int in _runs.size():
+		var weight: float = weights[run] if run < weights.size() else 0.0
+		total += weight
+		reached += weight * _reach_of(_runs[run], roll, tuning)
+	if total <= 0.0:
+		return _reach_of(_runs[0], roll, tuning) if not _runs.is_empty() else 0.0
+	return reached / total
 
 
-## The way across of `towards`: 1 at the runner's right, -1 at its left.
-static func way(towards: RunnerAnimation.WallSide) -> float:
-	return 1.0 if towards == RunnerAnimation.WallSide.RIGHT else -1.0
+## How far the places `places` reach towards the wall the feet point to, rolled by `roll`.
+static func _reach_of(places: PackedVector2Array, roll: float, tuning: MovementTuning) -> float:
+	var middle: float = tuning.capsule_height / 2.0
+	var way: float = signf(roll)
+	var farthest: float = -INF
+	for place: Vector2 in places:
+		var across: float = place.x * cos(roll) - (place.y - middle) * sin(roll)
+		farthest = maxf(farthest, way * across)
+	return farthest if farthest > -INF else 0.0

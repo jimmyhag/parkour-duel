@@ -9,10 +9,11 @@ extends Node3D
 ## the locomotion blends Idle, Walking, Running and Sprint as the animation weighs them,
 ## the last three at the same phase of their stride (Stride), as fast as the feet keep up
 ## with the ground, and resumed at the stride nearest the pose shown. The clips play in
-## place: the motor alone moves the runner. Wall Run is laid against the wall from its
-## bones (WallRunPose): mirrored along a wall on the other side than its own, and moved
-## across so that its feet almost touch the wall, as much as its clip is blended in.
-## Presentation only: nothing the runner observes depends on it.
+## place: the motor alone moves the runner. Every change shows through a blend, frame by
+## frame, even one cut short by another (Crossfade, docs/specs/animation-polish.md), and
+## the keys of the clips are followed on curves, not on straight lines from one to the
+## next. Along a wall it runs, and the runner rolls its visible body against the wall as its
+## run allows (WallRunPose). Presentation only: nothing the runner observes depends on it.
 
 ## The character, the only file whose mesh the game uses.
 const MODEL: String = "res://assets/mixamo/ch08_nonpbr.fbx"
@@ -29,14 +30,13 @@ const CLIP_FILES: Dictionary[RunnerAnimation.Clip, String] = {
 	RunnerAnimation.Clip.FALLING_TO_ROLL: "res://assets/mixamo/falling_to_roll.fbx",
 	RunnerAnimation.Clip.RUNNING_SLIDE: "res://assets/mixamo/running_slide.fbx",
 	RunnerAnimation.Clip.SPRINT_TO_WALL_CLIMB: "res://assets/mixamo/sprint_to_wall_climb.fbx",
-	RunnerAnimation.Clip.WALL_RUN: "res://assets/mixamo/wall_run.fbx",
 	RunnerAnimation.Clip.TUCK: "res://assets/mixamo/backflip.fbx",
 }
 const PISTOL_IDLE: String = "res://assets/mixamo/pistol_idle.fbx"
 ## The part of each clip that is played, from its start to its end, in s (an end of 0: to
 ## the end of the file): the part of Falling To Roll that rolls, of Sprint To Wall Climb
-## that hoists, of Landing from the contact with the ground, of Wall Run before the body
-## turns away from the wall.
+## that hoists, of Landing from the contact with the ground. A state that lasts less than
+## its part at the fastest pace the tuning allows plays its first part only.
 const CUTS: Dictionary[RunnerAnimation.Clip, Vector2] = {
 	RunnerAnimation.Clip.JUMP: Vector2(0.05, 0.42),
 	RunnerAnimation.Clip.LANDING: Vector2(0.35, 0.8),
@@ -44,7 +44,6 @@ const CUTS: Dictionary[RunnerAnimation.Clip, Vector2] = {
 	RunnerAnimation.Clip.FALLING_TO_ROLL: Vector2(0.3, 1.1),
 	RunnerAnimation.Clip.RUNNING_SLIDE: Vector2(0.1, 0.8),
 	RunnerAnimation.Clip.SPRINT_TO_WALL_CLIMB: Vector2(0.74, 1.4),
-	RunnerAnimation.Clip.WALL_RUN: Vector2(0.05, 0.6),
 }
 ## The clips that loop; the others hold their last pose.
 const LOOPED: Array[RunnerAnimation.Clip] = [
@@ -62,18 +61,21 @@ const STRIDES: Array[RunnerAnimation.Clip] = [
 	RunnerAnimation.Clip.SPRINT,
 ]
 const STRIDE_SAMPLES: int = 60
+## The clips of the run along a wall, whose bones tell how the rolled body lies against it.
+const WALL_RUN_CLIPS: Array[RunnerAnimation.Clip] = [
+	RunnerAnimation.Clip.RUNNING,
+	RunnerAnimation.Clip.SPRINT,
+]
 ## The clips whose rise of the hips is a move the motor already makes: their hips stay at
 ## the height of a standing body. The others keep the height of their hips (a slide, a
 ## roll, a crouch), not their way forward.
 const RAISED: Array[RunnerAnimation.Clip] = [
 	RunnerAnimation.Clip.JUMP,
 	RunnerAnimation.Clip.SPRINT_TO_WALL_CLIMB,
-	RunnerAnimation.Clip.WALL_RUN,
 ]
 ## The animation of a Mixamo file, the root bone of its skeleton, the first bone of the
-## upper body, the bone whose bend shows the tuck, the head and feet that tell the side of
-## the wall of Wall Run, and the toe that tells, with the left foot, when a stride starts,
-## in the tracks of the files.
+## upper body, the bone whose bend shows the tuck, the head and feet, and the toe that
+## tells, with the left foot, when a stride starts, in the tracks of the files.
 const TAKE: StringName = &"mixamo_com"
 const SKELETON: String = "Skeleton3D"
 const HIPS: String = "mixamorig7_Hips"
@@ -91,21 +93,18 @@ const FACING: Basis = Basis(Vector3.UP, PI)
 const FRAMES_PER_SECOND: float = 30.0
 const LIBRARY: StringName = &"runner"
 const AIM: String = "pistol_idle"
-## The nodes of the animation tree, and their parameters: the state shown (the locomotion
-## or another clip, each at its pace, and the blend from the state before), the locomotion
-## (Idle blended with the clips that stride, at a phase and a number of strides a second),
-## and the aim.
-const STATE_NODE: StringName = &"state"
+## The nodes of the animation tree, and their parameters: the locomotion (Idle blended with
+## the clips that stride, at a phase and a number of strides a second), each other clip
+## (started again, at its pace), the blend of them all (one node per state after the
+## first, how much it shows over those before it), and the aim.
 const LOCOMOTION_NODE: StringName = &"locomotion"
 const MOVING_NODE: StringName = &"moving"
 const RESUME_NODE: StringName = &"resume"
 const STRIDE_NODE: StringName = &"stride"
 const AIM_NODE: StringName = &"aim"
-const TRANSITION_REQUEST: StringName = &"parameters/state/transition_request"
-const CURRENT_STATE: StringName = &"parameters/state/current_state"
-const PREVIOUS_INDEX: StringName = &"parameters/state/prev_index"
-const BLEND_LEFT: StringName = &"parameters/state/prev_xfading"
 const PACE: String = "parameters/%s_pace/scale"
+const START: String = "parameters/%s_start/seek_request"
+const MIX: String = "parameters/%s_mix/blend_amount"
 const LOCOMOTION_AMOUNT: StringName = &"parameters/locomotion/blend_amount"
 const MOVING_POSITION: StringName = &"parameters/moving/blend_position"
 const RESUME_REQUEST: StringName = &"parameters/resume/seek_request"
@@ -119,32 +118,34 @@ const TINT_SHARE: float = 0.5
 ## kept: loading it again for every runner would take a second each time.
 static var _library: AnimationLibrary = null
 static var _scenes: Dictionary[String, PackedScene] = {}
-## How Wall Run is laid against the wall, measured as its clip is made.
-static var _wall_run: WallRunPose = null
 ## Of each clip that strides, measured as it is made: when its left foot touches the
 ## ground, in s, the length of its cycle, in s, and its pose at each phase of its stride
 ## from then (how far the left foot is ahead of the right one, and how much higher).
 static var _touchdowns: Dictionary[RunnerAnimation.Clip, float] = {}
 static var _cycle_lengths: Dictionary[RunnerAnimation.Clip, float] = {}
 static var _cycles: Dictionary[RunnerAnimation.Clip, PackedVector2Array] = {}
+## Where the bones of each clip of the run along a wall go (WALL_RUN_CLIPS), measured as
+## the clips are made, in the frame of the model facing -Z, across and up, before it is put
+## to its size.
+static var _run_places: Array[PackedVector2Array] = []
 
 var _model: Node3D
 var _skeleton: Skeleton3D
 var _tree: AnimationTree
-var _transition: AnimationNodeTransition
 var _hold: AimHold
 ## The tuning whose speeds of the strides it follows.
 var _tuning: MovementTuning
-## Its size, the state it shows (the locomotion or a clip; none before it first plays),
-## the mirror, the input of Wall Run in the tree, and the aim.
+## Its size, and how its run lies against a wall at that size.
 var _scale: float = 1.0
-var _state: StringName = &""
-var _mirrored: bool = false
-var _wall_run_input: int = -1
-## The way to the wall of the last wall run, in the world, and how far towards it the
-## character leans with Wall Run wholly blended in, in m (negative: away from it).
-var _lean_towards: Vector3 = Vector3.ZERO
-var _lean_offset: float = 0.0
+var _wall_run: WallRunPose
+## The states of the tree in the order of the blend (the locomotion first), and how much
+## each one shows.
+var _states: Array[StringName] = []
+var _fade: Crossfade = Crossfade.new()
+## The blend of the locomotion at the last two fixed steps: how much the clips that stride
+## show over Idle, and where on their axis; shown in between at every frame.
+var _walk_before: Vector2 = Vector2.ZERO
+var _walk_now: Vector2 = Vector2.ZERO
 var _aim: float = 0.0
 var _aim_wanted: float = 0.0
 var _aim_blend_time: float = 0.0
@@ -174,28 +175,6 @@ class AimHold:
 		var hips: Quaternion = skeleton.get_bone_pose_rotation(_hips)
 		var turn: Quaternion = Quaternion.IDENTITY.slerp(hips.inverse() * _aim_hips, weight)
 		skeleton.set_bone_pose_rotation(_spine, turn * skeleton.get_bone_pose_rotation(_spine))
-
-
-## Moves the whole body across, at its hips, as far as the character leans on the wall of
-## a wall run (wall_shift), in the update that poses it: the move follows the blend of the
-## clip the bones show.
-class WallLean:
-	extends SkeletonModifier3D
-
-	var _character: RunnerCharacter
-	var _hips: int = -1
-
-	func _init(character: RunnerCharacter, hips: int) -> void:
-		_character = character
-		_hips = hips
-
-	func _process_modification_with_delta(_delta: float) -> void:
-		var skeleton: Skeleton3D = get_skeleton()
-		var shift: Vector3 = _character.wall_shift()
-		if skeleton == null or shift.is_zero_approx():
-			return
-		var across: Vector3 = skeleton.global_basis.inverse() * shift
-		skeleton.set_bone_pose_position(_hips, skeleton.get_bone_pose_position(_hips) + across)
 
 
 ## The character, as tall as the capsule of `tuning`, made from `model` and the clips;
@@ -235,62 +214,42 @@ static func fits(model: Node3D) -> bool:
 	return true
 
 
-## Shows `animation`: a new clip blends in, in its blend time, the locomotion at the phase
-## of the stride nearest the pose shown; the clip plays at its speed, or fitted to its
-## duration; the locomotion blends its clips as weighed; the aim blends in and out; along a
-## wall, the clip is mirrored as the wall asks, until Wall Run has blended out.
+## Shows `animation`: a new clip blends in, in its blend time, started again if it was not
+## shown any more, the locomotion at the phase of the stride nearest the pose shown; the
+## clip plays at its speed, or fitted to its duration; the locomotion blends its clips as
+## weighed; the aim blends in and out.
 func play(animation: RunnerAnimation) -> void:
 	var state: StringName = _state_of(animation.clip)
-	if state != _state:
+	var fresh: bool = _fade.go_to(state, animation.blend_time)
+	if fresh:
 		if state == LOCOMOTION_NODE:
 			_tree.set(RESUME_REQUEST, _resume_phase(animation.locomotion))
-		_state = state
-		_transition.xfade_time = animation.blend_time
-		_tree.set(TRANSITION_REQUEST, _state)
+		else:
+			_tree.set(START % state, 0.0)
 	if state == LOCOMOTION_NODE:
-		_walk(animation)
+		_walk(animation, fresh)
 	else:
+		var length: float = _library.get_animation(state).length
 		var pace: float = animation.speed
 		if animation.duration > 0.0:
-			pace = _library.get_animation(state).length / animation.duration
+			pace = RunnerAnimation.fitted_pace(length, animation.duration, _tuning)
 		_tree.set(PACE % state, pace)
 	_aim_wanted = 1.0 if animation.aiming else 0.0
 	_aim_blend_time = animation.blend_time
-	_mirror_along(animation)
 
 
-## Leans the character on the wall of the wall run under way: it is moved by `towards` (the
-## way to the wall) times what puts its feet a few centimetres from the wall, the wall
-## being `wall_distance` m from the side of the capsule (WallRunPose), as much as Wall Run
-## is blended in.
-func lean_on_the_wall(towards: Vector3, wall_distance: float) -> void:
-	_lean_towards = towards
-	_lean_offset = _wall_run.offset(_scale, wall_distance, _tuning)
-
-
-## How far the character is moved across now, in the world: its lean on the wall times the
-## share the blend of Wall Run gives it (WallRunPose.shift_share).
-func wall_shift() -> Vector3:
-	var along: bool = _state == _state_of(RunnerAnimation.Clip.WALL_RUN)
-	var away: bool = _lean_offset < 0.0
-	var share: float = WallRunPose.shift_share(wall_run_weight(), away, along)
-	return _lean_towards * _lean_offset * share
-
-
-## How much of Wall Run the bones show (0 to 1), as its clip blends in and out in the tree.
-## Without a state before (the first one shown, or a blend over), the state shown is
-## wholly in.
-func wall_run_weight() -> float:
-	var current: StringName = _tree.get(CURRENT_STATE)
-	var previous: int = _tree.get(PREVIOUS_INDEX)
-	var left: float = _tree.get(BLEND_LEFT)
-	var blend: float = _transition.xfade_time
-	var coming: float = 1.0
-	if previous >= 0 and blend > 0.0:
-		coming = clampf(1.0 - left / blend, 0.0, 1.0)
-	if current == _state_of(RunnerAnimation.Clip.WALL_RUN):
-		return coming
-	return 1.0 - coming if previous == _wall_run_input else 0.0
+## Where the character's body is put against the wall of a wall run, in the frame of the
+## runner facing -Z (WallRunPose): rolled by `roll`, the wall `wall_distance` m from the
+## side of the capsule, its run weighed as the locomotion `locomotion` (RunnerAnimation)
+## weighs Running and Sprint.
+func placed_against_the_wall(
+	roll: float, wall_distance: float, locomotion: PackedFloat32Array
+) -> Transform3D:
+	var weights: PackedFloat32Array = []
+	for clip: RunnerAnimation.Clip in WALL_RUN_CLIPS:
+		var index: int = RunnerAnimation.LOCOMOTION.find(clip)
+		weights.append(locomotion[index] if index < locomotion.size() else 0.0)
+	return _wall_run.placed(roll, wall_distance, weights, _tuning)
 
 
 ## Where the clip `clip` of the locomotion is in its cycle, in the tree: from 0 at the
@@ -320,7 +279,20 @@ func wear(material: Material) -> void:
 		mesh.material_override = material
 
 
+## At every frame shown, before the tree plays: the blend of the states and the aim move
+## on, frame by frame, and the blend of the locomotion is shown between the last two fixed
+## steps.
 func _process(delta: float) -> void:
+	var walk: Vector2 = _walk_before.lerp(_walk_now, Engine.get_physics_interpolation_fraction())
+	_tree.set(LOCOMOTION_AMOUNT, walk.x)
+	_tree.set(MOVING_POSITION, walk.y)
+	_fade.advance(delta)
+	var shown: float = _fade.weight(_states[0])
+	for index: int in range(1, _states.size()):
+		var state: StringName = _states[index]
+		var weight: float = _fade.weight(state)
+		shown += weight
+		_tree.set(MIX % state, weight / shown if shown > 0.0 else 0.0)
 	if _aim_blend_time <= 0.0:
 		_aim = _aim_wanted
 	else:
@@ -340,10 +312,17 @@ func _build(model: Node3D, height: float) -> void:
 		bounds = box if first else bounds.merge(box)
 		first = false
 	_scale = height / bounds.size.y
-	_place()
+	_model.basis = FACING * Basis.from_scale(Vector3.ONE * _scale)
 	_model.position.y = -bounds.position.y * _scale
 	if _library == null:
 		_library = _make_library(_skeleton)
+	var runs: Array[PackedVector2Array] = []
+	for run: PackedVector2Array in _run_places:
+		var places: PackedVector2Array = []
+		for place: Vector2 in run:
+			places.append(Vector2(place.x, place.y - bounds.position.y) * _scale)
+		runs.append(places)
+	_wall_run = WallRunPose.measure(runs)
 	_tree = AnimationTree.new()
 	_model.add_child(_tree)
 	_tree.root_node = NodePath("..")
@@ -354,13 +333,6 @@ func _build(model: Node3D, height: float) -> void:
 	var aim_hips: Quaternion = _aim_hips_rotation()
 	_hold = AimHold.new(hips, _skeleton.find_bone(SPINE), aim_hips)
 	_skeleton.add_child(_hold)
-	_skeleton.add_child(WallLean.new(self, hips))
-
-
-## Turns the model to face -Z, at its size, mirrored or not.
-func _place() -> void:
-	var size: Vector3 = Vector3(-_scale if _mirrored else _scale, _scale, _scale)
-	_model.basis = FACING * Basis.from_scale(size)
 
 
 func _meshes() -> Array[MeshInstance3D]:
@@ -370,32 +342,31 @@ func _meshes() -> Array[MeshInstance3D]:
 	return meshes
 
 
-## The tree that plays the clips: the locomotion and one state per other clip, each at its
-## pace, blended from one to the next, then the aim over the upper body (the spine and all
-## it carries).
+## The tree that plays the clips: the locomotion and one state per other clip, each one
+## started again when it comes from nothing and at its pace, blended one over the other as
+## much as each one shows; then the aim over the upper body (the spine and all it carries).
 func _make_blend_tree() -> AnimationNodeBlendTree:
 	var blend_tree: AnimationNodeBlendTree = AnimationNodeBlendTree.new()
-	_transition = AnimationNodeTransition.new()
-	blend_tree.add_node(STATE_NODE, _transition)
 	_add_the_locomotion(blend_tree)
-	_transition.add_input(LOCOMOTION_NODE)
-	# Back to the locomotion, its stride is put at a phase: not at its start.
-	_transition.set_input_reset(0, false)
-	blend_tree.connect_node(STATE_NODE, 0, LOCOMOTION_NODE)
-	var index: int = 1
+	_states = [LOCOMOTION_NODE]
+	var blended: StringName = LOCOMOTION_NODE
 	for clip: RunnerAnimation.Clip in RunnerAnimation.Clip.values():
 		if clip in RunnerAnimation.LOCOMOTION:
 			continue
 		var name: String = _clip_name(clip)
 		blend_tree.add_node(name, _clip_node(clip))
-		var pace_node: StringName = StringName(name + "_pace")
-		blend_tree.add_node(pace_node, AnimationNodeTimeScale.new())
-		blend_tree.connect_node(pace_node, 0, name)
-		_transition.add_input(name)
-		if clip == RunnerAnimation.Clip.WALL_RUN:
-			_wall_run_input = index
-		blend_tree.connect_node(STATE_NODE, index, pace_node)
-		index += 1
+		var start: StringName = StringName(name + "_start")
+		blend_tree.add_node(start, AnimationNodeTimeSeek.new())
+		blend_tree.connect_node(start, 0, name)
+		var pace: StringName = StringName(name + "_pace")
+		blend_tree.add_node(pace, AnimationNodeTimeScale.new())
+		blend_tree.connect_node(pace, 0, start)
+		var mix: StringName = StringName(name + "_mix")
+		blend_tree.add_node(mix, AnimationNodeBlend2.new())
+		blend_tree.connect_node(mix, 0, blended)
+		blend_tree.connect_node(mix, 1, pace)
+		blended = mix
+		_states.append(StringName(name))
 	var aim_clip: AnimationNodeAnimation = AnimationNodeAnimation.new()
 	aim_clip.animation = "%s/%s" % [LIBRARY, AIM]
 	blend_tree.add_node(AIM, aim_clip)
@@ -404,7 +375,7 @@ func _make_blend_tree() -> AnimationNodeBlendTree:
 	for bone: int in _upper_body():
 		aim.set_filter_path(NodePath("%s:%s" % [SKELETON, _skeleton.get_bone_name(bone)]), true)
 	blend_tree.add_node(AIM_NODE, aim)
-	blend_tree.connect_node(AIM_NODE, 0, STATE_NODE)
+	blend_tree.connect_node(AIM_NODE, 0, blended)
 	blend_tree.connect_node(AIM_NODE, 1, AIM)
 	blend_tree.connect_node(&"output", 0, AIM_NODE)
 	return blend_tree
@@ -448,15 +419,20 @@ static func _clip_node(clip: RunnerAnimation.Clip) -> AnimationNodeAnimation:
 
 
 ## Blends the locomotion as `animation` weighs it: Idle against the clips that stride, those
-## on their axis, as many strides a second as keep the feet up with the ground.
-func _walk(animation: RunnerAnimation) -> void:
+## on their axis (where they were when they no longer show), as many strides a second as
+## keep the feet up with the ground; from there, without a blend from before, when it
+## comes back from nothing (`fresh`).
+func _walk(animation: RunnerAnimation, fresh: bool) -> void:
 	var weights: PackedFloat32Array = _locomotion_weights(animation)
 	var moving: float = 1.0 - weights[0]
 	var position: float = 0.0
 	for point: int in STRIDES.size():
 		position += point * weights[point + 1]
-	_tree.set(LOCOMOTION_AMOUNT, moving)
-	_tree.set(MOVING_POSITION, position / moving if moving > 0.0 else 0.0)
+	var blend: Vector2 = Vector2(moving, position / moving if moving > 0.0 else _walk_now.y)
+	_walk_before = blend if fresh else _walk_now
+	_walk_now = blend
+	_tree.set(LOCOMOTION_AMOUNT, blend.x)
+	_tree.set(MOVING_POSITION, blend.y)
 	var lengths: PackedFloat32Array = [0.0]
 	for clip: RunnerAnimation.Clip in STRIDES:
 		lengths.append(_cycle_lengths[clip])
@@ -493,20 +469,6 @@ func _locomotion_weights(animation: RunnerAnimation) -> PackedFloat32Array:
 	if animation.locomotion.size() == RunnerAnimation.LOCOMOTION.size():
 		return animation.locomotion
 	return RunnerAnimation.locomotion_weights(0.0, _tuning)
-
-
-## Mirrors the clip as the wall of the wall run asks while it runs along it, and until
-## Wall Run has blended out.
-func _mirror_along(animation: RunnerAnimation) -> void:
-	var mirrored: bool = _mirrored
-	if animation.wall_side != RunnerAnimation.WallSide.NONE:
-		mirrored = _wall_run.mirrors(animation.wall_side)
-	elif wall_run_weight() <= 0.0:
-		mirrored = false
-	if mirrored != _mirrored:
-		_mirrored = mirrored
-		_place()
-		_model.reset_physics_interpolation()
 
 
 ## The state of the tree that shows `clip`: the locomotion, or the clip.
@@ -548,11 +510,14 @@ static func _clip_name(clip: RunnerAnimation.Clip) -> String:
 	return name.to_lower()
 
 
-## Every clip, cut, in place, looped or not; the tuck pose; and the aim. Wall Run is laid
-## against its wall, measured from its bones.
+## Every clip, cut, in place, looped or not; the tuck pose; and the aim. The stride of the
+## clips that stride, and where the bones of the run go, measured from their bones.
 static func _make_library(skeleton: Skeleton3D) -> AnimationLibrary:
 	var hips_rest: Vector3 = skeleton.get_bone_rest(skeleton.find_bone(HIPS)).origin
 	var library: AnimationLibrary = AnimationLibrary.new()
+	_run_places = []
+	for clip: RunnerAnimation.Clip in WALL_RUN_CLIPS:
+		assert(clip in CLIP_FILES, "every clip of the run along a wall is made")
 	for clip: RunnerAnimation.Clip in CLIP_FILES:
 		var source: Animation = _take(CLIP_FILES[clip])
 		var made: Animation
@@ -561,10 +526,10 @@ static func _make_library(skeleton: Skeleton3D) -> AnimationLibrary:
 		else:
 			var cut: Vector2 = CUTS.get(clip, Vector2.ZERO)
 			made = _in_place(source, cut, clip in RAISED, hips_rest)
-		if clip == RunnerAnimation.Clip.WALL_RUN:
-			_wall_run = _lay_against_the_wall(made, skeleton)
 		if clip in STRIDES:
 			_measure_the_stride(clip, made, skeleton)
+		if clip in WALL_RUN_CLIPS:
+			_run_places.append(_places_across(made, skeleton))
 		if clip in LOOPED:
 			made.loop_mode = Animation.LOOP_LINEAR
 		library.add_animation(_clip_name(clip), made)
@@ -574,26 +539,16 @@ static func _make_library(skeleton: Skeleton3D) -> AnimationLibrary:
 	return library
 
 
-## Measures how `clip`, in place, is laid against its wall, from where its bones are at each
-## key of its hips, across, the way the runner faces; and moves its hips across at each
-## key as the measure says, so that its bone nearest the wall stays on one plane.
-static func _lay_against_the_wall(clip: Animation, skeleton: Skeleton3D) -> WallRunPose:
-	var hips: int = clip.find_track(
-		NodePath("%s:%s" % [SKELETON, HIPS]), Animation.TYPE_POSITION_3D
-	)
-	var frames: Array[PackedFloat32Array] = []
-	for key: int in clip.track_get_key_count(hips):
-		var across: PackedFloat32Array = []
-		for place: Vector3 in bone_places(clip, clip.track_get_key_time(hips, key), skeleton):
-			across.append((FACING * place).x)
-		frames.append(across)
-	var feet: PackedInt32Array = [skeleton.find_bone(LEFT_FOOT), skeleton.find_bone(RIGHT_FOOT)]
-	var pose: WallRunPose = WallRunPose.measure(frames, feet, skeleton.find_bone(HEAD))
-	var towards: Vector3 = FACING.inverse() * Vector3.RIGHT * WallRunPose.way(pose.side)
-	for key: int in pose.shifts.size():
-		var place: Vector3 = clip.track_get_key_value(hips, key)
-		clip.track_set_key_value(hips, key, place + towards * pose.shifts[key])
-	return pose
+## Where every bone of `skeleton` goes in `clip`, at evenly spaced instants of it, across
+## and up, in the frame of the model facing -Z, as the files size it.
+static func _places_across(clip: Animation, skeleton: Skeleton3D) -> PackedVector2Array:
+	var places: PackedVector2Array = []
+	for sample: int in STRIDE_SAMPLES:
+		var time: float = clip.length * sample / STRIDE_SAMPLES
+		for place: Vector3 in bone_places(clip, time, skeleton):
+			var shown: Vector3 = FACING * place
+			places.append(Vector2(shown.x, shown.y))
+	return places
 
 
 ## Measures the stride of `clip`, in place: when its left foot touches the ground (its
@@ -666,7 +621,8 @@ static func _take(path: String) -> Animation:
 
 
 ## The part `cut` of `source`, sampled again, its hips kept over the feet: their way
-## forward and aside removed, and their rise too when `raised`.
+## forward and aside removed, and their rise too when `raised`. Its keys are followed on
+## curves: a bone keeps its speed through a key instead of turning sharply at it.
 static func _in_place(source: Animation, cut: Vector2, raised: bool, rest: Vector3) -> Animation:
 	var start: float = cut.x
 	var end: float = source.length if cut.y <= 0.0 else minf(cut.y, source.length)
@@ -680,6 +636,7 @@ static func _in_place(source: Animation, cut: Vector2, raised: bool, rest: Vecto
 			continue
 		var copy: int = made.add_track(type)
 		made.track_set_path(copy, path)
+		made.track_set_interpolation_type(copy, Animation.INTERPOLATION_CUBIC)
 		var frames: int = ceili(made.length * FRAMES_PER_SECOND - 0.001)
 		for frame: int in frames + 1:
 			var time: float = minf(start + frame / FRAMES_PER_SECOND, end)
