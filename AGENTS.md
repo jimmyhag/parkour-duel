@@ -147,12 +147,15 @@ When one appears (the network transport, then Steam), these rules apply:
 game/               the game, one folder per layer (table above)
   core/             runner motor and its aerial tricks, intents, the facts the player
                     observes, race state, the flow state and the motor's dated
-                    messages, and the tuning resource
+                    messages, the weapon, the state machines of the sabotageable
+                    targets and their dated messages, and the tuning resource
   player/           the runner's scene: body (its visible part turns with a trick),
-                    camera rig, intents read from the inputs, and what the body
-                    observes around it (floor, walls, ledges)
-  world/            checkpoints and race lines
-  ui/               timer, flow and debug displays, and the sounds of the flow
+                    camera rig (over the shoulder while aiming), intents read from the
+                    inputs, and what the body observes around it (floor, walls,
+                    ledges) and under the reticle
+  world/            checkpoints, race lines, and the four sabotageable target blocks
+  ui/               timer, flow and debug displays, the reticle, and the sounds of the
+                    flow and of the sabotage
   levels/           course scenes; test_course.tscn is the main scene for now
 addons/gut/         GUT 9.7.1, the test framework (vendored, MIT, not exported)
 tests/              headless tests, one script per subject: test_<subject>.gd; the other
