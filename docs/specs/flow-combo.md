@@ -413,7 +413,10 @@ Le code a tranché ces points là où la spec se taisait ; ils sont acceptés le
 ### Choix du second amendement
 
 - **Ce qui remet la fenêtre des quatre derniers moves à zéro** : la fin d'un combo, une
-  erreur, une chute, un recommencement.
+  erreur, une chute, un recommencement. **Remplacé** par `docs/specs/trick-gestures.md`
+  (décision 19) : la fin d'un combo au délai ne la vide plus ; et la fenêtre fait
+  désormais 10 moves (`flow_repetition_window`, réglage du projet), décision 15 de cette
+  spec-là.
 - **Le reste des points d'une munition** est gardé à travers les combos et les
   chutes ; recommencer le remet à zéro. Avec le maximum de munitions en réserve, les
   points continuent de compter pour la suivante.
