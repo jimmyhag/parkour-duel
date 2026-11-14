@@ -26,7 +26,7 @@ func _ready() -> void:
 	_body.position.y = tuning.capsule_height / 2.0
 	_visor.position = Vector3(0.0, tuning.capsule_height * Player.VISOR_HEIGHT_RATIO, 0.0)
 	_visor.position.z = -tuning.capsule_radius
-	_character = RunnerCharacter.create(character_model, tuning.capsule_height)
+	_character = RunnerCharacter.create(character_model, tuning)
 	if _character != null:
 		add_child(_character)
 		_character.wear(capsule.material)

@@ -130,7 +130,21 @@ capsule_height = 1.8
 capsule_radius = 0.35
 turn_speed = 14.0
 animation_blend_time = 0.1
-animation_run_speed = 6.0
+animation_blend_times = Dictionary[String, float]({
+"*>tuck": 0.08,
+"falling_idle>landing": 0.05,
+"jump>falling_idle": 0.15,
+"landing>running": 0.15,
+"running>jump": 0.05,
+"running>running_slide": 0.08,
+"running>wall_run": 0.1,
+"running_slide>running": 0.2,
+"tuck>*": 0.12,
+"wall_run>falling_idle": 0.15
+})
+animation_walk_speed = 1.49
+animation_run_speed = 4.49
+animation_sprint_speed = 5.65
 animation_still_speed = 0.5
 animation_landing_time = 0.25
 camera_distance = 4.5

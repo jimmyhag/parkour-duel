@@ -109,7 +109,10 @@ func test_the_run_follows_the_speed() -> void:
 	assert_eq(half.clip, RunnerAnimation.Clip.RUNNING, "half the top speed: Running")
 	assert_eq(full.clip, RunnerAnimation.Clip.RUNNING, "the top speed: Running")
 	assert_lt(half.speed, full.speed, "played slower at half the top speed")
-	assert_almost_eq(half.speed, full.speed / 2.0, 0.01, "in proportion to the speed")
+	# Its pace keeps the feet up with the ground: the speed over the speed of the stride of
+	# the clips it blends (docs/specs/locomotion-blend.md, decision 1).
+	var own: float = RunnerAnimation.own_speed(half.locomotion, _tuning)
+	assert_almost_eq(half.speed, _tuning.top_speed / 2.0 / own, 0.01, "in step with the ground")
 	var pace: float = _tuning.top_speed / _tuning.animation_run_speed
 	assert_almost_eq(full.speed, pace, 0.01, "its own pace at the tuned speed")
 

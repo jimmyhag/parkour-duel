@@ -30,6 +30,14 @@ const DOWNLOADED: Dictionary[String, String] = {
 	"Wall Run.fbx": "wall_run.fbx",
 	"Backflip.fbx": "backflip.fbx",
 	"Running Forward Flip.fbx": "",
+	"Walking.fbx": "walking.fbx",
+	"Sprint.fbx": "sprint.fbx",
+}
+## The walk and the sprint of the locomotion (docs/specs/locomotion-blend.md), downloaded
+## without the character, and the name each one takes once copied.
+const LOCOMOTION: Dictionary[String, String] = {
+	"Walking.fbx": "walking.fbx",
+	"Sprint.fbx": "sprint.fbx",
 }
 ## The pistol pack, the clips it holds, and the name of the one the game uses. Its
 ## character is not the one downloaded: it must not replace it.
@@ -105,6 +113,32 @@ func test_the_copy_command_puts_away_the_used_files() -> void:
 		assert_eq(content, expected[file], "%s holds %s" % [file, expected[file]])
 		var settings: String = COPY.path_join(file + ".import")
 		assert_true(FileAccess.file_exists(settings), "%s has its import settings" % file)
+
+
+func test_the_copy_also_puts_away_the_walk_and_the_sprint() -> void:
+	_make_the_downloads()
+
+	var output: Array = []
+	var code: int = _copy(_absolute(DOWNLOADS), output)
+	assert_eq(code, 0, "the copy command succeeds: %s" % [output])
+
+	for download: String in LOCOMOTION:
+		var copied: String = COPY.path_join(LOCOMOTION[download])
+		assert_true(FileAccess.file_exists(copied), "%s is copied" % download)
+		assert_eq(FileAccess.get_file_as_string(copied), download, "%s holds it" % copied)
+		var settings: String = copied + ".import"
+		assert_true(FileAccess.file_exists(settings), "%s has its import settings" % copied)
+
+	# Without them, nothing is copied: the character needs every clip.
+	_remove_folder(COPY)
+	for download: String in LOCOMOTION:
+		DirAccess.remove_absolute(DOWNLOADS.path_join(download))
+	output.clear()
+	code = _copy(_absolute(DOWNLOADS), output)
+	assert_ne(code, 0, "without the walk and the sprint, the copy fails")
+	for download: String in LOCOMOTION:
+		assert_string_contains(str(output), download, false)
+	assert_false(DirAccess.dir_exists_absolute(COPY), "nothing is copied")
 
 
 func test_a_download_folder_ending_with_a_backslash_is_read_under_cmd() -> void:
