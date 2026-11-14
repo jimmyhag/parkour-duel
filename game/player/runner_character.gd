@@ -525,16 +525,13 @@ static func _make_library(skeleton: Skeleton3D) -> AnimationLibrary:
 			made = _pose_at(source, _tightest_tuck(source), hips_rest)
 		else:
 			var cut: Vector2 = CUTS.get(clip, Vector2.ZERO)
-			made = _in_place(source, cut, clip in RAISED, hips_rest)
+			made = in_place(source, cut, clip in RAISED, hips_rest, clip in LOOPED)
 		if clip in STRIDES:
 			_measure_the_stride(clip, made, skeleton)
 		if clip in WALL_RUN_CLIPS:
 			_run_places.append(_places_across(made, skeleton))
-		if clip in LOOPED:
-			made.loop_mode = Animation.LOOP_LINEAR
 		library.add_animation(_clip_name(clip), made)
-	var aim: Animation = _in_place(_take(PISTOL_IDLE), Vector2.ZERO, false, hips_rest)
-	aim.loop_mode = Animation.LOOP_LINEAR
+	var aim: Animation = in_place(_take(PISTOL_IDLE), Vector2.ZERO, false, hips_rest, true)
 	library.add_animation(AIM, aim)
 	return library
 
@@ -620,14 +617,21 @@ static func _take(path: String) -> Animation:
 	return take
 
 
-## The part `cut` of `source`, sampled again, its hips kept over the feet: their way
-## forward and aside removed, and their rise too when `raised`. Its keys are followed on
-## curves: a bone keeps its speed through a key instead of turning sharply at it.
-static func _in_place(source: Animation, cut: Vector2, raised: bool, rest: Vector3) -> Animation:
+## The part `cut` of `source` (from its start to its end, in s; an end of 0: to the end of
+## the file), sampled again, its hips kept over the feet at `rest`: their way forward and
+## aside removed (a clip `looped` keeps their sway forward and back), and their rise too
+## when `raised`. Its keys are followed on curves: a bone keeps its speed through a key
+## instead of turning sharply at it. A clip `looped` plays again from its start once at its
+## end.
+static func in_place(
+	source: Animation, cut: Vector2, raised: bool, rest: Vector3, looped: bool
+) -> Animation:
 	var start: float = cut.x
 	var end: float = source.length if cut.y <= 0.0 else minf(cut.y, source.length)
 	var made: Animation = Animation.new()
 	made.length = end - start
+	if looped:
+		made.loop_mode = Animation.LOOP_LINEAR
 	var hips: NodePath = NodePath("%s:%s" % [SKELETON, HIPS])
 	for track: int in source.get_track_count():
 		var type: Animation.TrackType = source.track_get_type(track)
@@ -638,7 +642,22 @@ static func _in_place(source: Animation, cut: Vector2, raised: bool, rest: Vecto
 		made.track_set_path(copy, path)
 		made.track_set_interpolation_type(copy, Animation.INTERPOLATION_CUBIC)
 		var frames: int = ceili(made.length * FRAMES_PER_SECOND - 0.001)
-		for frame: int in frames + 1:
+		# A loop has no key at its end: its first key follows its last one, and a key there,
+		# the same pose again, would stall its bones on the curve as it loops.
+		var keys: int = frames if looped else frames + 1
+		# A loop keeps the sway of its hips forward and back about their place at rest, its
+		# way forward over a whole cycle removed: its planted foot goes back as steadily as the
+		# file has it still, the left one as the right one.
+		var forward: float = 0.0
+		var middle: float = 0.0
+		if path == hips and type == Animation.TYPE_POSITION_3D and looped:
+			var first: float = source.position_track_interpolate(track, start).z
+			forward = (source.position_track_interpolate(track, end).z - first) / made.length
+			for frame: int in keys:
+				var at: float = start + frame / FRAMES_PER_SECOND
+				middle += source.position_track_interpolate(track, at).z - forward * (at - start)
+			middle /= keys
+		for frame: int in keys:
 			var time: float = minf(start + frame / FRAMES_PER_SECOND, end)
 			if type == Animation.TYPE_ROTATION_3D:
 				var turn: Quaternion = source.rotation_track_interpolate(track, time)
@@ -646,7 +665,10 @@ static func _in_place(source: Animation, cut: Vector2, raised: bool, rest: Vecto
 				continue
 			var place: Vector3 = source.position_track_interpolate(track, time)
 			if path == hips:
-				place = Vector3(rest.x, rest.y if raised else place.y, rest.z)
+				var sway: float = 0.0
+				if looped:
+					sway = place.z - forward * (time - start) - middle
+				place = Vector3(rest.x, rest.y if raised else place.y, rest.z + sway)
 			made.position_track_insert_key(copy, time - start, place)
 	return made
 
