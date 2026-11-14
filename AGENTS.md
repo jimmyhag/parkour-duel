@@ -145,24 +145,27 @@ When one appears (the network transport, then Steam), these rules apply:
 
 ```
 game/               the game, one folder per layer (table above)
-  core/             runner motor, intents, the facts the player observes, race state,
-                    the flow state and the motor's dated messages, and the tuning
-                    resource
-  player/           the runner's scene: body, camera rig, intents read from the inputs,
-                    and what the body observes around it (floor, walls, ledges)
+  core/             runner motor and its aerial tricks, intents, the facts the player
+                    observes, race state, the flow state and the motor's dated
+                    messages, and the tuning resource
+  player/           the runner's scene: body (its visible part turns with a trick),
+                    camera rig, intents read from the inputs, and what the body
+                    observes around it (floor, walls, ledges)
   world/            checkpoints and race lines
-  ui/               timer, flow and debug displays
+  ui/               timer, flow and debug displays, and the sounds of the flow
   levels/           course scenes; test_course.tscn is the main scene for now
 addons/gut/         GUT 9.7.1, the test framework (vendored, MIT, not exported)
 tests/              headless tests, one script per subject: test_<subject>.gd; the other
                     scripts are their helpers (written sequences of intents, test pilot,
-                    a runner without a scene, the bases of the replay and course tests)
+                    a runner without a scene, the bases of the replay, course and
+                    trick tests)
 tools/              the gate tools (Python, standard library only)
 .agents/            the roles AI assistants play and the skills they load (README.md)
 .claude/            copies of .agents/ for Claude Code (kept identical by the gate)
 docs/specs/         one spec per request, written by the sparring partner
 docs/harness/       what each full round of the harness taught, with the agents' reports
-assets/             models, animations and sounds, with CREDITS.md
+assets/             sounds for now (sounds/), later models and animations, with
+                    CREDITS.md
 ```
 
 Do not create empty folders: a folder appears with its first file.
