@@ -32,6 +32,14 @@ dev:
 test *args: import
     {{ python }} tools/run_tests.py {{ godot }} {{ args }}
 
+# Run only the course replays, the test scripts whose name starts with test_course
+test-course: import
+    {{ python }} tools/run_tests.py {{ godot }} --course
+
+# The tests of the edit loop: every test script but the course replays
+_test-edit-loop: import
+    {{ python }} tools/run_tests.py {{ godot }} --edit-loop
+
 # Refresh Godot's import cache (global classes, imported resources)
 import:
     {{ godot }} --headless --path . --import
@@ -45,12 +53,12 @@ lint:
     {{ venv_bin }}gdlint game tests
     {{ venv_bin }}gdformat --check game tests
 
-# Layer boundaries, dead files and the .claude/ mirror (tools/check_structure.py)
+# Layer boundaries, dead files, course replay names, .claude/ mirror (tools/check_structure.py)
 deadcode:
     {{ python }} tools/check_structure.py
 
-# Edit-loop gate, run after every change (check stays the gate before a commit)
-preflight: typecheck lint test deadcode
+# Edit-loop gate, run after every change: every test but the course replays
+preflight: typecheck lint _test-edit-loop deadcode
 
 # Export the Windows and Linux release builds, then start the host platform's one
 build:
@@ -60,5 +68,5 @@ build:
 fetch-templates:
     {{ python }} tools/fetch_godot.py templates
 
-# Everything that must pass before a commit: preflight plus the release builds
-check: preflight build
+# The commit gate: preflight with every test (course replays included), then the builds
+check: typecheck lint test deadcode build

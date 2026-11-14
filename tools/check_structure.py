@@ -1,4 +1,4 @@
-"""Structure gate: layer boundaries, dead files, and the .claude/ mirror.
+"""Structure gate: layer boundaries, dead files, course replay names, the .claude/ mirror.
 
 1. Boundaries. Every file of game/ belongs to a layer (game/<layer>/). A file may only
    reference its own layer and the layers LAYERS allows, whether by path, by uid or by
@@ -6,7 +6,11 @@
    classes are only allowed in net/. tests/ may reference anything.
 2. Dead files. Every script, scene and resource of game/ (and every helper script of
    tests/) must be reachable from project.godot or from a test script.
-3. Mirror. .claude/agents and .claude/skills are copies of .agents/ on this project;
+3. Course replays. A test script that loads a course scene (a scene of game/levels/),
+   directly or through the helpers of tests/ (CourseTest), replays the course: its file
+   name must start with the course replay prefix, which keeps it out of `just preflight`
+   and in `just check` (docs/specs/test-tiers.md).
+4. Mirror. .claude/agents and .claude/skills are copies of .agents/ on this project;
    they must stay identical to their source.
 
 The references this tool sees are literal: a full `res://` path, a `uid://`, a relative
@@ -22,7 +26,7 @@ import re
 import sys
 from pathlib import Path, PurePosixPath
 
-from repo import ROOT, iter_files, rel
+from repo import COURSE_REPLAY_PREFIX, ROOT, is_course_replay, is_test_script, iter_files, rel
 
 # layer -> the other layers it may reference
 LAYERS: dict[str, set[str]] = {
@@ -323,6 +327,46 @@ def check_dead_files(project: Project) -> list[str]:
     ]
 
 
+def is_course_scene(candidate: ProjectFile) -> bool:
+    return candidate.layer == "levels" and candidate.rel.endswith(".tscn")
+
+
+def course_scene_loaded_by(project: Project, script: ProjectFile) -> tuple[int, str] | None:
+    """Whether the script loads a course scene, directly or through files of tests/:
+    the line of the script that leads to it, and the chain of references."""
+    pending: list[tuple[ProjectFile, int, list[str]]] = [(script, 0, [])]
+    seen = {script.rel}
+    while pending:
+        current, first_line, chain = pending.pop(0)
+        for line, target, how in project.references(current):
+            step_line = first_line or line
+            step_chain = [*chain, how]
+            if is_course_scene(target):
+                return step_line, " -> ".join(step_chain)
+            if target.is_test and target.rel not in seen:
+                seen.add(target.rel)
+                pending.append((target, step_line, step_chain))
+    return None
+
+
+def check_course_replays(project: Project) -> list[str]:
+    problems: list[str] = []
+    for script in project.files:
+        if not script.is_test or not is_test_script(script.path):
+            continue
+        if is_course_replay(script.path):
+            continue
+        found = course_scene_loaded_by(project, script)
+        if found:
+            line, chain = found
+            problems.append(
+                f"{script.rel}:{line}: loads a course scene ({chain}): a course replay "
+                f"lives in a script whose name starts with {COURSE_REPLAY_PREFIX}, out of "
+                "just preflight"
+            )
+    return problems
+
+
 def normalized(path: Path) -> bytes:
     return path.read_bytes().replace(b"\r\n", b"\n")
 
@@ -363,6 +407,7 @@ def main() -> int:
     sections = (
         ("boundaries", check_boundaries(project)),
         ("dead files", check_dead_files(project)),
+        ("course replays", check_course_replays(project)),
         (".claude mirror", check_claude_mirror()),
     )
     total = 0
