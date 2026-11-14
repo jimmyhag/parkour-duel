@@ -151,9 +151,11 @@ game/               the game, one folder per layer (table above)
                     the state machines of the sabotageable targets and their dated
                     messages, the round of a duel (its clock, its state and its dated
                     messages), the bot's rule of sabotage, the recorded run the ghost
-                    replays, the session, and the tuning resource
-  player/           the runner's scene: body (its visible part turns with a trick),
-                    camera rig (over the shoulder while aiming, still while a trick is
+                    replays, the session, the animation chosen from the runner's state,
+                    and the tuning resource
+  player/           the runner's scene: body (its visible part turns with a trick and
+                    is the animated Mixamo character when its files are there, the
+                    capsule otherwise), camera rig (over the shoulder while aiming, still while a trick is
                     drawn), intents read from the inputs (the mouse or the right stick
                     draw the trick), and what the body observes around it (floor,
                     walls, ledges) and under the reticle; the pilot, the bot's intents,
@@ -170,12 +172,14 @@ tests/              headless tests, one script per subject: test_<subject>.gd; t
                     scripts are their helpers (written sequences of intents, a runner
                     without a scene, the bases of the replay, course, duel and trick
                     tests)
-tools/              the gate tools (Python, standard library only)
+tools/              the gate tools and the copy of the Mixamo files (Python, standard
+                    library only)
 .agents/            the roles AI assistants play and the skills they load (README.md)
 .claude/            copies of .agents/ for Claude Code (kept identical by the gate)
 docs/specs/         one spec per request, written by the sparring partner
 docs/harness/       what each full round of the harness taught, with the agents' reports
-assets/             sounds for now (sounds/), later models and animations, with
+assets/             sounds (sounds/) and the Mixamo character and animations
+                    (mixamo/, ignored by Git, copied there by `just mixamo`), with
                     CREDITS.md
 ```
 
