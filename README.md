@@ -137,11 +137,10 @@ then release just after the jump. Released on the ground, nothing starts and the
 drawing is forgotten; a drawing that does not read starts nothing. A press without
 drawing starts the trick of the context, worth half a front flip: a front flip when
 running, a backflip at a stop or just after a wall jump, a side flip away from the wall
-when leaving a wall run. A turn takes 0.35 s and each twist adds 0.15 s: a single fits
+when leaving a wall run. A turn takes 0.35 s and each twist adds 0.3 s: a single fits
 in a jump on the flat; measured with the tuning file, a held jump on the flat lasts 36
-fixed steps, so a backflip with a twist (30 steps) fits too if released within 6 steps
-(0.1 s) of the take-off, and a double (42 steps) needs a drop or a wall jump. One trick
-per jump. A finished trick must be posed: press the slide at most 0.25 s before
+fixed steps, so a single with a twist (39 steps) asks for a small drop, and a double (42
+steps) for a drop or a wall jump. One trick per jump. A finished trick must be posed: press the slide at most 0.25 s before
 touching the ground, PERFECT within the last 0.1 s (more points, and a little speed, up
 to the top speed plus that gain). No press within that window, or the trick not over at
 the ground, is a CRASH (a hard landing that breaks the combo, and the trick earns

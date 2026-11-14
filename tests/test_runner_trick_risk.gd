@@ -9,9 +9,9 @@ extends TrickTest
 const MINUTE: int = 3600
 const PERFECT_LANDINGS: int = 10
 ## The most style a minute of riskless tricks on the flat may earn (decision 15 of
-## docs/specs/trick-gestures.md): measured 78 369 with a repetition window of 10, rounded
-## up to the next thousand, plus 20 %.
-const RISKLESS_STYLE_PER_MINUTE: int = 94800
+## docs/specs/trick-gestures.md): measured 3 790 with a repetition window of 10 and a
+## twist of 0.3 s, rounded up to the next thousand, plus 20 %.
+const RISKLESS_STYLE_PER_MINUTE: int = 4800
 
 
 ## What a minute of jumps earned.
@@ -60,6 +60,22 @@ func test_a_double_does_not_fit_in_a_jump_on_the_flat() -> void:
 		assert_eq(body.motor.state, RunnerMotor.State.HARD_LANDING, recipe.name())
 
 
+func test_a_twisted_trick_does_not_fit_in_a_jump_on_the_flat() -> void:
+	# Decision 7: a twist asks for a small drop. Measured against the held jump on the flat
+	# of the project's tuning, even released with the jump itself, the earliest it can be.
+	var tuning: MovementTuning = _project_tuning()
+	var flight: int = _steps_to_land(tuning)
+	var turn: int = roundi(tuning.trick_turn_duration * STEPS_PER_SECOND)
+	var twist: int = roundi(tuning.trick_twist_duration * STEPS_PER_SECOND)
+	assert_gt(turn + twist, flight, "a single with a twist lasts longer than a flat jump")
+	for recipe: TrickRecipe in [_backflip(1, 1), TrickRecipe.drawn(FRONT_FLIP, 1, 1)]:
+		var body: MotorBody = MotorBody.running(tuning, FORWARD, tuning.top_speed)
+
+		var events: Array[RunnerEvent] = _hop(body, null, recipe, 0)
+
+		_assert_events(events, [CRASH])
+
+
 func test_a_twist_makes_the_trick_longer() -> void:
 	var plain: MotorBody = _high()
 	var twisted: MotorBody = _high()
@@ -84,15 +100,14 @@ func test_a_twist_makes_the_trick_longer() -> void:
 func test_a_riskless_loop_on_the_flat_earns_little() -> void:
 	var tuning: MovementTuning = _project_tuning()
 	var plain: Minute = _hop_for_a_minute(tuning, [])
-	# Every recipe that fits in a jump on the flat, released at the first step in the air,
-	# one after the other: the most varied loop.
+	# Every recipe that fits in a jump on the flat (the singles without a twist: see
+	# test_a_twisted_trick_does_not_fit_in_a_jump_on_the_flat), released at the first step
+	# in the air, one after the other: the most varied loop.
 	var fitting: Array[TrickRecipe] = [
 		_front_flip(),
 		_backflip(),
 		TrickRecipe.drawn(SIDE_FLIP),
 		TrickRecipe.drawn(SPIN),
-		_backflip(1, 1),
-		TrickRecipe.drawn(FRONT_FLIP, 1, 1),
 	]
 	var tricking: Minute = _hop_for_a_minute(tuning, fitting)
 	gut.p(_report("running and jumping alone", plain))
