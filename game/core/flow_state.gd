@@ -32,14 +32,23 @@ var last_points: int = 0
 var tiers_crossed: int = 0
 var last_tier_crossed: int = 0
 var combos_broken: int = 0
+## The moves counted at the last step that counted any, and the points each one earned.
+var step_moves: Array[RunnerEvent] = []
+var step_points: Array[int] = []
+## The tricks counted in the session, the perfect landings among them, and the crashes.
+var tricks_landed: int = 0
+var perfect_landings: int = 0
+var crashes: int = 0
 var tuning: MovementTuning
 
 var _steps_per_second: int
 ## Moves of the combo under way that were worth something: 0 out of a combo.
 var _combo_moves: int = 0
-## The last moves of the combo that were worth something, the oldest first: what a move
-## is judged against.
-var _last_moves: Array[RunnerEvent.Kind] = []
+## The last moves of the combo that were worth something, the oldest first, each one by
+## what tells it apart from the others: what a move is judged against.
+var _last_moves: Array[String] = []
+## No move has been counted yet at the step under way.
+var _fresh_step: bool = false
 ## Steps spent on the ground since the last move of the combo that was worth something.
 var _steps_on_the_ground: int = 0
 ## Steps the runner has stood still on the ground, in a row.
@@ -64,8 +73,9 @@ func step(events: Array[RunnerEvent], horizontal_speed: float, on_foot: bool) ->
 		_steps_on_the_ground += 1
 		if _steps_on_the_ground >= _steps(tuning.flow_chain_delay):
 			_end_the_combo()
+	_fresh_step = true
 	for event: RunnerEvent in events:
-		_count(event.kind, horizontal_speed)
+		_count(event, horizontal_speed)
 	_watch_for_a_stop(horizontal_speed, on_foot)
 	if not was_in_combo and not in_combo():
 		gauge = maxf(gauge - tuning.flow_decay / _steps_per_second, 0.0)
@@ -151,28 +161,32 @@ func max_gauge() -> float:
 ## A move earns its points, worth less for each time it is among the last moves of the
 ## combo, multiplied by the multiplier the combo had before it. A move worth nothing earns
 ## nothing, does not go on with the combo and does not count for the multiplier. A jump
-## without enough speed is no move at all. A hard landing is an error, and costs one
-## tier.
-func _count(kind: RunnerEvent.Kind, horizontal_speed: float) -> void:
-	if kind == RunnerEvent.Kind.HARD_LANDING:
+## without enough speed is no move at all. A hard landing and a crash are errors, and
+## cost one tier.
+func _count(event: RunnerEvent, horizontal_speed: float) -> void:
+	var kind: RunnerEvent.Kind = event.kind
+	if kind == RunnerEvent.Kind.HARD_LANDING or kind == RunnerEvent.Kind.CRASH:
+		crashes += int(kind == RunnerEvent.Kind.CRASH)
 		_break_the_combo()
 		gauge = maxf(gauge - tuning.flow_tier_value, 0.0)
 		return
 	var least_speed: float = tuning.top_speed * tuning.flow_jump_min_speed_share
 	if kind == RunnerEvent.Kind.JUMP and horizontal_speed < least_speed:
 		return
-	var times: int = _last_moves.count(kind)
+	var move: String = _identity(event)
+	var times: int = _last_moves.count(move)
 	repeated_move = kind
 	repeat_count = times + 1
-	var points: int = roundi(_points(kind) * _repetition_share(times)) * multiplier()
+	var points: int = roundi(_points(event) * _repetition_share(times)) * multiplier()
 	moves_counted += 1
 	last_move = kind
 	last_points = points
+	_announce(event, points)
 	if points <= 0:
 		return
 	_combo_moves += 1
 	_steps_on_the_ground = 0
-	_last_moves.append(kind)
+	_last_moves.append(move)
 	while _last_moves.size() > tuning.flow_repetition_window:
 		_last_moves.pop_front()
 	style_score += points
@@ -201,8 +215,33 @@ func _earn_ammo(points: int) -> void:
 		ammo = mini(ammo + 1, tuning.flow_max_ammo)
 
 
-## The points of a move, before the repetition and the multiplier.
-func _points(kind: RunnerEvent.Kind) -> int:
+## What tells a move apart from the others for the repetition: its kind; for a trick, its
+## flip, its turns and its twists.
+func _identity(event: RunnerEvent) -> String:
+	var kind: String = RunnerEvent.Kind.keys()[event.kind]
+	if event.trick == null:
+		return kind
+	return kind + " " + event.trick.identity()
+
+
+## What the displays announce of a move counted at this step, with its points.
+func _announce(event: RunnerEvent, points: int) -> void:
+	if _fresh_step:
+		_fresh_step = false
+		step_moves.clear()
+		step_points.clear()
+	step_moves.append(event)
+	step_points.append(points)
+	if event.trick != null:
+		tricks_landed += 1
+		perfect_landings += int(event.trick.perfect)
+
+
+## The points of a move, before the repetition and the multiplier: a trick has its own.
+func _points(event: RunnerEvent) -> int:
+	if event.trick != null:
+		return event.trick.points(tuning)
+	var kind: RunnerEvent.Kind = event.kind
 	var points: Dictionary[RunnerEvent.Kind, int] = {
 		RunnerEvent.Kind.JUMP: tuning.flow_points_jump,
 		RunnerEvent.Kind.SLIDE: tuning.flow_points_slide,

@@ -10,6 +10,10 @@ const ROLL: RunnerEvent.Kind = RunnerEvent.Kind.ROLL
 const MANTLE: RunnerEvent.Kind = RunnerEvent.Kind.MANTLE
 const WALL_RUN: RunnerEvent.Kind = RunnerEvent.Kind.WALL_RUN
 const HARD_LANDING: RunnerEvent.Kind = RunnerEvent.Kind.HARD_LANDING
+## The turn of the fixed tuning (0.65 s) in fixed steps, and a height a flight lasts long
+## from.
+const TURN_STEPS: int = 39
+const HIGH: float = 40.0
 
 var _tuning: MovementTuning
 
@@ -83,6 +87,60 @@ func test_the_hud_shows_the_ammunition() -> void:
 	assert_eq(_full_pips(hud), [true, true, false], "two ammunition out of three")
 
 
+func test_the_hud_shows_the_trick_under_way() -> void:
+	var flow: FlowState = _flow()
+	var hud: FlowHud = _add_hud(flow)
+	var body: MotorBody = MotorBody.new(_tuning, HIGH)
+	body.velocity = Vector3.FORWARD * _tuning.top_speed
+	hud.motor = body.motor
+	hud.refresh()
+	assert_eq(_shown(hud, "%TrickLabel"), "", "no trick: no name")
+	var backflip: MoveIntent = MoveIntent.new()
+	backflip.direction = Vector3.BACK
+	backflip.trick_pressed = true
+	backflip.trick_held = true
+	body.step(backflip)
+	hud.refresh()
+	assert_eq(_shown(hud, "%TrickLabel"), "BACKFLIP", "a runner in a backflip")
+
+	var twist: MoveIntent = MoveIntent.new()
+	twist.jump_pressed = true
+	body.step(twist)
+	hud.refresh()
+
+	assert_eq(_shown(hud, "%TrickLabel"), "BACKFLIP FULL")
+
+
+func test_the_hud_shows_the_landing() -> void:
+	var flow: FlowState = _flow()
+	var hud: FlowHud = _add_hud(flow)
+	hud.refresh()
+	var trick: AirTrick = AirTrick.new(Vector3.BACK, Vector3.FORWARD, TURN_STEPS, 1)
+	trick.finished = true
+	trick.perfect = true
+
+	var events: Array[RunnerEvent] = [RunnerEvent.new(RunnerEvent.Kind.TRICK, 0, trick)]
+	flow.step(events, _tuning.top_speed, true)
+	hud.refresh()
+
+	assert_eq(_shown(hud, "%MoveLabel"), "BACKFLIP +300", "the trick and its points")
+	assert_eq(_shown(hud, "%TrickLabel"), "PERFECT")
+
+
+func test_the_hud_signals_a_crash() -> void:
+	var flow: FlowState = _flow()
+	var hud: FlowHud = _add_hud(flow)
+	_count(flow, WALL_RUN)
+	hud.refresh()
+
+	var events: Array[RunnerEvent] = [RunnerEvent.new(RunnerEvent.Kind.CRASH, 0)]
+	flow.step(events, 0.0, true)
+	hud.refresh()
+
+	assert_eq(_shown(hud, "%TrickLabel"), "CRASH")
+	assert_eq(_shown(hud, "%MoveLabel"), "COMBO BROKEN", "then the combo broken")
+
+
 func _flow() -> FlowState:
 	return FlowState.new(_tuning, STEPS_PER_SECOND)
 
@@ -102,6 +160,14 @@ func _count(flow: FlowState, kind: RunnerEvent.Kind) -> void:
 
 func _text(hud: FlowHud, label_path: NodePath) -> String:
 	return (hud.get_node(label_path) as Label).text
+
+
+## The text of a label if it is on screen, nothing otherwise.
+func _shown(hud: FlowHud, label_path: NodePath) -> String:
+	var label: Label = hud.get_node_or_null(label_path) as Label
+	if label == null or not label.visible:
+		return ""
+	return label.text
 
 
 func _gauge(hud: FlowHud) -> ProgressBar:

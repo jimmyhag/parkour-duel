@@ -38,8 +38,10 @@ class Moment:
 	var look: Vector3
 	var push: Vector3
 	var motion: Vector3
-	## The axis of the visible body that stands up when the body is upright.
+	## The axis of the visible body that stands up when the body is upright, and the one
+	## its visor looks along, in the world.
 	var up: Vector3
+	var front: Vector3
 	var state: RunnerMotor.State
 	var on_floor: bool
 	var on_wall: bool
@@ -126,6 +128,7 @@ class Track:
 		moment.push = _horizontal(intent.direction)
 		moment.motion = _horizontal(runner.velocity)
 		moment.up = _visual.global_basis.y.normalized()
+		moment.front = -_visual.global_basis.z.normalized()
 		moment.state = runner.motor.state
 		moment.on_floor = runner.is_on_floor()
 		moment.on_wall = runner.is_on_wall()
@@ -424,6 +427,47 @@ func test_out_of_a_wall_run_the_runner_stays_upright() -> void:
 		for moment: Moment in track.moments:
 			tilted = maxf(tilted, rad_to_deg(moment.up.angle_to(Vector3.UP)))
 		assert_lt(tilted, 0.01, "upright at every step, with no roll and no pitch")
+
+
+# --- Tricks ---
+
+
+func test_the_visible_body_makes_the_turn_of_the_trick() -> void:
+	var turn_steps: int = roundi((load(TUNING) as MovementTuning).trick_turn_duration * 60.0)
+	var track: Track = _track(0)
+	var flight: Vector3 = FORWARD * track.runner.tuning.top_speed
+	# A backflip of one turn, released early; the push goes elsewhere during it.
+	var intents: ScriptedIntentSource = ScriptedIntentSource.new()
+	intents.trick(Vector3.BACK, 5).hold(Vector3.RIGHT, false, turn_steps + 5)
+	track.start(Vector3.UP * TALL * 3.0, intents, flight)
+
+	await _steps(intents.length())
+
+	var trick: AirTrick = track.runner.motor.current_trick()
+	assert_not_null(trick, "a runner that launched a backflip")
+	if trick == null:
+		return
+	assert_eq(trick.flip, AirTrick.Flip.BACKFLIP)
+	assert_true(trick.finished, "over in the air")
+	var axis: Vector3 = trick.axis
+	assert_almost_eq(axis, Vector3.RIGHT, Vector3.ONE * 0.001, "around the axis across the flight")
+	# From the first step, where it started, to the step its turn is over.
+	var turned: float = 0.0
+	var upside_down: bool = false
+	for k: int in range(1, turn_steps + 1):
+		var before: Moment = track.moments[k - 1]
+		var now: Moment = track.moments[k]
+		turned += before.up.signed_angle_to(now.up, axis)
+		upside_down = upside_down or now.up.dot(Vector3.UP) < -0.99
+		if k < turn_steps:
+			var aside: float = absf(now.front.dot(axis))
+			assert_lt(aside, 0.01, "step %d: not turned towards the push" % k)
+	assert_almost_eq(rad_to_deg(turned), 360.0, ANGLE_TOLERANCE, "a whole turn, head backwards")
+	assert_true(upside_down, "through upside down")
+	var last: Moment = track.moments[turn_steps]
+	assert_lt(rad_to_deg(last.up.angle_to(Vector3.UP)), 0.01, "upright as the turn ends")
+	for moment: Moment in track.moments.slice(turn_steps):
+		assert_lt(rad_to_deg(moment.up.angle_to(Vector3.UP)), 0.01, "and upright after it")
 
 
 ## Above any jump, within a mantle.

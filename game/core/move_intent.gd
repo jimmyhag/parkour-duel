@@ -13,6 +13,10 @@ var jump_held: bool = false
 var slide_pressed: bool = false
 ## The slide is held down.
 var slide_held: bool = false
+## The trick was pressed at this step.
+var trick_pressed: bool = false
+## The trick is held down.
+var trick_held: bool = false
 ## The return to the last checkpoint was asked at this step.
 var respawn_requested: bool = false
 ## Restarting the course was asked at this step.

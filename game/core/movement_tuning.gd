@@ -1,9 +1,9 @@
 class_name MovementTuning
 extends Resource
-## The single tuning resource of the feel: every speed, gravity, tolerance window, flow
-## and camera value lives here and nowhere else. The values are in movement_tuning.tres; the
-## zeros below are only the neutral defaults of an empty resource. Durations are in
-## seconds: the runner applies them in fixed steps.
+## The single tuning resource of the feel: every speed, gravity, tolerance window, flow,
+## trick and camera value lives here and nowhere else. The values are in
+## movement_tuning.tres; the zeros below are only the neutral defaults of an empty
+## resource. Durations are in seconds: the runner applies them in fixed steps.
 
 @export_group("Run")
 ## Top horizontal speed, in m/s.
@@ -150,6 +150,24 @@ extends Resource
 ## it must stay so for the stop to break its combo, in s.
 @export var flow_stop_speed: float = 0.0
 @export var flow_stop_duration: float = 0.0
+
+@export_group("Tricks")
+## How long one turn of a trick lasts, in s.
+@export var trick_turn_duration: float = 0.0
+## Most twists a front flip or a backflip takes during one of its turns.
+@export var trick_max_twists_per_turn: int = 0
+## Points of a trick for each of its turns, and for each of its twists.
+@export var trick_points_per_turn: int = 0
+@export var trick_points_per_twist: int = 0
+## Share of its points a trick gains for each trick already done in the same jump.
+@export var trick_air_chain_bonus: float = 0.0
+## Longest time between the end of the last trick of a jump and the contact with the
+## ground for the landing to be perfect, in s.
+@export var trick_perfect_window: float = 0.0
+## Share of its points the last trick gains on a perfect landing.
+@export var trick_perfect_bonus: float = 0.0
+## Horizontal speed a perfect landing gains, in m/s.
+@export var trick_perfect_speed_gain: float = 0.0
 
 @export_group("Character")
 ## Dead zone of both sticks (0 to 1).

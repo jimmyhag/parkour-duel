@@ -29,7 +29,7 @@ a checkpoint: falling off the course brings the runner back to the last one reac
 and the timer keeps running.
 
 Every value of the feel (speeds, gravities, coyote time, jump buffer, slide, roll,
-hard landing, momentum, mantle, wall run, wall jump, camera) is in
+hard landing, momentum, mantle, wall run, wall jump, flow, tricks, camera) is in
 `game/core/movement_tuning.tres`. When the game
 runs from the project folder, F4 reads that file again without restarting.
 
@@ -59,6 +59,7 @@ below are the keys at those places on a QWERTY keyboard (Z, Q, S, D on an AZERTY
 | Turn the camera | Mouse | Right stick |
 | Jump (hold to jump higher) | Space | A, or LB |
 | Slide (hold), roll (press just before a high landing) | Left Ctrl | B, or RB |
+| Trick, in the air (hold for more turns) | Left Shift | X |
 | Back to the last checkpoint | R | Y |
 | Restart the course | Backspace | Back (Select) |
 | Release the mouse (a click takes it back) | Escape | none |
@@ -110,13 +111,31 @@ releasing the button early makes the jump lower, as on the ground. The same wall
 cannot be run along twice in a row: touch the ground or run along another wall first.
 Jumping from one wall to the one facing it, again and again, climbs between them.
 
+Tricks: in the air, after a jump, a wall jump or a fall from a ledge, press the trick
+button. The direction pushed at that moment, measured against where the runner is
+going, chooses the flip: ahead a front flip, behind a backflip, to a side a side flip,
+no push a flat spin. One turn takes about two thirds of a second, longer than a jump on
+the flat: a trick asks for height (a wall jump, a big fall, or a drop to a lower floor).
+With a held jump off a block, measured with the tuning file: a trick pressed together
+with the jump is just over at the landing from a drop of 0.6 m, one fixed step before
+it from 0.9 m, two steps from 1.1 m; pressed two steps after the jump, it needs 1.1 m.
+While the button is held when a turn ends, another one starts, and once it is released
+the body finishes the turn under way. During a front flip or a backflip, each press of jump adds a twist
+(two at most per turn); during a trick, jump never makes the runner jump. A trick
+changes nothing to the flight, but no wall run and no mantle starts before it is over.
+Another press after a trick starts another one in the same jump, worth more. The tricks
+pay at the landing, as moves of the flow: a trick finished just before the ground is
+PERFECT (more points, and a little speed, up to the top speed plus that gain); touching the ground before the end of a turn is
+a CRASH (a hard landing that breaks the combo, and the tricks of the jump are lost). A
+high fall still asks for a roll.
+
 ## Roadmap
 
 | Step | Content | Status |
 | ---- | ------- | ------ |
 | 0 | Repository, Godot skeleton, harness and gates | done |
 | 1 | Solo movement prototype | done: validated by the owner on 2026-11-14 |
-| 2 | Tricks and flow | in progress: the flow gauge and combo are specified (`docs/specs/flow-combo.md`); aerial tricks and sounds come next |
+| 2 | Tricks and flow | in progress: the flow gauge and combo (`docs/specs/flow-combo.md`), then the aerial tricks and the sounds (`docs/specs/air-tricks.md`), are built; the owner has not validated the step yet |
 | 3 | Shooting and sabotage | not started |
 | 4 | Local duel (ghost, then bot) | not started |
 | 5 | Online PVP | not started |

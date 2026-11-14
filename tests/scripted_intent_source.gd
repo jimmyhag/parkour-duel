@@ -32,6 +32,18 @@ func slide(direction: Vector3, steps: int) -> ScriptedIntentSource:
 	return self
 
 
+## Adds `steps` steps going in `direction` (in the world) with the trick held. The trick
+## counts as pressed at the first of them.
+func trick(direction: Vector3, steps: int) -> ScriptedIntentSource:
+	for i: int in steps:
+		var intent: MoveIntent = MoveIntent.new()
+		intent.direction = direction
+		intent.trick_held = true
+		intent.trick_pressed = i == 0
+		_intents.append(intent)
+	return self
+
+
 ## Adds one step that asks to come back to the last checkpoint.
 func request_respawn() -> ScriptedIntentSource:
 	var intent: MoveIntent = MoveIntent.new()

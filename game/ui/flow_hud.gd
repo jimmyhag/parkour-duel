@@ -2,14 +2,19 @@ class_name FlowHud
 extends Control
 ## The flow of the runner, at the bottom of the screen: the gauge as a bar with one mark
 ## per tier, the multiplier at its left, the ammunition at its right as pips (filled or
-## only outlined), and above it the last move and its points, the tier just crossed
-## (FLOW and its number, while the gauge flashes) or COMBO BROKEN, which fade out after
-## about a second. Nothing takes the focus.
+## only outlined), and above it the moves of the last step and their points, the tier
+## just crossed (FLOW and its number, while the gauge flashes) or COMBO BROKEN, which fade
+## out after about a second. Above them, the name of the trick under way in the air, and
+## after a landing PERFECT or CRASH, which fade out the same way. Nothing takes the focus.
 
 const MOVE: String = "%s +%d"
 const MULTIPLIER: String = "x%d"
 const TIER: String = "FLOW %d"
 const COMBO_BROKEN: String = "COMBO BROKEN"
+const PERFECT: String = "PERFECT"
+const CRASH: String = "CRASH"
+## Between the moves of one step.
+const SEPARATOR: String = "   "
 const MOVE_NAMES: Dictionary[RunnerEvent.Kind, String] = {
 	RunnerEvent.Kind.JUMP: "JUMP",
 	RunnerEvent.Kind.SLIDE: "SLIDE",
@@ -28,19 +33,25 @@ const MARK_COLOR: Color = Color(1.0, 1.0, 1.0)
 const PIP_SIZE: Vector2 = Vector2(18.0, 18.0)
 const PIP_COLOR: Color = Color(1.0, 0.85, 0.3)
 
-## The flow to display.
+## The flow to display, and the motor whose trick under way it names.
 var flow: FlowState
+var motor: RunnerMotor
 
 ## What was already announced: the counts of the flow at the last refresh.
 var _moves_seen: int = 0
 var _tiers_seen: int = 0
 var _breaks_seen: int = 0
-## What is left of the move text, of the tier text and of the flash, in s.
+var _perfects_seen: int = 0
+var _crashes_seen: int = 0
+## What is left of the move text, of the landing text, of the tier text and of the
+## flash, in s.
 var _move_seconds: float = 0.0
+var _landing_seconds: float = 0.0
 var _tier_seconds: float = 0.0
 var _flash_seconds: float = 0.0
 
 @onready var _move_label: Label = %MoveLabel as Label
+@onready var _trick_label: Label = %TrickLabel as Label
 @onready var _tier_label: Label = %TierLabel as Label
 @onready var _multiplier_label: Label = %MultiplierLabel as Label
 @onready var _gauge: ProgressBar = %Gauge as ProgressBar
@@ -49,6 +60,7 @@ var _flash_seconds: float = 0.0
 
 func _process(delta: float) -> void:
 	_move_seconds = maxf(_move_seconds - delta, 0.0)
+	_landing_seconds = maxf(_landing_seconds - delta, 0.0)
 	_tier_seconds = maxf(_tier_seconds - delta, 0.0)
 	_flash_seconds = maxf(_flash_seconds - delta, 0.0)
 	refresh()
@@ -60,6 +72,7 @@ func refresh() -> void:
 		return
 	_announce()
 	_move_label.visible = _move_seconds > 0.0
+	_name_the_trick()
 	_tier_label.visible = _tier_seconds > 0.0
 	_multiplier_label.text = MULTIPLIER % flow.multiplier()
 	_gauge.max_value = flow.max_gauge()
@@ -69,13 +82,28 @@ func refresh() -> void:
 	_fill_the_pips(flow.tuning.flow_max_ammo, flow.ammo)
 
 
-## Shows what the flow counted since the last refresh: a move and its points, a combo
-## broken, a tier crossed.
+## Shows what the flow counted since the last refresh: the moves of the last step and
+## their points, a combo broken, a tier crossed, a perfect landing or a crash.
 func _announce() -> void:
 	if flow.moves_counted != _moves_seen:
 		_moves_seen = flow.moves_counted
-		_move_label.text = MOVE % [MOVE_NAMES[flow.last_move], flow.last_points]
+		var texts: Array[String] = []
+		for index: int in flow.step_moves.size():
+			var move: RunnerEvent = flow.step_moves[index]
+			var move_name: String = MOVE_NAMES.get(move.kind, "")
+			if move.trick != null:
+				move_name = move.trick.name()
+			texts.append(MOVE % [move_name, flow.step_points[index]])
+		_move_label.text = SEPARATOR.join(texts)
 		_move_seconds = TEXT_SECONDS
+	if flow.perfect_landings != _perfects_seen:
+		_perfects_seen = flow.perfect_landings
+		_trick_label.text = PERFECT
+		_landing_seconds = TEXT_SECONDS
+	if flow.crashes != _crashes_seen:
+		_crashes_seen = flow.crashes
+		_trick_label.text = CRASH
+		_landing_seconds = TEXT_SECONDS
 	if flow.combos_broken != _breaks_seen:
 		_breaks_seen = flow.combos_broken
 		_move_label.text = COMBO_BROKEN
@@ -85,6 +113,16 @@ func _announce() -> void:
 		_tier_label.text = TIER % flow.last_tier_crossed
 		_tier_seconds = TEXT_SECONDS
 		_flash_seconds = FLASH_SECONDS
+
+
+## The name of the trick of the jump under way, while there is one; otherwise what is
+## left of the text of the last landing.
+func _name_the_trick() -> void:
+	var trick: AirTrick = null if motor == null else motor.current_trick()
+	if trick != null:
+		_trick_label.text = trick.name()
+		_landing_seconds = 0.0
+	_trick_label.visible = trick != null or _landing_seconds > 0.0
 
 
 ## One mark at the end of each tier along the gauge.

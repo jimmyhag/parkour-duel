@@ -10,6 +10,7 @@ const GAME_ACTIONS: Array[StringName] = [
 	&"move_right",
 	&"jump",
 	&"slide",
+	&"trick",
 	&"respawn",
 	&"restart",
 ]

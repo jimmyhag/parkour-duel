@@ -9,6 +9,7 @@ const MOVE_FORWARD: StringName = &"move_forward"
 const MOVE_BACK: StringName = &"move_back"
 const JUMP: StringName = &"jump"
 const SLIDE: StringName = &"slide"
+const TRICK: StringName = &"trick"
 const RESPAWN: StringName = &"respawn"
 const RESTART: StringName = &"restart"
 
@@ -28,6 +29,8 @@ func next_intent() -> MoveIntent:
 	intent.jump_held = Input.is_action_pressed(JUMP)
 	intent.slide_pressed = Input.is_action_just_pressed(SLIDE)
 	intent.slide_held = Input.is_action_pressed(SLIDE)
+	intent.trick_pressed = Input.is_action_just_pressed(TRICK)
+	intent.trick_held = Input.is_action_pressed(TRICK)
 	intent.respawn_requested = Input.is_action_just_pressed(RESPAWN)
 	intent.restart_requested = Input.is_action_just_pressed(RESTART)
 	return intent

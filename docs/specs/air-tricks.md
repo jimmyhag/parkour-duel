@@ -1,10 +1,17 @@
 # Figures aériennes : saltos, tours, vrilles et sons
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-14, avec Jimmy. Seconde des deux specs de l'étape 2 de la feuille de
 route (« Figures et flow »). Elle se construit **sur** `docs/specs/flow-combo.md` : son
 développement commence quand le flow et le combo sont fusionnés sur `main`.
+
+Amendée le 2026-11-14 après l'inspection, par la session principale sur délégation de
+Jimmy. L'inspecteur a mesuré avec le vrai moteur un joueur sans risque : un saut à plat
+dure 36 pas, un tour 27 et la fenêtre PERFECT 9, si bien qu'une figure lancée au saut
+était toujours PERFECT, jamais un crash (150 000 points de style par minute), et le
+gain de vitesse du PERFECT se cumulait jusqu'au plafond absolu (22 m/s en 13 s). Les
+décisions 3 et 10 sont amendées, des scénarios ajoutés (marqués « amendement »).
 
 ## Contexte
 
@@ -42,14 +49,14 @@ aucun asset sans licence vérifiée) ; la limite de 30 s de `just preflight`.
 | - | -------- | -------- | -------- |
 | 1 | Le bouton | Une nouvelle action, « figure » : **Shift gauche** (touche physique) au clavier, **X** (bouton de face gauche) à la manette. Elle ne sert qu'en l'air. L'intention gagne « figure pressée à ce pas » et « figure maintenue ». | Q1. La souris reste libre pour la visée de l'étape 3. |
 | 2 | Le salto | La direction poussée **au pas de l'appui** choisit le salto, mesurée par rapport à la vitesse horizontale du coureur : dans le quart avant, **front flip** ; dans le quart arrière, **backflip** ; dans un quart de côté, **side flip** de ce côté ; sans poussée, **spin** (rotation à plat). Un coureur presque immobile à l'horizontale prend sa poussée pour « l'avant ». | Q2. Le visuel ne décide rien (décision 22 de `docs/specs/movement-walls.md`) : la vitesse, oui. |
-| 3 | Le nombre de tours | Un tour dure `trick_turn_duration` (0,45 s). Tant que le bouton est gardé quand un tour s'achève, le tour suivant commence ; lâché, le corps finit le tour en cours. La figure compte ses tours achevés. | Q10. Le skill : lâcher au bon moment. |
+| 3 | Le nombre de tours | Un tour dure `trick_turn_duration` (0,45 s). **Amendement** : 0,65 s, plus long qu'un saut à plat (environ 0,6 s) : un salto ne tient pas dans un saut à plat, il demande de la hauteur (une descente d'environ 1 m ou plus, un wall-jump, une grande chute). Le joueur doit juger sa hauteur : c'est le risque de la figure. Tant que le bouton est gardé quand un tour s'achève, le tour suivant commence ; lâché, le corps finit le tour en cours. La figure compte ses tours achevés. | Q10. Le skill : lâcher au bon moment. |
 | 4 | Les vrilles | Pendant un front flip ou un backflip, chaque appui sur **saut** ajoute une vrille, au plus `trick_max_twists_per_turn` (2) par tour de la figure. Elle tourne du côté poussé à l'appui, à droite sans poussée ; le côté ne change pas les points. Pas de vrille sur un side flip ni un spin. Une vrille ne rallonge pas la figure. | Q11 corrigée : au clavier, le pouce tape Espace pendant que l'auriculaire garde Shift. |
 | 5 | Pas de saut fantôme | Pendant une figure, un appui sur saut n'est jamais gardé en mémoire de saut et ne lance jamais de wall-jump : il ne fait qu'une vrille, ou rien. | Q16. Sinon une vrille tapée près du sol relancerait un saut à l'atterrissage. |
 | 6 | Où on peut lancer une figure | En l'air : en montée ou en chute, après un saut, un wall-jump ou une chute d'un rebord. Pas pendant un wall-run, un mantle, une glissade, une roulade ou une réception dure. Une figure ne change pas la trajectoire et le contrôle en l'air reste. Pendant une figure, aucun wall-run ni mantle ne commence. | Q6. Le seul risque est la réception. |
 | 7 | Enchaîner en l'air | Une figure finie, un nouvel appui en lance une autre dans le même saut. La n-ième figure du même saut vaut `1 + trick_air_chain_bonus × (n − 1)` fois ses points (bonus de 50 %). | Q4. |
 | 8 | Le crash | Toucher le sol avant la fin de la figure en cours est un **crash** : une réception dure, quelle que soit la hauteur de chute, et une erreur du flow (combo cassé, un palier perdu, comme la réception dure de `docs/specs/flow-combo.md`). Les figures du saut ne rapportent rien. | Q3. Le dilemme du plan en petit. |
 | 9 | Quand les figures rapportent | Les figures d'un saut rapportent **à la réception** : au premier contact avec le sol sans crash, ou au début d'un wall-run ou d'un mantle. Chacune est alors un move du flow, daté de ce pas. Une chute hors du parcours ou un retour au checkpoint pendant le saut les perd. | Le PERFECT dépend de la réception. |
-| 10 | La réception parfaite | Si la dernière figure du saut s'est finie au plus `trick_perfect_window` (0,15 s) avant le contact avec le sol, c'est **PERFECT** : cette figure vaut `trick_perfect_bonus` (+50 %) de plus, et la vitesse horizontale gagne `trick_perfect_speed_gain` (1 m/s) dans son sens, sans dépasser le plafond absolu. Le PERFECT ne vaut que pour une réception au sol. Une grande chute demande toujours la roulade ; PERFECT et roulade se cumulent. | Q5. Partir tard pour finir juste à temps. |
+| 10 | La réception parfaite | Si la dernière figure du saut s'est finie au plus `trick_perfect_window` (0,15 s) avant le contact avec le sol, c'est **PERFECT** : cette figure vaut `trick_perfect_bonus` (+50 %) de plus, et la vitesse horizontale gagne `trick_perfect_speed_gain` (1 m/s) dans son sens, sans dépasser le plafond absolu. **Amendement** : ni la vitesse de pointe du moment (bonus du flow compris) plus le gain, comme la glissade parfaite (`docs/specs/flow-combo.md`, décision 9) ; un coureur déjà plus rapide garde sa vitesse, sans gain. Le PERFECT ne vaut que pour une réception au sol. Une grande chute demande toujours la roulade ; PERFECT et roulade se cumulent. | Q5. Partir tard pour finir juste à temps. |
 | 11 | Les points | Une figure vaut `trick_points_per_turn` (200) par tour, plus `trick_points_per_twist` (100) par vrille ; puis les bonus PERFECT et d'enchaînement en l'air ; puis, comme tout move, la règle de variété et le multiplicateur de combo de `docs/specs/flow-combo.md`. | Q7 et Q13. Exemple : un double backflip vrillé posé en PERFECT, premier du saut, vaut (2 × 200 + 100) × 1,5 = 750 avant le multiplicateur. |
 | 12 | La variété | Pour la règle « le même move d'affilée », deux figures sont le même move si leur salto, leur nombre de tours et leur nombre de vrilles sont les mêmes ; une brique qui change en fait un autre move. | Q14. |
 | 13 | Les noms | Ils se construisent, en anglais. Saltos : « FRONT FLIP », « BACKFLIP », « SIDE FLIP » ; préfixe de tours « DOUBLE », « TRIPLE », puis « 4X », « 5X »… ; suffixe de vrilles « FULL », « DOUBLE FULL », « TRIPLE FULL », puis « 4X FULL »… Le spin se nomme par ses degrés : « 360 », « 720 », « 1080 »… Exemples : « DOUBLE BACKFLIP FULL », « TRIPLE SIDE FLIP », « 720 ». | Q12. |
@@ -64,7 +71,7 @@ aucun asset sans licence vérifiée) ; la limite de 30 s de `just preflight`.
 
 | Réglage | Valeur |
 | ------- | ------ |
-| Durée d'un tour | 0,45 s |
+| Durée d'un tour (amendement) | 0,65 s |
 | Vrilles au plus par tour | 2 |
 | Points par tour, par vrille | 200, 100 |
 | Bonus d'enchaînement en l'air, par figure déjà faite dans le saut | 50 % |
@@ -140,9 +147,10 @@ Fonctionnalité: Figures aériennes
   # --- Enchaîner en l'air (core) ---
 
   Scénario: Une seconde figure dans le même saut vaut plus
+    # amendement : deux figures différentes, pour que la variété ne se mêle pas au bonus
     Soit un coureur qui a fini une figure en l'air
-    Quand il lance et finit une seconde figure identique avant la réception
-    Alors la seconde vaut le bonus d'enchaînement en plus
+    Quand il lance et finit une seconde figure différente avant la réception
+    Alors la seconde vaut le bonus d'enchaînement en plus, dans les points comptés par le flow
 
   Scénario: Pas de wall-run ni de mantle pendant une figure
     Soit un coureur en figure le long d'un mur, puis face à un rebord
@@ -203,6 +211,50 @@ Fonctionnalité: Figures aériennes
     Quand on lit leurs noms
     Alors ce sont « BACKFLIP », « DOUBLE BACKFLIP FULL », « TRIPLE SIDE FLIP », « FRONT FLIP DOUBLE FULL », « 4X BACKFLIP » et « 720 »
 
+  # --- Le risque (amendement) ---
+
+  Scénario: Un salto ne tient pas dans un saut à plat
+    # amendement
+    Soit un coureur qui court sur le plat
+    Quand il saute en gardant le saut et lance une figure au pas même du saut
+    Alors il touche le sol avant la fin du tour et se crashe
+
+  Scénario: Une descente suffisante permet un salto
+    # amendement
+    Soit un coureur qui saute d'un bloc vers un sol plus bas d'au moins la descente qu'un tour demande
+    Quand il lance une figure d'un tour au bon moment
+    Alors il la pose
+
+  Scénario: Une boucle sans risque sur le plat ne rapporte rien
+    # amendement
+    Soit un coureur qui, sur le plat, lance une figure à chaque saut pendant une minute
+    Quand on compte ce qu'il a gagné
+    Alors aucune figure n'a rapporté de points, et il a moins de style qu'en sautant sans figure
+
+  Scénario: Les réceptions parfaites enchaînées ne font pas monter la vitesse sans fin
+    # amendement
+    Soit un coureur qui enchaîne des figures posées en PERFECT
+    Quand il en pose dix
+    Alors sa vitesse ne dépasse jamais la vitesse de pointe du moment plus le gain
+
+  Scénario: Un crash ne paie pas les figures déjà finies du saut
+    # amendement
+    Soit un coureur qui a fini une figure puis en a lancé une seconde
+    Quand il touche le sol avant la fin de la seconde
+    Alors aucune des deux ne rapporte
+
+  Scénario: Seule la dernière figure du saut est parfaite
+    # amendement
+    Soit un coureur qui a fini deux figures, la seconde dans la fenêtre avant le sol
+    Quand il atterrit
+    Alors seule la seconde est PERFECT
+
+  Scénario: Une figure rapporte au début d'un mantle
+    # amendement
+    Soit un coureur qui a fini une figure en l'air face à un rebord à sa portée
+    Quand il se hisse
+    Alors la figure rapporte ses points, sans PERFECT
+
   # --- Dans la vraie physique et avec les vraies entrées ---
 
   Scénario: Un backflip au clavier dans la vraie physique
@@ -258,6 +310,58 @@ Fonctionnalité: Figures aériennes
   « PERFECT » ; au crash, « CRASH » puis « COMBO BROKEN ».
 - **Focus** : aucun élément ne prend le focus.
 - **Libellés** (en anglais) : les noms de la décision 13, « PERFECT », « CRASH ».
+
+## Choix acceptés à l'inspection
+
+Le code a tranché ces points là où la spec se taisait ; ils sont acceptés le 2026-11-14
+et Jimmy peut rouvrir chacun après avoir joué.
+
+- **Les bonus se multiplient** : points de base × bonus d'enchaînement × PERFECT, puis
+  la variété et le multiplicateur de combo du flow.
+- **La roulade ne sauve pas un crash** : une figure pas finie au sol est un crash, même
+  avec la glissade pressée dans la fenêtre de roulade.
+- **L'ordre des messages d'un pas** : les figures paient d'abord, puis la roulade, la
+  réception dure, le wall-run ou le mantle ; le crash est un message seul.
+- **La diagonale exacte du clavier** (45°) donne un front flip ou un backflip, pas un
+  side flip.
+- **Une figure peut partir au pas même du saut ou du wall-jump.**
+- **Le maximum de vrilles** compte le tour en cours : 2 au premier tour, 2 de plus au
+  deuxième.
+- **Un appui sur saut pendant un side flip ou un spin** ne fait rien.
+- **Les noms des figures** sont construits dans `core` : ce sont aussi l'identité d'une
+  figure pour la répétition ; le HUD les affiche tels quels.
+- **« Presque immobile »** (0,1 m/s) et la frontière des quarts sont des constantes de
+  `core`, pas des réglages de sensation.
+- **Les sons** : un PERFECT joue seulement son son ; un crash en combo joue le crash et
+  le combo cassé.
+- **Shift gauche** : sous Windows, cinq appuis rapides ouvrent la fenêtre des touches
+  rémanentes si le joueur ne l'a pas désactivée. Gardé ; à juger par Jimmy, une autre
+  touche se change en deux lignes.
+- **Les endroits pour les figures** : avec un tour de 0,65 s, le parcours n'offre que
+  peu de descentes (la grande chute, les bords de blocs plus hauts que la suite). Des
+  endroits faits pour les figures viendront avec le dessin des niveaux.
+- **Crasher exprès remet la répétition à zéro** (règle du flow : une erreur vide les
+  quatre derniers moves) : sur le plat, sauter, crasher, attendre 0,5 s et ressauter
+  rapporte environ 2 100 points de style et 2 munitions par minute, aucune figure ne
+  paie, et chaque crash coûte de la vitesse et du temps. Accepté : c'est jouer mal pour
+  peu.
+- **La durée d'un tour ne descend pas sous environ 0,62 s** avec le saut du projet : en
+  dessous, un salto tient de nouveau dans un saut à plat. Le test « Un salto ne tient
+  pas dans un saut à plat » lit le réglage du projet et le refuse.
+- **La descente qui permet un salto** se calcule depuis le réglage, avec deux pas de
+  marge pour le test : 1,37 m aujourd'hui. Mesuré : une figure lancée au pas même du
+  saut passe dès 0,6 m de descente ; lancée 2 pas après, il faut 1,1 m.
+- **Appuyer figure en même temps que saut ou wall-jump** donne presque toujours un
+  PERFECT sur une descente de moins de 3,5 m : le risque n'est que d'appuyer trop tard
+  (2 pas). Une figure posée en combo ×4 vaut environ 1 600 points de style, soit plus
+  d'une munition. Gardé pour que Jimmy le juge en jouant ; pour remettre du risque, un
+  délai minimal avant de lancer une figure ou une fenêtre PERFECT plus courte se règlent
+  ensuite, et le coût en munitions se revoit avec l'étape 3.
+- **Vriller pendant la montée** oblige à relâcher le saut, ce qui écourte la montée : en
+  pratique, on vrille après le sommet. Gardé (la figure ne change pas la trajectoire,
+  le saut relâché si) ; à juger en jouant.
+- **Deux figures dans un même saut** demandent une très longue chute (environ 20 m,
+  calculé) ; le parcours de test n'en offre pas.
 
 ## Hors périmètre
 
