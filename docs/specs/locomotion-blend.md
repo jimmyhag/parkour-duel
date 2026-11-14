@@ -42,9 +42,10 @@ ce que le coureur constate ne dépend jamais du corps visible.
 Fonctionnalité: Une locomotion fluide
 
   Scénario: Les poids du blend space suivent la vitesse
-    Soit un coureur au sol à l'arrêt, entre la marche et la course, à sa vitesse de pointe, puis au-delà avec le flow
+    # amendement : Running seul à 1,3 fois sa vitesse propre, Sprint seul dès la vitesse de pointe
+    Soit un coureur au sol à l'arrêt, entre la marche et la course, à 1,3 fois la vitesse propre de la course, entre celle-ci et la vitesse de pointe, puis à la vitesse de pointe
     Quand on calcule les poids de la locomotion
-    Alors c'est Idle seul, un mélange de Walking et Running, Running seul, puis un mélange de Running et Sprint
+    Alors c'est Idle seul, un mélange de Walking et Running, Running seul, un mélange de Running et Sprint, puis Sprint seul
 
   Scénario: Les poids font toujours un tout
     Soit n'importe quelle vitesse au sol
