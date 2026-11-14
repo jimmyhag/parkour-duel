@@ -151,12 +151,15 @@ game/               the game, one folder per layer (table above)
                     the state machines of the sabotageable targets and their dated
                     messages, the round of a duel (its clock, its state and its dated
                     messages), the bot's rule of sabotage, the recorded run the ghost
-                    replays, the session, the animation chosen from the runner's state,
+                    replays, the session, the animation chosen from the runner's state
+                    (with the weights of its locomotion and the table of blend times),
                     and the tuning resource
   player/           the runner's scene: body (its visible part turns with a trick and
                     is the animated Mixamo character when its files are there, its
-                    wall-run clip laid against the wall from the measure of its bones;
-                    the capsule otherwise), camera rig (over the shoulder while aiming, still while a trick is
+                    wall-run clip laid against the wall from the measure of its bones,
+                    its locomotion clips kept at the same phase of their stride from
+                    the measure of their feet; the capsule otherwise), camera rig
+                    (over the shoulder while aiming, still while a trick is
                     drawn), intents read from the inputs (the mouse or the right stick
                     draw the trick), and what the body observes around it (floor,
                     walls, ledges) and under the reticle; the pilot, the bot's intents,
