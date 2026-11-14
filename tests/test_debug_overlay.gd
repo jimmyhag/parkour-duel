@@ -1,6 +1,6 @@
 extends GutTest
 ## The debug display (game/ui): hidden by default, toggled by its action, and what it
-## says of the runner.
+## says of the runner and of its flow.
 
 const OVERLAY_SCENE: PackedScene = preload("res://game/ui/debug_overlay.tscn")
 const TOGGLE_DEBUG: StringName = &"toggle_debug"
@@ -114,6 +114,37 @@ func test_the_debug_display_shows_the_wall_states() -> void:
 	assert_string_contains(overlay.text, "STATE FALLING")
 	assert_string_contains(overlay.text, "WALL RUN 0.00 s")
 	assert_string_contains(overlay.text, "WALL JUMP 0.08 s")
+
+
+func test_the_debug_display_shows_the_flow() -> void:
+	var tuning: MovementTuning = MotorBody.fixed_tuning()
+	var flow: FlowState = FlowState.new(tuning, 60)
+	var overlay: DebugOverlay = OVERLAY_SCENE.instantiate() as DebugOverlay
+	overlay.motor = RunnerMotor.new(tuning)
+	overlay.flow = flow
+	add_child_autofree(overlay)
+	_trigger(TOGGLE_DEBUG)
+	# Just under tier 2, then a slide, a jump, a roll and a jump: 2175 points, x2, the
+	# jump the second time among the last moves; then half a second on the ground.
+	flow.gauge = 1950.0
+	var none: Array[RunnerEvent] = []
+	for kind: RunnerEvent.Kind in [
+		RunnerEvent.Kind.SLIDE, RunnerEvent.Kind.JUMP, RunnerEvent.Kind.ROLL, RunnerEvent.Kind.JUMP
+	]:
+		var events: Array[RunnerEvent] = [RunnerEvent.new(kind, 0)]
+		flow.step(events, tuning.top_speed, false)
+	for i: int in 30:
+		flow.step(none, tuning.top_speed, true)
+	assert_true(flow.in_combo(), "a runner in a combo")
+
+	overlay.refresh()
+
+	assert_string_contains(overlay.text, "GAUGE 2175")
+	assert_string_contains(overlay.text, "TIER 2")
+	assert_string_contains(overlay.text, "CHAIN 1.50 s")
+	assert_string_contains(overlay.text, "REPEAT JUMP x2")
+	assert_string_contains(overlay.text, "MULTIPLIER x2")
+	assert_string_contains(overlay.text, "SPEED BONUS 10 %")
 
 
 ## A runner going at 5 m/s that left the floor one step ago, without jumping.

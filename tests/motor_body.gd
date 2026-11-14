@@ -86,6 +86,30 @@ static func fixed_tuning() -> MovementTuning:
 	tuning.wall_jump_grace_time = 0.10
 	tuning.capsule_height = 1.8
 	tuning.capsule_radius = 0.35
+	tuning.flow_points_jump = 50
+	tuning.flow_points_slide = 50
+	tuning.flow_points_perfect_slide = 150
+	tuning.flow_points_roll = 100
+	tuning.flow_points_mantle = 100
+	tuning.flow_points_wall_run = 150
+	tuning.flow_points_wall_jump = 150
+	tuning.flow_jump_min_speed_share = 0.5
+	tuning.flow_repetition_window = 4
+	tuning.flow_second_time_share = 0.5
+	tuning.flow_later_times_share = 0.0
+	tuning.flow_chain_delay = 2.0
+	tuning.flow_moves_per_multiplier = 4
+	tuning.flow_max_multiplier = 4
+	tuning.flow_tier_value = 1000.0
+	tuning.flow_tier_count = 3
+	tuning.flow_decay = 100.0
+	tuning.flow_tier_speed_bonus = [0.05, 0.10, 0.15]
+	tuning.flow_max_ammo = 3
+	tuning.flow_points_per_ammo = 1000
+	tuning.perfect_slide_window = 0.15
+	tuning.perfect_slide_speed_gain = 2.0
+	tuning.flow_stop_speed = 1.0
+	tuning.flow_stop_duration = 1.0
 	return tuning
 
 

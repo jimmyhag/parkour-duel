@@ -146,11 +146,12 @@ When one appears (the network transport, then Steam), these rules apply:
 ```
 game/               the game, one folder per layer (table above)
   core/             runner motor, intents, the facts the player observes, race state,
-                    and the tuning resource
+                    the flow state and the motor's dated messages, and the tuning
+                    resource
   player/           the runner's scene: body, camera rig, intents read from the inputs,
                     and what the body observes around it (floor, walls, ledges)
   world/            checkpoints and race lines
-  ui/               timer display and debug display
+  ui/               timer, flow and debug displays
   levels/           course scenes; test_course.tscn is the main scene for now
 addons/gut/         GUT 9.7.1, the test framework (vendored, MIT, not exported)
 tests/              headless tests, one script per subject: test_<subject>.gd; the other

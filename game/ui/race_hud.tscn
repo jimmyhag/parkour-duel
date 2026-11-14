@@ -17,7 +17,7 @@ layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
 offset_top = 16.0
-offset_bottom = 96.0
+offset_bottom = 160.0
 grow_horizontal = 2
 mouse_filter = 2
 
@@ -35,4 +35,22 @@ layout_mode = 2
 theme_override_colors/font_color = Color(1, 1, 1, 1)
 theme_override_font_sizes/font_size = 20
 text = "BEST --:--.--"
+horizontal_alignment = 1
+
+[node name="StyleLabel" type="Label" parent="Lines"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 24
+text = "STYLE 0"
+horizontal_alignment = 1
+
+[node name="BestStyleLabel" type="Label" parent="Lines"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 20
+text = "BEST STYLE 0"
 horizontal_alignment = 1
