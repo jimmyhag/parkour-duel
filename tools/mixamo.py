@@ -46,7 +46,6 @@ ANIMATIONS = {
     "Falling To Roll.fbx": "falling_to_roll.fbx",
     "Running Slide.fbx": "running_slide.fbx",
     "Sprint To Wall Climb.fbx": "sprint_to_wall_climb.fbx",
-    "Wall Run.fbx": "wall_run.fbx",
     "Backflip.fbx": "backflip.fbx",
     # The walk and the sprint of the locomotion (docs/specs/locomotion-blend.md),
     # downloaded without the character ("Without Skin"): only their animation is used.

@@ -100,9 +100,10 @@ static func fixed_tuning() -> MovementTuning:
 	tuning.animation_walk_speed = 1.4
 	tuning.animation_run_speed = 6.0
 	tuning.animation_sprint_speed = 7.0
+	tuning.animation_run_alone_pace = 1.3
 	tuning.animation_still_speed = 0.5
 	tuning.animation_landing_time = 0.25
-	tuning.animation_max_pace = 1.5
+	tuning.animation_max_pace = 1.8
 	tuning.wall_run_body_roll = 35.0
 	tuning.wall_run_roll_time = 0.15
 	tuning.flow_points_jump = 50

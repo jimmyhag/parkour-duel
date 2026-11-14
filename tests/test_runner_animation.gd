@@ -131,8 +131,9 @@ func test_the_run_follows_the_speed() -> void:
 	# the clips it blends (docs/specs/locomotion-blend.md, decision 1).
 	var own: float = RunnerAnimation.own_speed(half.locomotion, _tuning)
 	assert_almost_eq(half.speed, _tuning.top_speed / 2.0 / own, 0.01, "in step with the ground")
-	var pace: float = _tuning.top_speed / _tuning.animation_run_speed
-	assert_almost_eq(full.speed, pace, 0.01, "its own pace at the tuned speed")
+	var at_top: float = _tuning.top_speed / RunnerAnimation.own_speed(full.locomotion, _tuning)
+	var pace: float = minf(at_top, _tuning.animation_max_pace)
+	assert_almost_eq(full.speed, pace, 0.01, "in step with the ground at the top speed")
 
 
 func test_the_wall_run_on_the_other_side_is_mirrored() -> void:
@@ -243,10 +244,12 @@ func test_the_wall_run_roll_rises_and_falls_smoothly() -> void:
 
 
 func test_in_a_wall_run_the_character_runs() -> void:
-	var tier_three: float = _tuning.top_speed * (1.0 + _tuning.flow_tier_speed_bonus[2])
-	var slow: float = (_tuning.wall_run_start_speed + _tuning.top_speed) / 2.0
-	var between: float = (_tuning.top_speed + tier_three) / 2.0
-	var fast: float = tier_three + 1.0
+	# Running alone where it is alone on the ground and below, Sprint from the top speed.
+	var running_alone: float = _tuning.animation_run_speed * _tuning.animation_run_alone_pace
+	assert_lt(_tuning.wall_run_start_speed, running_alone, "a slow wall run is slower")
+	var slow: float = _tuning.wall_run_start_speed
+	var between: float = (running_alone + _tuning.top_speed) / 2.0
+	var fast: float = _tuning.top_speed + 1.0
 	var cases: Array[Array] = [
 		[slow, [0.0, 0.0, 1.0, 0.0], "slow along the wall: Running"],
 		[between, [0.0, 0.0, 0.5, 0.5], "faster: Running and Sprint"],
@@ -282,7 +285,8 @@ func test_no_clip_is_played_too_fast() -> void:
 	for tuning: MovementTuning in [_tuning, game_tuning]:
 		var most: float = tuning.animation_max_pace
 		var named: String = "the game's tuning" if tuning == game_tuning else "the fixed tuning"
-		assert_almost_eq(most, 1.5, 0.0001, named + ": at most 1.5 times its own pace")
+		# 1.8 times its own pace, as amended with the blend space of the locomotion.
+		assert_almost_eq(most, 1.8, 0.0001, named + ": at most 1.8 times its own pace")
 		# Each state of a fixed duration: its clip fitted to it, or its first part only.
 		var states: Dictionary[RunnerAnimation.Clip, float] = _fixed_durations(tuning)
 		for clip: RunnerAnimation.Clip in states:

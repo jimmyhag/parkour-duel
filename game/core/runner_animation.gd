@@ -107,14 +107,15 @@ static func of(
 
 ## The weight of each clip of the locomotion (LOCOMOTION) for a runner on its feet at the
 ## horizontal speed `speed`: Idle alone up to the still speed, Walking alone at its own
-## speed, Running alone at the top speed, Sprint alone from the top speed of the last tier
-## of the flow; between two of them, those two, in proportion. They sum to 1.
+## speed, Running alone at its own speed times the pace the tuning gives it alone, Sprint
+## alone from the top speed (docs/specs/locomotion-blend.md, decision 1 as amended);
+## between two of them, those two, in proportion. They sum to 1.
 static func locomotion_weights(speed: float, tuning: MovementTuning) -> PackedFloat32Array:
 	var points: PackedFloat32Array = [
 		tuning.animation_still_speed,
 		tuning.animation_walk_speed,
+		_running_alone(tuning),
 		tuning.top_speed,
-		tuning.top_speed * (1.0 + _last_tier_bonus(tuning)),
 	]
 	var weights: PackedFloat32Array = []
 	weights.resize(points.size())
@@ -216,14 +217,15 @@ func _walk(ground_speed: float, tuning: MovementTuning) -> void:
 	_keep_up_with(ground_speed, tuning)
 
 
-## The run of a runner along a wall, as fast as it goes along it: Running up to the top
-## speed, blended into Sprint above it, as on the ground; its feet keep up with the wall.
+## The run of a runner along a wall, as fast as it goes along it: Running up to where it
+## plays alone on the ground, then as on the ground, blended into Sprint up to the top speed;
+## its feet keep up with the wall.
 func _run_along_the_wall(motor: RunnerMotor, tuning: MovementTuning) -> void:
 	wall_side = _side_of_the_wall(motor)
 	var away: Vector3 = motor.wall_run_normal()
 	var motion: Vector3 = Vector3(motor.velocity.x, 0.0, motor.velocity.z)
 	var along: float = (motion - away * motion.dot(away)).length()
-	locomotion = locomotion_weights(maxf(along, tuning.top_speed), tuning)
+	locomotion = locomotion_weights(maxf(along, _running_alone(tuning)), tuning)
 	clip = Clip.RUNNING
 	_keep_up_with(along, tuning)
 
@@ -241,11 +243,9 @@ static func _table_name(clip: Clip) -> String:
 	return name.to_lower()
 
 
-## The share of the top speed the last tier of the flow adds.
-static func _last_tier_bonus(tuning: MovementTuning) -> float:
-	var bonuses: Array[float] = tuning.flow_tier_speed_bonus
-	var last: int = mini(tuning.flow_tier_count, bonuses.size())
-	return 0.0 if last <= 0 else bonuses[last - 1]
+## The speed at which Running plays alone, in m/s.
+static func _running_alone(tuning: MovementTuning) -> float:
+	return tuning.animation_run_speed * tuning.animation_run_alone_pace
 
 
 ## The side of the wall the runner runs along, the way it moves: the way away from it

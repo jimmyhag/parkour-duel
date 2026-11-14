@@ -80,12 +80,19 @@ func before_each() -> void:
 
 
 func test_the_blend_space_weights_follow_the_speed() -> void:
+	# Running alone at 1.3 times its own speed, Sprint alone from the top speed
+	# (docs/specs/locomotion-blend.md, decision 1 as amended).
+	var run_point: float = _tuning.animation_run_speed * _tuning.animation_run_alone_pace
+	assert_almost_eq(_tuning.animation_run_alone_pace, 1.3, 0.0001, "Running alone at 1.3 times")
 	var still: PackedFloat32Array = _weights_of(_running_at(0.0))
-	var between: float = (_tuning.animation_walk_speed + _tuning.top_speed) / 2.0
+	var between: float = (_tuning.animation_walk_speed + run_point) / 2.0
 	var walking_and_running: PackedFloat32Array = _weights_of(_running_at(between))
+	var running: PackedFloat32Array = _weights_of(_running_at(run_point))
+	var faster: float = (run_point + _tuning.top_speed) / 2.0
+	var running_and_sprinting: PackedFloat32Array = _weights_of(_running_at(faster))
 	var at_top_speed: PackedFloat32Array = _weights_of(_running_at(_tuning.top_speed))
 	var flowing: MotorBody = _running_at(_tuning.top_speed)
-	# Tier 2 of the flow: faster than the top speed, slower than tier 3.
+	# Tier 2 of the flow: faster than the top speed.
 	flowing.motor.top_speed_bonus = _tuning.flow_tier_speed_bonus[1]
 	for step: int in FLOW_STEPS:
 		flowing.step(_push(FORWARD))
@@ -94,15 +101,13 @@ func test_the_blend_space_weights_follow_the_speed() -> void:
 	_assert_weights(still, [1.0, 0.0, 0.0, 0.0], "still: Idle alone")
 	assert_almost_eq(walking_and_running[WALKING], 0.5, 0.02, "between: half Walking")
 	assert_almost_eq(walking_and_running[RUNNING], 0.5, 0.02, "and half Running")
-	_assert_weights(at_top_speed, [0.0, 0.0, 1.0, 0.0], "at its top speed: Running alone")
+	_assert_weights(running, [0.0, 0.0, 1.0, 0.0], "at 1.3 times its own speed: Running alone")
+	assert_almost_eq(running_and_sprinting[RUNNING], 0.5, 0.02, "faster: half Running")
+	assert_almost_eq(running_and_sprinting[SPRINT], 0.5, 0.02, "and half Sprint")
+	_assert_weights(at_top_speed, [0.0, 0.0, 0.0, 1.0], "at the top speed: Sprint alone")
 	assert_gt(flowing.motor.real_speed(), _tuning.top_speed, "with the flow, faster")
-	assert_gt(with_the_flow[RUNNING], 0.0, "with the flow: Running")
-	assert_gt(with_the_flow[SPRINT], 0.0, "blended with Sprint")
-	assert_almost_eq(with_the_flow[RUNNING] + with_the_flow[SPRINT], 1.0, 0.001, "only them")
+	_assert_weights(with_the_flow, [0.0, 0.0, 0.0, 1.0], "beyond, with the flow: Sprint alone")
 
-	var sprint_point: float = _tuning.top_speed * (1.0 + _tuning.flow_tier_speed_bonus[2])
-	var sprinting: PackedFloat32Array = RunnerAnimation.locomotion_weights(sprint_point, _tuning)
-	_assert_weights(sprinting, [0.0, 0.0, 0.0, 1.0], "at the top speed of tier 3: Sprint alone")
 	var walking: PackedFloat32Array = RunnerAnimation.locomotion_weights(
 		_tuning.animation_walk_speed, _tuning
 	)
@@ -110,6 +115,20 @@ func test_the_blend_space_weights_follow_the_speed() -> void:
 	var animation: RunnerAnimation = RunnerAnimation.of(_running_at(between).motor, STEP)
 	assert_eq(animation.clip, RunnerAnimation.Clip.RUNNING, "moving on its feet: the locomotion")
 	assert_eq(animation.locomotion, walking_and_running, "with its weights")
+	# The game's tuning: Running alone at about 5.84 m/s.
+	var game_tuning: MovementTuning = load(TUNING) as MovementTuning
+	var game_point: float = game_tuning.animation_run_speed * game_tuning.animation_run_alone_pace
+	assert_almost_eq(game_point, 5.84, 0.01, "the game's run alone")
+	_assert_weights(
+		RunnerAnimation.locomotion_weights(game_point, game_tuning),
+		[0.0, 0.0, 1.0, 0.0],
+		"the game's tuning: Running alone there"
+	)
+	_assert_weights(
+		RunnerAnimation.locomotion_weights(game_tuning.top_speed, game_tuning),
+		[0.0, 0.0, 0.0, 1.0],
+		"the game's tuning: Sprint alone at the top speed"
+	)
 
 
 func test_the_weights_always_make_a_whole() -> void:
@@ -185,9 +204,10 @@ func test_the_blended_clips_keep_the_same_phase() -> void:
 	var foot: Array[int] = [
 		skeleton.find_bone(RunnerCharacter.LEFT_FOOT), skeleton.find_bone(RunnerCharacter.LEFT_TOE)
 	]
-	var sprint_point: float = game_tuning.top_speed * (1.0 + game_tuning.flow_tier_speed_bonus[2])
 	var points: Array[float] = [
-		game_tuning.animation_walk_speed, game_tuning.top_speed, sprint_point
+		game_tuning.animation_walk_speed,
+		game_tuning.animation_run_speed * game_tuning.animation_run_alone_pace,
+		game_tuning.top_speed,
 	]
 	for point: int in points.size():
 		character.play(_locomotion_at(points[point], game_tuning))

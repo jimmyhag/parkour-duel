@@ -299,11 +299,14 @@ extends Resource
 ## The horizontal speed of the stride of Walking, of Running and of Sprint, measured from
 ## their clips, in m/s: how fast the foot on the ground goes back when the clip plays at its
 ## own pace. The locomotion plays its clips so that the feet keep up with the ground.
-## Walking plays alone at its own speed; Running alone at the top speed, Sprint alone at the
-## top speed of the last tier of the flow.
+## Walking plays alone at its own speed; Running alone at its own speed times
+## animation_run_alone_pace; Sprint alone from the top speed, and beyond it.
 @export var animation_walk_speed: float = 0.0
 @export var animation_run_speed: float = 0.0
 @export var animation_sprint_speed: float = 0.0
+## How many times faster than its own pace Running plays where it is alone: its point in the
+## blend of the locomotion is its own speed times this.
+@export var animation_run_alone_pace: float = 0.0
 ## Under this horizontal speed, a runner on its feet stands: Idle alone, in m/s; from it to
 ## the speed of Walking, Idle blends into Walking.
 @export var animation_still_speed: float = 0.0
