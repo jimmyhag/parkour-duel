@@ -117,6 +117,29 @@ Fonctionnalité: Où regarde le coureur
 Le scénario « Le coureur se tourne vers où il pousse au rythme réglé » se prouve avec la
 valeur de `turn_speed` lue dans la ressource de réglage, pas avec 14 écrit dans le test.
 
+## Choix acceptés à l'inspection
+
+Le code et l'inspection ont tranché ces points le 2026-11-14 ; Jimmy peut rouvrir
+chacun d'eux après avoir joué.
+
+- **Un test existant adapté, malgré la décision 7** :
+  `test_a_ledge_approached_at_an_angle_gives_a_mantle` (`tests/test_player_ledges.gd`)
+  comptait sur l'ancien comportement, où la physique tournait le corps visible le long
+  de la face. Le test tourne maintenant lui-même le corps de profil à chaque pas avant
+  le mantle ; il prouve toujours la décision 22 de `docs/specs/movement-walls.md`, et
+  son assertion n'a pas changé.
+- **« Presque nulle »** : 0,1 m/s, une constante de `game/player/player.gd`
+  (`ALMOST_STILL`), pas une valeur de la ressource de réglage : c'est un seuil de
+  mesure, pas une sensation.
+- **Roulade et réception dure** : aucun scénario ne les couvre ; elles suivent les
+  décisions 2 et 1, et se jugent manette en main.
+- **Rotation interrompue par un mantle** : le corps garde l'orientation de la fin du
+  pas précédent, même si sa rotation vers la poussée n'était pas finie.
+- **Le cas de Jimmy** : sur un rebord à 1,9 m, l'ancien code ne tournait pas encore,
+  car le mantle partait dès le premier pas en l'air ; sur une face plus haute, que le
+  saut doit d'abord rejoindre, il tournait de 68 à 70°. Le test couvre les deux
+  hauteurs.
+
 ## Hors périmètre
 
 - Animations, modèle de personnage : étape 6. Cette spec prépare leur orientation, rien
