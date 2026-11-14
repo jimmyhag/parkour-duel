@@ -137,16 +137,17 @@ animation_blend_times = Dictionary[String, float]({
 "landing>running": 0.15,
 "running>jump": 0.05,
 "running>running_slide": 0.08,
-"running>wall_run": 0.1,
 "running_slide>running": 0.2,
-"tuck>*": 0.12,
-"wall_run>falling_idle": 0.15
+"tuck>*": 0.12
 })
 animation_walk_speed = 1.49
 animation_run_speed = 4.49
 animation_sprint_speed = 5.65
 animation_still_speed = 0.5
 animation_landing_time = 0.25
+animation_max_pace = 1.5
+wall_run_body_roll = 35.0
+wall_run_roll_time = 0.15
 camera_distance = 4.5
 camera_look_height = 1.6
 camera_look_down_limit = 60.0

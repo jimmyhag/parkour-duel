@@ -310,6 +310,15 @@ extends Resource
 ## How long Landing plays after a landing that is neither hard nor rolled, in s; shorter
 ## than a hard landing.
 @export var animation_landing_time: float = 0.0
+## The fastest a clip plays, as a share of its own pace: a clip that would have to play
+## faster to fit its move plays its first part only; the locomotion plays no faster, its
+## feet then slipping on the ground.
+@export var animation_max_pace: float = 0.0
+## In a wall run, how far the character's whole body rolls about the way it runs, its feet
+## towards the wall and its head away from it, in degrees; and how long the roll takes to
+## come, in s, and as long to go once the wall run is over.
+@export var wall_run_body_roll: float = 0.0
+@export var wall_run_roll_time: float = 0.0
 
 @export_group("Camera")
 ## Distance between the camera and the point it looks at, in m.

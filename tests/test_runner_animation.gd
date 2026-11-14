@@ -1,9 +1,10 @@
 extends GutTest
 ## The animation the runner's body shows, chosen from the state of its motor (game/core),
-## without the Mixamo files: the clip of each state, its playback speed, the side of the
-## wall it runs along and the mirror that follows, the tuck pose of a trick, the aim held
-## by the upper body, and the brief landing. The tuning is the fixed one of MotorBody; the
-## runners go along -Z.
+## without the Mixamo files: the clip of each state, its playback speed and its limit, the
+## run along a wall and the roll of the body there, the tuck pose of a trick, the aim held
+## by the upper body, the brief landing, and the table of blend times of the game. The
+## tuning is the fixed one of MotorBody, or the game's where it says so; the runners go
+## along -Z.
 
 const FORWARD: Vector3 = Vector3.FORWARD
 ## A wall at the left of a runner going along -Z (its normal points to the runner), and
@@ -21,6 +22,22 @@ const STEP: float = MotorBody.STEP
 const SMALL_FALL: float = 1.0
 ## More steps than any fall of these tests lasts.
 const MANY_STEPS: int = 600
+## The tuning of the game.
+const TUNING: String = "res://game/core/movement_tuning.tres"
+## Steps of a wall run held, then of the fall after it: longer than the roll takes, shorter
+## than a wall run lasts.
+const HOLD_STEPS: int = 30
+## A wall run cut short: fewer steps than the roll takes.
+const SHORT_STEPS: int = 4
+## Ground speeds swept, from still to past the fastest a runner goes, and their step, in m/s.
+const FASTEST: float = 16.0
+const SPEED_STEP: float = 0.1
+## The clips whose state lasts a fixed time, and the state of the motor each one shows.
+const FIXED_DURATIONS: Dictionary[RunnerAnimation.Clip, RunnerMotor.State] = {
+	RunnerAnimation.Clip.HARD_LANDING: RunnerMotor.State.HARD_LANDING,
+	RunnerAnimation.Clip.FALLING_TO_ROLL: RunnerMotor.State.ROLLING,
+	RunnerAnimation.Clip.SPRINT_TO_WALL_CLIMB: RunnerMotor.State.MANTLING,
+}
 
 var _tuning: MovementTuning
 
@@ -38,7 +55,8 @@ func test_every_state_of_the_runner_has_its_animation() -> void:
 		RunnerMotor.State.ROLLING: RunnerAnimation.Clip.FALLING_TO_ROLL,
 		RunnerMotor.State.SLIDING: RunnerAnimation.Clip.RUNNING_SLIDE,
 		RunnerMotor.State.MANTLING: RunnerAnimation.Clip.SPRINT_TO_WALL_CLIMB,
-		RunnerMotor.State.WALL_RUNNING: RunnerAnimation.Clip.WALL_RUN,
+		# Along a wall, the run (docs/specs/animation-polish.md).
+		RunnerMotor.State.WALL_RUNNING: RunnerAnimation.Clip.RUNNING,
 	}
 	assert_eq(expected.size(), RunnerMotor.State.size(), "every state of the motor is listed")
 	for state: RunnerMotor.State in expected:
@@ -125,23 +143,17 @@ func test_the_wall_run_on_the_other_side_is_mirrored() -> void:
 		_wall_runner(RIGHT_WALL).motor, MotorBody.STEP
 	)
 
-	assert_eq(along_the_left.clip, RunnerAnimation.Clip.WALL_RUN, "a wall at its left: Wall Run")
-	assert_eq(along_the_right.clip, RunnerAnimation.Clip.WALL_RUN, "a wall at its right: Wall Run")
+	assert_eq(along_the_left.clip, RunnerAnimation.Clip.RUNNING, "a wall at its left: the run")
+	assert_eq(along_the_right.clip, RunnerAnimation.Clip.RUNNING, "a wall at its right: the run")
 	assert_eq(along_the_left.wall_side, RunnerAnimation.WallSide.LEFT, "the wall at its left")
 	assert_eq(along_the_right.wall_side, RunnerAnimation.WallSide.RIGHT, "the wall at its right")
-	# Whichever side the clip has its wall on, measured from its bones (WallRunPose):
-	# mirrored for one of the two, and played as it is along a wall on its own side.
-	var sides: Array[RunnerAnimation.WallSide] = [
-		RunnerAnimation.WallSide.LEFT, RunnerAnimation.WallSide.RIGHT
-	]
-	for clip_side: RunnerAnimation.WallSide in sides:
-		var clip: WallRunPose = WallRunPose.new()
-		clip.side = clip_side
-		var context: String = "a clip with its wall at the %s" % _side_name(clip_side)
-		var left: bool = clip.mirrors(along_the_left.wall_side)
-		var right: bool = clip.mirrors(along_the_right.wall_side)
-		assert_ne(left, right, context + ": mirrored for one of the two")
-		assert_false(clip.mirrors(clip_side), context + ": as it is along a wall on its side")
+	# The body rolls its feet towards the wall: one way along a wall at its left, the
+	# mirror way along a wall at its right.
+	var full: float = deg_to_rad(_tuning.wall_run_body_roll)
+	var left: float = _held_roll(along_the_left.wall_side)
+	var right: float = _held_roll(along_the_right.wall_side)
+	assert_almost_eq(left, -full, 0.0001, "a wall at its left: its head away, to its right")
+	assert_almost_eq(right, full, 0.0001, "a wall at its right: its head away, to its left")
 
 
 func test_a_trick_takes_the_tuck_pose() -> void:
@@ -201,26 +213,199 @@ func test_a_simple_landing_plays_landing_briefly() -> void:
 	assert_eq(landing.duration, _tuning.animation_landing_time, "played in that time")
 
 
-## A body on the floor that runs at `speed` along -Z, as it starts its next step.
-func _running_at(speed: float) -> MotorBody:
-	var body: MotorBody = MotorBody.running(_tuning, FORWARD, speed)
-	body.step(_push(FORWARD * speed / _tuning.top_speed))
+func test_the_wall_run_roll_rises_and_falls_smoothly() -> void:
+	var full: float = deg_to_rad(_tuning.wall_run_body_roll)
+	var rate: float = full / _tuning.wall_run_roll_time
+	var rise_steps: int = roundi(_tuning.wall_run_roll_time / STEP)
+	for normal: Vector3 in [LEFT_WALL, RIGHT_WALL]:
+		var context: String = "a wall at its %s" % ("left" if normal == LEFT_WALL else "right")
+		var way: float = -1.0 if normal == LEFT_WALL else 1.0
+		var rolls: Array[float] = _rolls_along(normal, HOLD_STEPS)
+		# It comes: from 0 to the tuned roll in the tuned time, at an even pace.
+		for step: int in rise_steps:
+			var expected: float = way * minf(rate * STEP * (step + 1), full)
+			assert_almost_eq(rolls[step], expected, 0.0001, "%s: rising, step %d" % [context, step])
+		# It holds.
+		for step: int in range(rise_steps, HOLD_STEPS):
+			assert_almost_eq(rolls[step], way * full, 0.0001, "%s: held, step %d" % [context, step])
+		# It goes, in the same time, back to 0, and stays there.
+		for step: int in HOLD_STEPS:
+			var expected: float = way * maxf(full - rate * STEP * (step + 1), 0.0)
+			var after: float = rolls[HOLD_STEPS + step]
+			assert_almost_eq(after, expected, 0.0001, "%s: going, step %d" % [context, step])
+		_assert_without_a_jump(rolls, rate * STEP, context)
+
+	# A wall run cut short: the roll goes back from where it got to, without a jump.
+	var short: Array[float] = _rolls_along(LEFT_WALL, SHORT_STEPS)
+	assert_almost_eq(short[SHORT_STEPS - 1], -rate * STEP * SHORT_STEPS, 0.0001, "cut short")
+	assert_almost_eq(short[-1], 0.0, 0.0001, "back upright")
+	_assert_without_a_jump(short, rate * STEP, "a wall run cut short")
+
+
+func test_in_a_wall_run_the_character_runs() -> void:
+	var tier_three: float = _tuning.top_speed * (1.0 + _tuning.flow_tier_speed_bonus[2])
+	var slow: float = (_tuning.wall_run_start_speed + _tuning.top_speed) / 2.0
+	var between: float = (_tuning.top_speed + tier_three) / 2.0
+	var fast: float = tier_three + 1.0
+	var cases: Array[Array] = [
+		[slow, [0.0, 0.0, 1.0, 0.0], "slow along the wall: Running"],
+		[between, [0.0, 0.0, 0.5, 0.5], "faster: Running and Sprint"],
+		[fast, [0.0, 0.0, 0.0, 1.0], "fast along the wall: Sprint"],
+	]
+	for case: Array in cases:
+		var speed: float = case[0]
+		var listed: Array = case[1]
+		var weights: Array[float] = []
+		weights.assign(listed)
+		var context: String = case[2]
+		var body: MotorBody = _wall_runner(LEFT_WALL, speed)
+		for step: int in HOLD_STEPS:
+			var animation: RunnerAnimation = RunnerAnimation.of(body.motor, STEP)
+			assert_eq(body.motor.state, RunnerMotor.State.WALL_RUNNING, context + ": along it")
+			assert_eq(animation.clip, RunnerAnimation.Clip.RUNNING, context + ": the run")
+			assert_eq(animation.wall_side, RunnerAnimation.WallSide.LEFT, context + ": its side")
+			for index: int in weights.size():
+				assert_almost_eq(animation.locomotion[index], weights[index], 0.01, context)
+			# Its feet keep up with the wall as they would with the ground.
+			var stride: float = RunnerAnimation.own_speed(animation.locomotion, _tuning)
+			var pace: float = minf(speed / stride, _tuning.animation_max_pace)
+			assert_almost_eq(animation.speed, pace, 0.01, context + ": its pace")
+			body.step(_push(FORWARD))
+	# Never the clip Wall Run: the game has it no more.
+	assert_false("WALL_RUN" in RunnerAnimation.Clip.keys(), "no clip Wall Run")
+	for file: String in RunnerCharacter.CLIP_FILES.values():
+		assert_false(file.contains("wall_run"), "%s: not the file of Wall Run" % file)
+
+
+func test_no_clip_is_played_too_fast() -> void:
+	var game_tuning: MovementTuning = load(TUNING) as MovementTuning
+	for tuning: MovementTuning in [_tuning, game_tuning]:
+		var most: float = tuning.animation_max_pace
+		var named: String = "the game's tuning" if tuning == game_tuning else "the fixed tuning"
+		assert_almost_eq(most, 1.5, 0.0001, named + ": at most 1.5 times its own pace")
+		# Each state of a fixed duration: its clip fitted to it, or its first part only.
+		var states: Dictionary[RunnerAnimation.Clip, float] = _fixed_durations(tuning)
+		for clip: RunnerAnimation.Clip in states:
+			var duration: float = states[clip]
+			var cut: Vector2 = RunnerCharacter.CUTS[clip]
+			var length: float = cut.y - cut.x
+			var pace: float = RunnerAnimation.fitted_pace(length, duration, tuning)
+			var context: String = "%s, %s" % [named, RunnerAnimation.Clip.keys()[clip]]
+			assert_gt(duration, 0.0, context + ": a fixed duration")
+			assert_lte(pace, most + 0.0001, context + ": not too fast")
+			assert_almost_eq(pace, minf(length / duration, most), 0.0001, context + ": fitted")
+		# Every speed on the ground, and along a wall.
+		var speed: float = 0.0
+		while speed <= FASTEST:
+			var running: RunnerAnimation = RunnerAnimation.of(
+				_running_at(speed, tuning).motor, STEP
+			)
+			var context: String = "%s, %.1f m/s" % [named, speed]
+			assert_lte(running.speed, most + 0.0001, context + " on the ground: not too fast")
+			if speed >= tuning.wall_run_start_speed:
+				var along: RunnerAnimation = RunnerAnimation.of(
+					_wall_runner(LEFT_WALL, speed, tuning).motor, STEP
+				)
+				assert_lte(along.speed, most + 0.0001, context + " along a wall: not too fast")
+			speed += SPEED_STEP
+
+
+func test_the_table_of_blend_times_names_real_clips() -> void:
+	# Every key of the game's table is "from>to", each side a clip as the table names it
+	# (the locomotion as "running") or any clip: a key naming no clip would never be read.
+	var names: Array[String] = [RunnerAnimation.ANY_CLIP]
+	for clip: String in RunnerAnimation.Clip.keys():
+		var named: RunnerAnimation.Clip = RunnerAnimation.Clip[clip]
+		if named not in RunnerAnimation.LOCOMOTION or named == RunnerAnimation.Clip.RUNNING:
+			names.append(clip.to_lower())
+	var table: Dictionary[String, float] = (load(TUNING) as MovementTuning).animation_blend_times
+	assert_gt(table.size(), 0, "the game has a table")
+	for key: String in table:
+		var pair: PackedStringArray = key.split(">")
+		assert_eq(pair.size(), 2, "%s: a pair" % key)
+		for side: String in pair:
+			assert_has(names, side, "%s: %s is a clip of the table" % [key, side])
+		assert_gt(table[key], 0.0, "%s: a blend time" % key)
+
+
+## A body on the floor that runs at `speed` along -Z, as it starts its next step; with
+## `tuning`, the fixed one by default.
+func _running_at(speed: float, tuning: MovementTuning = null) -> MotorBody:
+	var used: MovementTuning = _tuning if tuning == null else tuning
+	var body: MotorBody = MotorBody.running(used, FORWARD, speed)
+	body.step(_push(FORWARD * minf(speed / used.top_speed, 1.0)))
 	return body
 
 
-## A body that has just started to run along a wall whose normal is `normal`.
-func _wall_runner(normal: Vector3) -> MotorBody:
-	var body: MotorBody = MotorBody.new(_tuning, ALONG_A_WALL)
-	body.velocity = FORWARD * _tuning.top_speed
+## A body that has just started to run along a wall whose normal is `normal`, at `speed`
+## (the top speed by default), with `tuning` (the fixed one by default).
+func _wall_runner(normal: Vector3, speed: float = -1.0, tuning: MovementTuning = null) -> MotorBody:
+	var used: MovementTuning = _tuning if tuning == null else tuning
+	var body: MotorBody = MotorBody.new(used, ALONG_A_WALL)
+	body.velocity = FORWARD * (used.top_speed if speed < 0.0 else speed)
 	body.set_wall(A_WALL, normal, CLOSE, TALL)
 	body.step(_push(FORWARD))
 	assert_eq(body.motor.state, RunnerMotor.State.WALL_RUNNING, "a wall runner")
 	return body
 
 
-## The animation of a body that has just landed from a small fall, without moving.
-func _landed_still() -> RunnerAnimation:
-	var body: MotorBody = MotorBody.new(_tuning, SMALL_FALL)
+## The roll of the body of a runner that enters a wall run along a wall whose normal is
+## `normal`, holds it `steps` steps, then leaves it (the wall gone) for HOLD_STEPS steps:
+## the roll after each step.
+func _rolls_along(normal: Vector3, steps: int) -> Array[float]:
+	var body: MotorBody = MotorBody.new(_tuning, HIGH)
+	body.velocity = FORWARD * _tuning.top_speed
+	body.set_wall(A_WALL, normal, CLOSE, TALL)
+	var rolls: Array[float] = []
+	var roll: float = 0.0
+	for step: int in steps + HOLD_STEPS:
+		if step == steps:
+			body.remove_wall()
+		body.step(_push(FORWARD))
+		var along: bool = body.motor.state == RunnerMotor.State.WALL_RUNNING
+		assert_eq(along, step < steps, "step %d: along the wall while it is there" % step)
+		var animation: RunnerAnimation = RunnerAnimation.of(body.motor, STEP)
+		roll = RunnerAnimation.wall_run_roll(roll, animation.wall_side, STEP, _tuning)
+		rolls.append(roll)
+	return rolls
+
+
+## The roll of a body that has run along a wall at `side` for longer than the roll takes.
+func _held_roll(side: RunnerAnimation.WallSide) -> float:
+	var roll: float = 0.0
+	for step: int in HOLD_STEPS:
+		roll = RunnerAnimation.wall_run_roll(roll, side, STEP, _tuning)
+	return roll
+
+
+## From one roll to the next, never more than `most` (and a little).
+func _assert_without_a_jump(rolls: Array[float], most: float, context: String) -> void:
+	var before: float = 0.0
+	for roll: float in rolls:
+		assert_lte(absf(roll - before), most + 0.0001, context + ": without a jump")
+		before = roll
+
+
+## The duration of each state of a fixed duration with `tuning`, as its animation says.
+func _fixed_durations(tuning: MovementTuning) -> Dictionary[RunnerAnimation.Clip, float]:
+	var durations: Dictionary[RunnerAnimation.Clip, float] = {}
+	for clip: RunnerAnimation.Clip in FIXED_DURATIONS:
+		var body: MotorBody = MotorBody.new(tuning)
+		body.step(MoveIntent.new())
+		body.motor.state = FIXED_DURATIONS[clip]
+		var animation: RunnerAnimation = RunnerAnimation.of(body.motor, STEP)
+		assert_eq(animation.clip, clip, "the clip of %s" % RunnerAnimation.Clip.keys()[clip])
+		durations[clip] = animation.duration
+	var landing: RunnerAnimation = _landed_still(tuning)
+	assert_eq(landing.clip, RunnerAnimation.Clip.LANDING, "a landing")
+	durations[RunnerAnimation.Clip.LANDING] = landing.duration
+	return durations
+
+
+## The animation of a body that has just landed from a small fall, without moving; with
+## `tuning`, the fixed one by default.
+func _landed_still(tuning: MovementTuning = null) -> RunnerAnimation:
+	var body: MotorBody = MotorBody.new(_tuning if tuning == null else tuning, SMALL_FALL)
 	_fall_to_the_ground(body, MoveIntent.new())
 	return RunnerAnimation.of(body.motor, MotorBody.STEP)
 
@@ -236,10 +421,6 @@ func _fall_until(body: MotorBody, intent: MoveIntent, state: RunnerMotor.State) 
 	while body.motor.state != state and steps < MANY_STEPS:
 		body.step(intent)
 		steps += 1
-
-
-func _side_name(side: RunnerAnimation.WallSide) -> String:
-	return "left" if side == RunnerAnimation.WallSide.LEFT else "right"
 
 
 func _push(direction: Vector3) -> MoveIntent:

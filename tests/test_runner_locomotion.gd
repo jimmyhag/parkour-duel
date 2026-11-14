@@ -20,18 +20,22 @@ const RUNNING: int = 2
 const SPRINT: int = 3
 ## Speeds well spread over the whole range of the locomotion, in m/s.
 const SPEEDS: Array[float] = [0.0, 0.3, 0.5, 0.9, 1.4, 2.0, 4.4, 7.0, 9.0, 9.4, 10.0, 10.35, 14.0]
-## A made-up stride of two clips: the height of the left foot (its ankle and its toe) above
-## the ground at evenly spaced instants of one cycle, and the length of that cycle, in s.
-## The first touches the ground at its third sample; the second, longer, at its sixth.
+## A made-up stride of three clips: the height of the left foot (its ankle and its toe)
+## above the ground at evenly spaced instants of one cycle, and the length of that cycle, in
+## s. The first touches the ground at its third sample; the second, longer, at its sixth;
+## the third brushes the ground for one sample (its second) before it lands for good at its
+## sixth: its touchdown is the start of its longest time on the ground.
 const MADE_UP_ANKLES: Array[PackedFloat32Array] = [
 	[0.30, 0.20, 0.12, 0.10, 0.10, 0.11, 0.25, 0.40],
 	[0.25, 0.30, 0.31, 0.29, 0.20, 0.11, 0.10, 0.10, 0.10, 0.18],
+	[0.30, 0.10, 0.25, 0.30, 0.20, 0.10, 0.10, 0.10, 0.10, 0.20],
 ]
 const MADE_UP_TOES: Array[PackedFloat32Array] = [
 	[0.20, 0.10, 0.005, 0.00, 0.00, 0.00, 0.10, 0.30],
 	[0.15, 0.20, 0.20, 0.18, 0.10, 0.005, 0.00, 0.00, 0.00, 0.08],
+	[0.20, 0.005, 0.15, 0.20, 0.10, 0.00, 0.00, 0.00, 0.00, 0.10],
 ]
-const MADE_UP_TOUCHDOWNS: Array[float] = [2.0 / 8.0, 5.0 / 10.0]
+const MADE_UP_TOUCHDOWNS: Array[float] = [2.0 / 8.0, 5.0 / 10.0, 5.0 / 10.0]
 const MADE_UP_LENGTHS: Array[float] = [1.2, 0.7]
 ## A made-up cycle of the locomotion, from the left foot's touchdown: at each of its eight
 ## phases, how far the left foot is ahead of the right one, and how much higher, in m.
@@ -63,6 +67,10 @@ const SETTLE_STEPS: int = 20
 ## How far apart two phases may be read, the tree having played a frame since: a share of
 ## the cycle.
 const PHASE_TOLERANCE: float = 0.06
+## How close to the speed of the ground the foot on it goes back, as a share of it.
+const GROUND_TOLERANCE: float = 0.1
+## How many times a second the tree is advanced to follow a foot.
+const FOOT_SAMPLES_PER_SECOND: float = 240.0
 
 var _tuning: MovementTuning
 
@@ -129,6 +137,7 @@ func test_the_blended_clips_keep_the_same_phase() -> void:
 		assert_almost_eq(
 			touchdown, MADE_UP_TOUCHDOWNS[index], 0.001, "clip %d: its touchdown" % index
 		)
+	_assert_the_walk_keeps_up_with_the_ground()
 	var speeds: PackedFloat32Array = [0.0, 1.5, 4.5, 0.0]
 	var lengths: PackedFloat32Array = [5.0, MADE_UP_LENGTHS[0], MADE_UP_LENGTHS[1], 1.0]
 	for share: float in [0.0, 0.25, 0.5, 1.0]:
@@ -198,6 +207,17 @@ func test_the_blended_clips_keep_the_same_phase() -> void:
 		var clip: String = RunnerAnimation.Clip.keys()[RunnerCharacter.STRIDES[point]]
 		gut.p("%s at phase 0: its left foot %.3f m above its lowest" % [clip, above])
 		assert_lt(above, ON_THE_GROUND, "%s at phase 0: the left foot on the ground" % clip)
+
+	# Each clip that strides, alone at its own speed: its foot on the ground goes back as
+	# fast as the ground passes under the runner.
+	var speeds_of_the_strides: PackedFloat32Array = RunnerAnimation.stride_speeds(game_tuning)
+	for point: int in RunnerCharacter.STRIDES.size():
+		var clip: RunnerAnimation.Clip = RunnerCharacter.STRIDES[point]
+		var ground: float = speeds_of_the_strides[point + 1]
+		var back: float = _planted_foot_speed(character, clip, ground)
+		var named: String = RunnerAnimation.Clip.keys()[clip]
+		gut.p("%s at %.2f m/s: its planted foot goes back at %.2f m/s" % [named, ground, back])
+		assert_almost_eq(back, ground, ground * GROUND_TOLERANCE, named + ": the foot keeps up")
 
 
 func test_each_transition_has_its_blend_time() -> void:
@@ -323,6 +343,84 @@ func test_the_run_resumes_at_the_right_stride() -> void:
 		gut.p("%s: pose %s, resumed at %.3f, nearest %.3f" % [context, pose, resumed, expected])
 		var apart: float = absf(wrapf(resumed - expected, -0.5, 0.5))
 		assert_lt(apart, PHASE_TOLERANCE, context + ": the nearest phase")
+
+
+## Between standing and walking, Idle blended with Walking: the stride is as much shorter
+## as Idle weighs, and the walk plays as much faster, so that its foot on the ground keeps
+## up with the ground, as long as the walk plays no faster than the tuning allows.
+func _assert_the_walk_keeps_up_with_the_ground() -> void:
+	var lengths: PackedFloat32Array = [0.0, 1.0, 0.7, 0.5]
+	var speeds: PackedFloat32Array = RunnerAnimation.stride_speeds(_tuning)
+	var kept_up: int = 0
+	var speed: float = _tuning.animation_still_speed + 0.05
+	while speed < _tuning.animation_walk_speed:
+		var animation: RunnerAnimation = RunnerAnimation.of(_running_at(speed).motor, STEP)
+		var weights: PackedFloat32Array = animation.locomotion
+		var context: String = "%.2f m/s" % speed
+		assert_gt(weights[IDLE], 0.0, context + ": Idle weighs")
+		assert_gt(weights[WALKING], 0.0, context + ": and Walking")
+		var cycles: float = Stride.cycles_per_second(animation.speed, weights, speeds, lengths)
+		var foot: float = 0.0
+		for clip: int in weights.size():
+			foot += weights[clip] * speeds[clip] * cycles * lengths[clip]
+		if animation.speed < _tuning.animation_max_pace:
+			assert_almost_eq(foot, speed, 0.001, context + ": the foot keeps up")
+			kept_up += 1
+		else:
+			assert_lt(foot, speed, context + ": the walk at its fastest, the foot slips")
+		speed += 0.05
+	assert_gt(kept_up, 0, "the foot keeps up over the walk")
+
+
+## How fast the foot on the ground of `character` goes back, in m/s, the clip `clip` of the
+## locomotion alone at the ground speed `ground`: followed over one cycle, each bone of a
+## foot (its ankle, its toe) while it is on the ground, as Stride tells it.
+func _planted_foot_speed(
+	character: RunnerCharacter, clip: RunnerAnimation.Clip, ground: float
+) -> float:
+	var tree: AnimationTree = _tree_of(character)
+	var skeleton: Skeleton3D = _skeleton_of(character)
+	var game_tuning: MovementTuning = load(TUNING) as MovementTuning
+	var animation: RunnerAnimation = RunnerAnimation.new()
+	animation.clip = RunnerAnimation.Clip.RUNNING
+	animation.locomotion = [0.0, 0.0, 0.0, 0.0]
+	animation.locomotion[RunnerAnimation.LOCOMOTION.find(clip)] = 1.0
+	animation.speed = ground / RunnerAnimation.own_speed(animation.locomotion, game_tuning)
+	for step: int in SETTLE_STEPS:
+		character.play(animation)
+		tree.advance(1.0 / ReplayTest.STEPS_PER_SECOND)
+	# The ankle and the toe of each foot: a heel strikes the ground, a toe pushes off it.
+	var feet: Array[int] = []
+	for bone: String in [RunnerCharacter.LEFT_FOOT, RunnerCharacter.RIGHT_FOOT]:
+		feet.append(skeleton.find_bone(bone))
+		feet.append(skeleton.find_bone(bone.replace("Foot", "ToeBase")))
+	var strides: float = tree.get(RunnerCharacter.STRIDE_SCALE)
+	var samples: int = ceili(FOOT_SAMPLES_PER_SECOND / strides)
+	var places: Array[PackedVector3Array] = []
+	var lowest: Array[float] = []
+	lowest.resize(feet.size())
+	lowest.fill(INF)
+	for sample: int in samples + 1:
+		var place: PackedVector3Array = []
+		for foot: int in feet.size():
+			var pose: Vector3 = skeleton.get_bone_global_pose(feet[foot]).origin
+			var bone: Vector3 = skeleton.global_transform * pose
+			place.append(bone)
+			lowest[foot] = minf(lowest[foot], bone.y)
+		places.append(place)
+		tree.advance(1.0 / FOOT_SAMPLES_PER_SECOND)
+	var back: float = 0.0
+	var planted: int = 0
+	for sample: int in samples:
+		for foot: int in feet.size():
+			var here: Vector3 = places[sample][foot]
+			var next: Vector3 = places[sample + 1][foot]
+			if maxf(here.y, next.y) - lowest[foot] <= Stride.ON_THE_GROUND:
+				# The character faces -Z: a foot that goes back goes towards +Z.
+				back += (next.z - here.z) * FOOT_SAMPLES_PER_SECOND
+				planted += 1
+	assert_gt(planted, 0, "%s: a foot planted" % RunnerAnimation.Clip.keys()[clip])
+	return back / maxi(planted, 1)
 
 
 ## The weights of the locomotion of `body`'s runner, as it shows them.
