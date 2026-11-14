@@ -49,6 +49,7 @@ d'`AGENTS.md` ; le mode solo d'entraînement de l'étape 3 ; la limite de 30 s d
 | 14 | Le HUD en duel | En haut, le chrono ; à côté, l'écart avec l'adversaire au dernier checkpoint commun (« +1.24 » ou « -0.80 », en secondes). Le HUD du flow est celui du joueur. Le flow et les munitions du bot ne s'affichent pas, sauf dans l'affichage de debug. | Savoir si on est devant, sans encombrer. |
 | 15 | Les réglages | Les valeurs de cette spec (compte à rebours, limite de manche, durées et distances du bot) vivent dans la ressource de réglage unique, groupe « Duel ». | Règle d'`AGENTS.md`. |
 | 16 | La durée des tests | Les rejeux du parcours entier (le bot, le fantôme, les deux couloirs) vivent dans des scripts `test_course*` : `just preflight` les saute, `just check` et la CI les lancent (`docs/specs/test-tiers.md`, fusionnée depuis). `just check` reste sous 90 s ; si un rejeu le menace, le développeur s'arrête et le dit. | La boucle rapide reste rapide ; la porte du commit garde tout. |
+| 17 | Une alerte qui laisse toujours une chance | En duel, la touche doit toujours pouvoir s'éviter. La seconde inspection du sabotage a mesuré qu'une alerte de plateforme lancée entre 0,4 s avant l'appel d'un saut long et 0,25 s après rend la chute inévitable. Règle : une plateforme ou un pont en alerte **ne commence pas son effet tant qu'un coureur est en l'air au-dessus de lui** ; l'effet commence au premier pas où personne n'y est en l'air (un coureur posé dessus est touché comme avant). La durée de l'effet compte depuis son vrai début. | Le plan : être touché casse le combo, mais une touche impossible à éviter n'est que de la malchance. |
 
 ### Valeurs de départ ajoutées à la ressource de réglage
 
@@ -118,6 +119,11 @@ Fonctionnalité: Duel local
     Soit le mode solo
     Quand le joueur tire sur une cible de son couloir
     Alors elle est sabotée comme à l'étape 3
+
+  Scénario: Une plateforme n'agit pas sous un coureur en l'air
+    Soit une plateforme en alerte et un coureur qui saute au-dessus d'elle à la fin de l'alerte
+    Quand l'alerte se termine pendant qu'il est en l'air au-dessus
+    Alors l'effet attend qu'il ne soit plus en l'air au-dessus, puis commence
 
   # --- Le fantôme ---
 
