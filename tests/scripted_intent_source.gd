@@ -35,14 +35,15 @@ func slide(direction: Vector3, steps: int) -> ScriptedIntentSource:
 	return self
 
 
-## Adds `steps` steps going in `direction` (in the world) with the trick held. The trick
-## counts as pressed at the first of them.
-func trick(direction: Vector3, steps: int) -> ScriptedIntentSource:
-	for i: int in steps:
+## Adds `steps` steps going in `direction` (in the world) with the trick held, its
+## drawing reading `recipe`, then one step where it is released.
+func trick(recipe: TrickRecipe, direction: Vector3, steps: int) -> ScriptedIntentSource:
+	for i: int in steps + 1:
 		var intent: MoveIntent = MoveIntent.new()
 		intent.direction = direction
-		intent.trick_held = true
-		intent.trick_pressed = i == 0
+		intent.trick_held = i < steps
+		intent.trick_released = i == steps
+		intent.trick_recipe = recipe
 		_intents.append(intent)
 	return self
 

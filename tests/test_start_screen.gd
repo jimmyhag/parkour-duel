@@ -1,9 +1,9 @@
 extends GutTest
-## The start screen (game/ui): its three choices, the duel against the ghost greyed with
+## The start screen (game/ui): its four choices, the duel against the ghost greyed with
 ## its reason until a solo run is finished, and its navigation.
 
 const SCREEN_SCENE: PackedScene = preload("res://game/ui/start_screen.tscn")
-const LABELS: Array[String] = ["SOLO PRACTICE", "DUEL VS GHOST", "DUEL VS BOT"]
+const LABELS: Array[String] = ["SOLO PRACTICE", "DUEL VS GHOST", "DUEL VS BOT", "TRICK PARK"]
 const REASON: String = "FINISH A SOLO RUN FIRST"
 
 var _chosen: Array[StartScreen.Choice] = []
@@ -17,13 +17,14 @@ func after_each() -> void:
 func test_the_ghost_duel_needs_a_solo_run() -> void:
 	var screen: StartScreen = _add_screen(false)
 
-	assert_eq(_texts(screen), LABELS, "the three choices")
+	assert_eq(_texts(screen), LABELS, "the four choices")
 	assert_true(_is_greyed(screen, StartScreen.Choice.DUEL_VS_GHOST), "the ghost greyed")
 	var reason: Label = screen.get_node("%Reason") as Label
 	assert_true(reason.is_visible_in_tree(), "with its reason")
 	assert_eq(reason.text, REASON)
 	assert_false(_is_greyed(screen, StartScreen.Choice.SOLO_PRACTICE), "solo practice is not")
 	assert_false(_is_greyed(screen, StartScreen.Choice.DUEL_VS_BOT), "nor the bot")
+	assert_false(_is_greyed(screen, StartScreen.Choice.TRICK_PARK), "nor the trick park")
 
 	screen.open(true)
 
@@ -42,7 +43,9 @@ func test_the_start_screen_chooses_with_up_down_and_jump() -> void:
 	assert_false(_is_highlighted(screen, StartScreen.Choice.SOLO_PRACTICE), "the other not")
 	await _tap(&"menu_down")
 	await _tap(&"menu_down")
-	assert_eq(screen.selected(), StartScreen.Choice.DUEL_VS_BOT, "it stops at the last one")
+	await _tap(&"menu_down")
+	assert_eq(screen.selected(), StartScreen.Choice.TRICK_PARK, "it stops at the last one")
+	await _tap(&"menu_up")
 	await _tap(&"menu_up")
 	assert_eq(screen.selected(), StartScreen.Choice.DUEL_VS_GHOST, "up")
 	assert_eq(_chosen.size(), 0, "nothing chosen yet")

@@ -59,31 +59,29 @@ func test_aiming_changes_nothing_in_the_air() -> void:
 
 
 func test_no_trick_while_aiming() -> void:
-	# In the air, aiming: pressing the trick, again and again, starts nothing.
+	# In the air, aiming: releasing the trick, again and again, starts nothing.
 	var body: MotorBody = _high()
 	for step: int in 20:
 		var intent: MoveIntent = _aim(BACK)
-		intent.trick_pressed = step % 5 == 0
-		intent.trick_held = true
+		intent.trick_held = step % 5 != 0
+		intent.trick_released = step % 5 == 0
+		intent.trick_recipe = _backflip()
 		body.step(intent)
 		assert_null(body.motor.current_trick(), "step %d: no trick starts" % step)
 
-	# Released, the aim no longer holds the trick back.
-	body.step(_trick(BACK))
+	# The aim released, it no longer holds the trick back.
+	body.step(_release(_backflip(), BACK))
 	var trick: AirTrick = body.motor.current_trick()
 	assert_not_null(trick, "without aiming, a trick starts")
 
 	# A trick under way goes on to its end when the runner starts aiming.
 	for step: int in range(1, TURN_STEPS):
-		var intent: MoveIntent = _aim(BACK)
-		intent.trick_held = step < TURN_STEPS / 2
-		body.step(intent)
+		body.step(_aim(BACK))
 		assert_true(body.motor.is_in_a_trick(), "step %d of the turn: under way" % step)
 	body.step(_aim(BACK))
 	assert_not_null(trick)
 	if trick != null:
 		assert_true(trick.finished, "the trick finished its turn")
-		assert_eq(trick.turns, 1, "with one turn")
 
 
 ## The aim held, pushing `direction`.

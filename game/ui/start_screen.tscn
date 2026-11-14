@@ -30,9 +30,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -300.0
-offset_top = -110.0
+offset_top = -142.0
 offset_right = 300.0
-offset_bottom = 110.0
+offset_bottom = 142.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 24
@@ -65,4 +65,10 @@ text = "FINISH A SOLO RUN FIRST"
 layout_mode = 2
 theme_override_font_sizes/font_size = 40
 text = "DUEL VS BOT"
+horizontal_alignment = 1
+
+[node name="TrickPark" type="Label" parent="Choices"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 40
+text = "TRICK PARK"
 horizontal_alignment = 1

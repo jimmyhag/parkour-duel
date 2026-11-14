@@ -5,14 +5,17 @@ extends SpringArm3D
 ## carries a sphere, so the camera stays at a distance from a wall instead of sinking
 ## into it. While the runner aims, the camera goes over its right shoulder and narrows
 ## its field of view, so that the centre of the screen, where the reticle is, shows what
-## the runner aims at. The camera is not part of the simulation: it follows frame time,
-## and the interpolated position of its target.
+## the runner aims at. While the trick button is held, the mouse and the right stick draw
+## the trick instead: the camera keeps still, and the motion of the mouse is kept for the
+## drawing (take_pad_motion). The camera is not part of the simulation: it follows frame
+## time, and the interpolated position of its target.
 
 const LOOK_LEFT: StringName = &"look_left"
 const LOOK_RIGHT: StringName = &"look_right"
 const LOOK_UP: StringName = &"look_up"
 const LOOK_DOWN: StringName = &"look_down"
 const RELEASE_MOUSE: StringName = &"release_mouse"
+const TRICK: StringName = &"trick"
 
 ## The node the camera turns around.
 var target: Node3D
@@ -28,6 +31,8 @@ var tuning: MovementTuning:
 var _aim_blend: float = 0.0
 ## The field of view of the camera when the runner does not aim, in degrees.
 var _usual_fov: float = 0.0
+## The motion of the mouse while the trick button was held, not taken yet, in pixels.
+var _pad_motion: Vector2 = Vector2.ZERO
 
 @onready var _camera: Camera3D = $Camera3D as Camera3D
 
@@ -41,8 +46,9 @@ func _process(delta: float) -> void:
 	var stick: Vector2 = Input.get_vector(
 		LOOK_LEFT, LOOK_RIGHT, LOOK_UP, LOOK_DOWN, tuning.stick_deadzone
 	)
-	var stick_turn: Vector2 = -stick * tuning.camera_stick_speed * delta
-	turn(stick_turn.x, stick_turn.y)
+	if not is_drawing():
+		var stick_turn: Vector2 = -stick * tuning.camera_stick_speed * delta
+		turn(stick_turn.x, stick_turn.y)
 	var blend_step: float = 1.0
 	if tuning.aim_camera_blend_time > 0.0:
 		blend_step = delta / tuning.aim_camera_blend_time
@@ -60,10 +66,31 @@ func _unhandled_input(event: InputEvent) -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	elif event is InputEventMouseButton and event.is_pressed() and not captured:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-	elif event is InputEventMouseMotion and captured:
-		var motion: InputEventMouseMotion = event as InputEventMouseMotion
+	elif event is InputEventMouseMotion:
+		move_with_the_mouse(event as InputEventMouseMotion, captured)
+
+
+## What a motion of the mouse does: while the trick button is held, it draws (kept for the
+## drawing, captured or not); otherwise, if the mouse is `captured`, it turns the camera.
+func move_with_the_mouse(motion: InputEventMouseMotion, captured: bool) -> void:
+	if is_drawing():
+		_pad_motion += motion.screen_relative
+	elif captured:
 		var mouse_turn: Vector2 = -motion.screen_relative * tuning.camera_mouse_sensitivity
 		turn(mouse_turn.x, mouse_turn.y)
+
+
+## The trick button is held: the mouse and the right stick draw the trick.
+func is_drawing() -> bool:
+	return Input.is_action_pressed(TRICK)
+
+
+## The motion of the mouse kept for the drawing since it was last taken, in pixels of the
+## screen (x to the right, y down); nothing is kept of it afterwards.
+func take_pad_motion() -> Vector2:
+	var motion: Vector2 = _pad_motion
+	_pad_motion = Vector2.ZERO
+	return motion
 
 
 ## Turns the view, in radians: a positive yaw turns left, a positive pitch looks up.

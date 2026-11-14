@@ -145,25 +145,26 @@ When one appears (the network transport, then Steam), these rules apply:
 
 ```
 game/               the game, one folder per layer (table above)
-  core/             runner motor and its aerial tricks, intents, the facts the player
-                    observes, race state, the flow state and the motor's dated
-                    messages, the weapon, the state machines of the sabotageable
-                    targets and their dated messages, the round of a duel (its clock,
-                    its state and its dated messages), the bot's rule of sabotage,
-                    the recorded run the ghost replays, the session, and the tuning
-                    resource
+  core/             runner motor and its aerial tricks, the drawing of a trick and
+                    the recipe it reads, intents, the facts the player observes, race
+                    state, the flow state and the motor's dated messages, the weapon,
+                    the state machines of the sabotageable targets and their dated
+                    messages, the round of a duel (its clock, its state and its dated
+                    messages), the bot's rule of sabotage, the recorded run the ghost
+                    replays, the session, and the tuning resource
   player/           the runner's scene: body (its visible part turns with a trick),
-                    camera rig (over the shoulder while aiming), intents read from the
-                    inputs, and what the body observes around it (floor, walls,
-                    ledges) and under the reticle; the pilot, the bot's intents, and
-                    the ghost
+                    camera rig (over the shoulder while aiming, still while a trick is
+                    drawn), intents read from the inputs (the mouse or the right stick
+                    draw the trick), and what the body observes around it (floor,
+                    walls, ledges) and under the reticle; the pilot, the bot's intents,
+                    and the ghost
   world/            checkpoints, race lines, and the four sabotageable target blocks
-  ui/               timer, flow and debug displays, the reticle, the sounds of the
-                    flow and of the sabotage, the countdown, and the start and result
-                    screens
+  ui/               timer, flow and debug displays, the reticle, the pad of the trick
+                    being drawn, the sounds of the flow and of the sabotage, the
+                    countdown, and the start and result screens
   levels/           the lane of the course, the solo course (test_course.tscn), the
-                    duel (two lanes), and main.tscn, the main scene: the start screen
-                    and the mode it starts
+                    duel (two lanes), the Trick Park (trick_park.tscn), and main.tscn,
+                    the main scene: the start screen and the mode it starts
 addons/gut/         GUT 9.7.1, the test framework (vendored, MIT, not exported)
 tests/              headless tests, one script per subject: test_<subject>.gd; the other
                     scripts are their helpers (written sequences of intents, a runner

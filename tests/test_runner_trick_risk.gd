@@ -1,15 +1,17 @@
 extends TrickTest
-## The risk of the aerial tricks of the runner's motor (game/core): a turn asks for more
-## height than a jump on the flat gives, so that a trick is never a loop without risk,
-## and the perfect landings do not raise the speed without end. The tests of the risk
-## weigh the tuning of the project, the one the player plays with.
+## The risk of the aerial tricks of the runner's motor (game/core): how long a trick lasts
+## against the height of a jump, so that only a single fits in a jump on the flat; what a
+## riskless loop on the flat earns; and the perfect landings that do not raise the speed
+## without end. The tests of the risk weigh the tuning of the project, the one the player
+## plays with.
 
 ## Fixed steps in one minute.
 const MINUTE: int = 3600
-## How many steps after the take-off a riskless player presses the trick, in turn: from
-## with the jump to the most a turn and a perfect window allowed before the amendment.
-const PRESS_OFFSETS: int = 10
 const PERFECT_LANDINGS: int = 10
+## The most style a minute of riskless tricks on the flat may earn (decision 15 of
+## docs/specs/trick-gestures.md): measured 3 790 with a repetition window of 10 and a
+## twist of 0.3 s, rounded up to the next thousand, plus 20 %.
+const RISKLESS_STYLE_PER_MINUTE: int = 4800
 
 
 ## What a minute of jumps earned.
@@ -18,67 +20,139 @@ class Minute:
 	var tricks_paid: int = 0
 	var crashes: int = 0
 	var jumps: int = 0
+	var ammo: int = 0
+	var top_speed: float = 0.0
+	var mean_speed: float = 0.0
+	var combos_ended: int = 0
 
 
-func test_a_flip_does_not_fit_in_a_jump_on_the_flat() -> void:
+# --- Durations ---
+
+
+func test_a_single_fits_in_a_jump_on_the_flat() -> void:
 	var tuning: MovementTuning = _project_tuning()
-	for push: Vector3 in [FORWARD, BACK, Vector3.LEFT, Vector3.ZERO]:
-		var context: String = "push %s" % push
+	var singles: Array[TrickRecipe] = [
+		_front_flip(),
+		_backflip(),
+		TrickRecipe.drawn(SIDE_FLIP),
+		TrickRecipe.drawn(SPIN),
+		TrickRecipe.of_the_context(),
+	]
+	for recipe: TrickRecipe in singles:
+		var context: String = recipe.name()
 		var body: MotorBody = MotorBody.running(tuning, FORWARD, tuning.top_speed)
 
-		var trick: AirTrick = _jump_with_a_trick(body, null, 0.0, push)
+		var events: Array[RunnerEvent] = _hop(body, null, recipe, 1)
 
-		assert_not_null(trick, context + ": a trick started with the jump")
-		var kinds: Array = body.motor.events.map(func(event: RunnerEvent) -> int: return event.kind)
-		assert_eq(kinds, [RunnerEvent.Kind.CRASH], context + ": the ground before the end: a crash")
-		assert_eq(body.motor.state, RunnerMotor.State.HARD_LANDING, context)
+		_assert_events(events, [TRICK])
+		if events.size() == 1 and events[0].trick != null:
+			assert_true(events[0].trick.perfect, context + ": finished before the ground, posed")
 
 
-func test_a_drop_high_enough_allows_a_flip() -> void:
+func test_a_double_does_not_fit_in_a_jump_on_the_flat() -> void:
 	var tuning: MovementTuning = _project_tuning()
-	var drop: float = _drop_for_a_turn(tuning)
-	assert_gt(drop, 0.0, "a turn asks for a drop")
-	var fall: float = tuning.jump_height + drop
-	assert_lt(fall, tuning.roll_fall_height, "lower than what asks for a roll")
-	for push: Vector3 in [FORWARD, BACK, Vector3.LEFT, Vector3.ZERO]:
-		var context: String = "push %s, drop %.2f m" % [push, drop]
+	for recipe: TrickRecipe in [_backflip(2), TrickRecipe.drawn(FRONT_FLIP, 2)]:
 		var body: MotorBody = MotorBody.running(tuning, FORWARD, tuning.top_speed)
 
-		var trick: AirTrick = _jump_with_a_trick(body, null, drop, push)
+		# Released with the jump itself, the earliest it can be, and posed.
+		var events: Array[RunnerEvent] = _hop(body, null, recipe, 0)
 
-		var kinds: Array = body.motor.events.map(func(event: RunnerEvent) -> int: return event.kind)
-		assert_eq(kinds, [TRICK], context + ": the trick is posed")
-		assert_eq(body.motor.state, RunnerMotor.State.GROUNDED, context + ": standing")
-		if trick != null:
-			assert_eq(trick.turns, 1, context + ": one turn")
+		_assert_events(events, [CRASH])
+		assert_eq(body.motor.state, RunnerMotor.State.HARD_LANDING, recipe.name())
 
 
-func test_a_riskless_loop_on_the_flat_earns_nothing() -> void:
+func test_a_twisted_trick_does_not_fit_in_a_jump_on_the_flat() -> void:
+	# Decision 7: a twist asks for a small drop. Measured against the held jump on the flat
+	# of the project's tuning, even released with the jump itself, the earliest it can be.
 	var tuning: MovementTuning = _project_tuning()
-	var plain: Minute = _hop_for_a_minute(tuning, false)
-	var tricking: Minute = _hop_for_a_minute(tuning, true)
-	assert_gt(plain.jumps, 60, "a runner that jumps again and again on the flat")
-	assert_gt(tricking.jumps, 30, "and one that adds a trick to every jump")
+	var flight: int = _steps_to_land(tuning)
+	var turn: int = roundi(tuning.trick_turn_duration * STEPS_PER_SECOND)
+	var twist: int = roundi(tuning.trick_twist_duration * STEPS_PER_SECOND)
+	assert_gt(turn + twist, flight, "a single with a twist lasts longer than a flat jump")
+	for recipe: TrickRecipe in [_backflip(1, 1), TrickRecipe.drawn(FRONT_FLIP, 1, 1)]:
+		var body: MotorBody = MotorBody.running(tuning, FORWARD, tuning.top_speed)
 
-	assert_eq(tricking.tricks_paid, 0, "no trick earned anything")
-	assert_gt(tricking.crashes, 30, "they all crashed")
-	assert_lt(tricking.style, plain.style, "less style than jumping without a trick")
-	assert_lt(tricking.style, tuning.flow_points_per_ammo, "not even one ammunition")
+		var events: Array[RunnerEvent] = _hop(body, null, recipe, 0)
+
+		_assert_events(events, [CRASH])
+
+
+func test_a_twist_makes_the_trick_longer() -> void:
+	var plain: MotorBody = _high()
+	var twisted: MotorBody = _high()
+	plain.step(_release(_backflip()))
+	twisted.step(_release(_backflip(1, 1)))
+	var plain_trick: AirTrick = plain.motor.current_trick()
+	var twisted_trick: AirTrick = twisted.motor.current_trick()
+
+	for step: int in 2 * TURN_STEPS:
+		plain.step(_push(Vector3.ZERO))
+		twisted.step(_push(Vector3.ZERO))
+
+	assert_true(plain_trick.finished and twisted_trick.finished, "both are over")
+	assert_eq(plain_trick.finished_at - 1, TURN_STEPS, "a turn")
+	var later: int = twisted_trick.finished_at - plain_trick.finished_at
+	assert_eq(later, TWIST_STEPS, "the twisted one ends a twist later")
+
+
+# --- The loop without risk ---
+
+
+func test_a_riskless_loop_on_the_flat_earns_little() -> void:
+	var tuning: MovementTuning = _project_tuning()
+	var plain: Minute = _hop_for_a_minute(tuning, [])
+	# Every recipe that fits in a jump on the flat (the singles without a twist: see
+	# test_a_twisted_trick_does_not_fit_in_a_jump_on_the_flat), released at the first step
+	# in the air, one after the other: the most varied loop.
+	var fitting: Array[TrickRecipe] = [
+		_front_flip(),
+		_backflip(),
+		TrickRecipe.drawn(SIDE_FLIP),
+		TrickRecipe.drawn(SPIN),
+	]
+	var tricking: Minute = _hop_for_a_minute(tuning, fitting)
+	gut.p(_report("running and jumping alone", plain))
+	gut.p(_report("a trick at every jump", tricking))
+
+	assert_gt(tricking.tricks_paid, 60, "a runner that poses a trick at every jump")
+	assert_eq(tricking.crashes, 0, "and never crashes")
+	assert_lt(tricking.style, RISKLESS_STYLE_PER_MINUTE, "earns less style than the threshold")
+
+
+func test_the_repetition_of_tricks_survives_the_end_of_a_combo() -> void:
+	var tuning: MovementTuning = _project_tuning()
+	var delay: int = roundi(tuning.flow_chain_delay * STEPS_PER_SECOND)
+	# Four different singles posed perfect, then a run on the ground a little longer than
+	# the delay of the combo, again and again.
+	var singles: Array[TrickRecipe] = [
+		_front_flip(),
+		_backflip(),
+		TrickRecipe.drawn(SIDE_FLIP),
+		TrickRecipe.drawn(SPIN),
+	]
+	var pausing: Minute = _hop_for_a_minute(tuning, singles, delay + 6)
+	gut.p(_report("four singles, then the combo left to end", pausing))
+
+	assert_gt(pausing.tricks_paid, 40, "a runner that poses a trick at every jump")
+	assert_eq(pausing.crashes, 0, "and never crashes")
+	assert_gt(pausing.combos_ended, 0, "its combo ends by its delay")
+	assert_lt(pausing.style, RISKLESS_STYLE_PER_MINUTE, "under the threshold of the flat loop")
 
 
 func test_perfect_landings_in_a_row_do_not_raise_the_speed_without_end() -> void:
 	var flow: FlowState = _flow()
 	var body: MotorBody = MotorBody.running(_tuning, FORWARD, _tuning.top_speed)
-	var drop: float = _drop_for_a_turn(_tuning)
 	var gain: float = _tuning.trick_perfect_speed_gain
 	var perfect: int = 0
 	var fastest: float = 0.0
 
-	# Jump after jump, from block to lower block, a trick with each jump.
+	# Jump after jump on the flat, a different single with each jump, posed perfect.
+	var singles: Array[TrickRecipe] = [_front_flip(), _backflip(), TrickRecipe.drawn(SPIN)]
 	for landing: int in PERFECT_LANDINGS:
 		var top: float = body.motor.top_speed()
-		var trick: AirTrick = _jump_with_a_trick(body, flow, drop, FORWARD)
-		perfect += int(trick != null and trick.perfect)
+		var events: Array[RunnerEvent] = _hop(body, flow, singles[landing % singles.size()], 1)
+		for event: RunnerEvent in events:
+			perfect += int(event.trick != null and event.trick.perfect)
 		fastest = maxf(fastest, body.horizontal_speed())
 		var limit: float = maxf(top, body.motor.top_speed()) + gain + TOLERANCE
 		assert_lte(
@@ -92,35 +166,106 @@ func test_perfect_landings_in_a_row_do_not_raise_the_speed_without_end() -> void
 	assert_lt(fastest, _tuning.max_horizontal_speed - 5.0, "far from the absolute cap")
 
 
+## From the ground, a held jump on the flat, `recipe` released `release_after` steps after
+## the take-off (0: with the jump), the slide pressed two steps before the ground: what
+## the motor announced at the landing.
+func _hop(
+	body: MotorBody, flow: FlowState, recipe: TrickRecipe, release_after: int
+) -> Array[RunnerEvent]:
+	var landing: int = _steps_to_land(body.motor.tuning)
+	for step: int in landing + 1:
+		var intent: MoveIntent = _push(FORWARD)
+		if step == release_after:
+			intent = _release(recipe, FORWARD)
+		intent.jump_pressed = step == 0
+		intent.jump_held = step == 0 or body.motor.state == RunnerMotor.State.RISING
+		intent.slide_pressed = step == landing - 2
+		_play(body, flow, intent)
+	return body.motor.events.duplicate()
+
+
+## How many steps after it jumps on the flat at the top speed, holding the jump, a runner
+## of `tuning` sees the floor again.
+func _steps_to_land(tuning: MovementTuning) -> int:
+	var copy: MotorBody = MotorBody.running(tuning, FORWARD, tuning.top_speed)
+	var intent: MoveIntent = _push(FORWARD)
+	intent.jump_pressed = true
+	intent.jump_held = true
+	copy.step(intent)
+	var steps: int = 0
+	while not copy.on_floor and steps < MANY_STEPS:
+		steps += 1
+		var flight: MoveIntent = _push(FORWARD)
+		flight.jump_held = copy.motor.state == RunnerMotor.State.RISING
+		copy.step(flight)
+	return steps + 1
+
+
 ## A minute of a runner on the flat that jumps whenever it stands, holding the jump to
-## its top; with `tricks`, it presses the trick at every jump, with it or up to nine
-## steps after it, in turn.
-func _hop_for_a_minute(tuning: MovementTuning, tricks: bool) -> Minute:
+## its top; with `recipes`, it releases the next of them at the first step of every jump,
+## and poses it perfect.
+func _hop_for_a_minute(
+	tuning: MovementTuning, recipes: Array[TrickRecipe], rest: int = 0
+) -> Minute:
 	var body: MotorBody = MotorBody.running(tuning, FORWARD, tuning.top_speed)
 	var flow: FlowState = FlowState.new(tuning, STEPS_PER_SECOND)
 	var minute: Minute = Minute.new()
 	var since_take_off: int = -1
-	var press_after: int = 0
+	var speeds: float = 0.0
+	var ammo_before: int = 0
+	var resting: int = 0
+	var in_a_row: int = 0
+	var was_in_combo: bool = false
 	for step: int in MINUTE:
 		var intent: MoveIntent = _push(FORWARD)
 		var state: RunnerMotor.State = body.motor.state
-		if state == RunnerMotor.State.GROUNDED:
+		if resting > 0:
+			resting -= 1
+			since_take_off = -1
+		elif state == RunnerMotor.State.GROUNDED and rest > 0 and in_a_row >= recipes.size():
+			resting = rest
+			in_a_row = 0
+			since_take_off = -1
+		elif state == RunnerMotor.State.GROUNDED:
 			intent.jump_pressed = true
 			intent.jump_held = true
 			since_take_off = 0
-			press_after = minute.jumps % PRESS_OFFSETS
-		elif state == RunnerMotor.State.RISING:
+			in_a_row += 1
+		elif since_take_off >= 0:
+			intent.jump_held = state == RunnerMotor.State.RISING
+			since_take_off += 1
+		if not recipes.is_empty() and since_take_off == 1:
+			intent = _release(recipes[minute.jumps % recipes.size()], FORWARD)
 			intent.jump_held = true
-			since_take_off += 1
-		else:
-			since_take_off += 1
-		if tricks and since_take_off == press_after:
-			intent.trick_pressed = true
-			intent.trick_held = true
+		var ground_soon: bool = body.position.y + 2.0 * body.velocity.y * MotorBody.STEP <= 0.0
+		intent.slide_pressed = body.velocity.y < 0.0 and ground_soon
 		_follow(body, flow, intent)
+		minute.combos_ended += int(was_in_combo and not flow.in_combo())
+		was_in_combo = flow.in_combo()
+		speeds += body.horizontal_speed()
+		minute.top_speed = maxf(minute.top_speed, body.horizontal_speed())
+		minute.ammo += maxi(flow.ammo - ammo_before, 0)
+		ammo_before = flow.ammo
 		for event: RunnerEvent in body.motor.events:
 			minute.tricks_paid += int(event.kind == TRICK)
-			minute.crashes += int(event.kind == RunnerEvent.Kind.CRASH)
+			minute.crashes += int(event.kind == CRASH)
 			minute.jumps += int(event.kind == RunnerEvent.Kind.JUMP)
 	minute.style = flow.style_score
+	minute.mean_speed = speeds / MINUTE
 	return minute
+
+
+func _report(title: String, minute: Minute) -> String:
+	return (
+		"%s: style %d, ammunition %d, jumps %d, tricks %d, crashes %d, speed %.2f m/s (top %.2f)"
+		% [
+			title,
+			minute.style,
+			minute.ammo,
+			minute.jumps,
+			minute.tricks_paid,
+			minute.crashes,
+			minute.mean_speed,
+			minute.top_speed
+		]
+	)

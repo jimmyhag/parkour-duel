@@ -109,6 +109,13 @@ func aim_facts_towards(direction: Vector3) -> AimFacts:
 	return _aim_facts_on_the_line(eyes, direction.normalized())
 
 
+## The drawing of the trick the inputs make, for the pad on the screen; null when the
+## runner does not follow the inputs.
+func drawing() -> TrickGesture:
+	var source: InputIntentSource = intent_source as InputIntentSource
+	return null if source == null else source.drawing
+
+
 ## Where the visible body is and how it is turned, in the world: what a ghost replays.
 func visual_transform() -> Transform3D:
 	return _visual.global_transform

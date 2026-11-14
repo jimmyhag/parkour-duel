@@ -1,12 +1,13 @@
 class_name StartScreen
 extends Control
-## The start screen: SOLO PRACTICE, DUEL VS GHOST and DUEL VS BOT, the first one selected,
+## The start screen: SOLO PRACTICE, DUEL VS GHOST, DUEL VS BOT and TRICK PARK, the first one
+## selected,
 ## navigated on the keyboard and on the gamepad (ChoiceMenu). The duel against the ghost
 ## is greyed, with its reason, while no solo run is finished in the session.
 
 signal mode_chosen(choice: Choice)
 
-enum Choice { SOLO_PRACTICE, DUEL_VS_GHOST, DUEL_VS_BOT }
+enum Choice { SOLO_PRACTICE, DUEL_VS_GHOST, DUEL_VS_BOT, TRICK_PARK }
 
 @onready var _menu: ChoiceMenu = %Choices as ChoiceMenu
 @onready var _reason: Label = %Reason as Label

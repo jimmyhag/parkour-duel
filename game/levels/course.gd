@@ -5,7 +5,7 @@ extends Lane
 ## duel replays it (GhostRun) and gives the session its finished runs; the best time and
 ## the best style score shown are the session's.
 ## Expected children, besides the lane's: Player, Hud/RaceHud, Hud/FlowHud,
-## Hud/Crosshair, Hud/DebugOverlay, FlowSounds and SabotageSounds.
+## Hud/TrickPad, Hud/Crosshair, Hud/DebugOverlay, FlowSounds and SabotageSounds.
 
 ## The identity of the runner of the course: the player.
 const RUNNER: int = 0
@@ -19,6 +19,7 @@ var _run: GhostRun = GhostRun.new()
 
 @onready var _race_hud: RaceHud = $Hud/RaceHud as RaceHud
 @onready var _flow_hud: FlowHud = $Hud/FlowHud as FlowHud
+@onready var _trick_pad: TrickPad = $Hud/TrickPad as TrickPad
 @onready var _crosshair: Crosshair = $Hud/Crosshair as Crosshair
 @onready var _debug_overlay: DebugOverlay = $Hud/DebugOverlay as DebugOverlay
 @onready var _flow_sounds: FlowSounds = $FlowSounds as FlowSounds
@@ -35,6 +36,8 @@ func _ready() -> void:
 	_race_hud.flow = flow
 	_flow_hud.flow = flow
 	_flow_hud.motor = player.motor
+	_trick_pad.motor = player.motor
+	_trick_pad.gesture = player.drawing()
 	_crosshair.shooter = shooter
 	_flow_sounds.flow = flow
 	_sabotage_sounds.shooter = shooter

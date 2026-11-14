@@ -4,9 +4,10 @@ extends Control
 ## per tier, the multiplier at its left, the ammunition at its right as pips (filled or
 ## only outlined), and above it the moves of the last step and their points, the tier
 ## just crossed (FLOW and its number, while the gauge flashes) or COMBO BROKEN, which fade
-## out after about a second. Above them, the name of the trick under way in the air, and
-## after a landing PERFECT or CRASH, or SABOTAGED when a sabotage hit the runner, which
-## fade out the same way. Nothing takes the focus.
+## out after about a second. Above them, while the trick button is held, the name of the
+## recipe its drawing reads (? while nothing is read); then the name of the trick under
+## way in the air, and after a landing PERFECT or CRASH, or SABOTAGED when a sabotage hit
+## the runner, which fade out the same way. Nothing takes the focus.
 
 const MOVE: String = "%s +%d"
 const MULTIPLIER: String = "x%d"
@@ -15,6 +16,8 @@ const COMBO_BROKEN: String = "COMBO BROKEN"
 const PERFECT: String = "PERFECT"
 const CRASH: String = "CRASH"
 const SABOTAGED: String = "SABOTAGED"
+## Drawn so far, nothing that can be read: neither a recipe nor the trick of the context.
+const UNREAD: String = "?"
 ## Between the moves of one step.
 const SEPARATOR: String = "   "
 const MOVE_NAMES: Dictionary[RunnerEvent.Kind, String] = {
@@ -35,7 +38,7 @@ const MARK_COLOR: Color = Color(1.0, 1.0, 1.0)
 const PIP_SIZE: Vector2 = Vector2(18.0, 18.0)
 const PIP_COLOR: Color = Color(1.0, 0.85, 0.3)
 
-## The flow to display, and the motor whose trick under way it names.
+## The flow to display, and the motor whose drawing and trick under way it names.
 var flow: FlowState
 var motor: RunnerMotor
 
@@ -123,14 +126,20 @@ func _announce() -> void:
 		_flash_seconds = FLASH_SECONDS
 
 
-## The name of the trick of the jump under way, while there is one; otherwise what is
-## left of the text of the last landing.
+## The name of the recipe drawn, while the trick button is held; otherwise the name of
+## the trick of the jump under way, while there is one; otherwise what is left of the
+## text of the last landing.
 func _name_the_trick() -> void:
+	var drawing: bool = motor != null and motor.is_drawing()
 	var trick: AirTrick = null if motor == null else motor.current_trick()
-	if trick != null:
+	if drawing:
+		var recipe: TrickRecipe = motor.drawn_recipe()
+		_trick_label.text = UNREAD if recipe == null or recipe.context else recipe.name()
+		_landing_seconds = 0.0
+	elif trick != null:
 		_trick_label.text = trick.name()
 		_landing_seconds = 0.0
-	_trick_label.visible = trick != null or _landing_seconds > 0.0
+	_trick_label.visible = drawing or trick != null or _landing_seconds > 0.0
 
 
 ## One mark at the end of each tier along the gauge.

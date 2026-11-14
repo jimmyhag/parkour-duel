@@ -13,10 +13,14 @@ var jump_held: bool = false
 var slide_pressed: bool = false
 ## The slide is held down.
 var slide_held: bool = false
-## The trick was pressed at this step.
-var trick_pressed: bool = false
-## The trick is held down.
+## The trick is held down: the runner draws its trick.
 var trick_held: bool = false
+## The trick was released at this step: the trick drawn starts, if it can.
+var trick_released: bool = false
+## What the drawing of the trick reads, while it is held and as it is released: the
+## recipe drawn, the trick of the context if nothing was drawn, or null if it cannot be
+## read.
+var trick_recipe: TrickRecipe
 ## The aim is held down: the runner aims.
 var aim_held: bool = false
 ## Where the runner aims from its head, in the world; ZERO: through the centre of its

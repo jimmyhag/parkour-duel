@@ -65,8 +65,9 @@ func _init(movement_tuning: MovementTuning, steps_per_second: int) -> void:
 
 ## One fixed step of the runner: the messages its motor sent at this step, its
 ## real horizontal speed (m/s), and whether it is on its feet on the ground. On the
-## ground the delay of the combo runs, and its end resets the repetition; the moves are
-## counted; a runner that stays still has stopped. The gauge drops at a step spent out
+## ground the delay of the combo runs, and its end keeps the last moves that the
+## repetition judges against; the moves are counted; a runner that stays still has
+## stopped. The gauge drops at a step spent out
 ## of a combo from its start to its end.
 func step(events: Array[RunnerEvent], horizontal_speed: float, on_foot: bool) -> void:
 	if frozen:
@@ -75,7 +76,7 @@ func step(events: Array[RunnerEvent], horizontal_speed: float, on_foot: bool) ->
 	if was_in_combo and on_foot:
 		_steps_on_the_ground += 1
 		if _steps_on_the_ground >= _steps(tuning.flow_chain_delay):
-			_end_the_combo()
+			_end_the_combo(false)
 	_fresh_step = true
 	for event: RunnerEvent in events:
 		_count(event, horizontal_speed)
@@ -310,11 +311,13 @@ func _break_the_combo() -> void:
 	_end_the_combo()
 
 
-## The combo is over: its multiplier back to x1, and its last moves forgotten.
-func _end_the_combo() -> void:
+## The combo is over: its multiplier back to x1; its last moves forgotten, unless it
+## ended by its delay (`forget` false): the repetition goes on across combos.
+func _end_the_combo(forget: bool = true) -> void:
 	_combo_moves = 0
 	_steps_on_the_ground = 0
-	_last_moves.clear()
+	if forget:
+		_last_moves.clear()
 	repeat_count = 0
 
 

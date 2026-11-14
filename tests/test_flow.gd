@@ -54,7 +54,9 @@ func test_the_same_move_repeated_in_a_row_is_worth_less_and_less() -> void:
 	assert_eq(flow.repeat_count, 3, "the third time among the last moves")
 
 
-func test_the_end_of_a_combo_resets_the_repetition() -> void:
+func test_the_end_of_a_combo_by_its_delay_keeps_the_repetition() -> void:
+	# docs/specs/trick-gestures.md, decision 19: the end of a combo by its delay no longer
+	# resets the repetition; an error still does.
 	var flow: FlowState = _flow()
 	_move(flow, JUMP)
 	_move(flow, JUMP)
@@ -65,8 +67,13 @@ func test_the_end_of_a_combo_resets_the_repetition() -> void:
 	assert_eq(flow.combos_broken, 0, "not broken")
 	_move(flow, JUMP)
 
-	assert_eq(flow.last_points, 50, "the jump is worth all its points")
-	assert_eq(flow.repeat_count, 1, "the jump counts from one again")
+	assert_eq(flow.last_points, 0, "a third jump among the last moves: worth nothing")
+	assert_eq(flow.repeat_count, 3, "the jump counted with the two before")
+
+	_move(flow, HARD_LANDING)
+	_move(flow, JUMP)
+	assert_eq(flow.last_points, 50, "after an error, the jump is worth all its points")
+	assert_eq(flow.repeat_count, 1, "and counts from one again")
 
 
 func test_a_move_absent_from_the_last_four_is_worth_all_its_points() -> void:
@@ -299,7 +306,8 @@ func test_every_slice_of_style_points_gives_ammunition() -> void:
 	assert_eq(flow.ammo, 0, "and no ammunition yet")
 	assert_eq(flow.gauge, 0.0, "the gauge back to empty: no tier to cross")
 
-	_move(flow, WALL_RUN)
+	# A move absent from the last moves, which the end of a combo by its delay keeps.
+	_move(flow, PERFECT_SLIDE)
 
 	assert_eq(flow.last_points, 150, "a move that earns 150 points")
 	assert_eq(flow.ammo, 1, "it has one ammunition")
@@ -312,16 +320,23 @@ func test_a_gauge_that_drops_then_rises_again_gives_no_extra_ammunition() -> voi
 	flow.gauge = flow.max_gauge()
 	assert_false(flow.in_combo(), "a full gauge, no combo, no style yet")
 
-	# The gauge drops a little under tier 3, then a jump takes it over again: many times.
-	# Each jump starts a combo, which holds the gauge for its delay, then it drops again.
+	# The gauge drops a little under tier 3, then a move takes it over again: many times.
+	# Each move starts a combo, which holds the gauge for its delay, then it drops again.
+	# The moves take turns, for none to be a repetition: the end of a combo by its delay
+	# keeps the last moves.
+	var turns: Array[RunnerEvent.Kind] = VARIED.duplicate()
+	turns.append(PERFECT_SLIDE)
+	var style: int = 0
 	for i: int in 24:
 		_wait(flow, DIP_STEPS if i == 0 else CHAIN_STEPS + DIP_STEPS)
 		assert_lt(flow.tier(), 3, "round %d: under tier 3" % i)
-		_move(flow, JUMP)
+		_move(flow, turns[i % turns.size()])
+		style += flow.last_points
 		assert_eq(flow.tier(), 3, "round %d: over it again" % i)
 
-	assert_eq(flow.style_score, 24 * 50, "1 200 points of style")
-	assert_eq(flow.ammo, 1, "one ammunition, what the style points give, no more")
+	assert_eq(flow.style_score, style, "the points of the moves, each at x1")
+	assert_eq(style, 3 * 750 + 50 + 50 + 100, "every move worth all its points")
+	assert_eq(flow.ammo, 2, "two ammunition, what the style points give, no more")
 
 
 func test_ammunition_does_not_go_above_its_maximum() -> void:

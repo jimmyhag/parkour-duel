@@ -64,6 +64,21 @@ func test_aim_and_shoot_exist_on_keyboard_and_mouse_and_on_gamepad() -> void:
 		assert_gt(pad_inputs, 0, "%s has a gamepad button or trigger" % action)
 
 
+func test_the_trick_is_on_f_and_lb_and_is_posed_with_the_slide() -> void:
+	assert_eq(_keys(&"trick"), [KEY_F] as Array[Key], "the trick on F")
+	assert_eq(_buttons(&"trick"), [JOY_BUTTON_LEFT_SHOULDER] as Array[JoyButton], "and on LB")
+	assert_false(_buttons(&"jump").has(JOY_BUTTON_LEFT_SHOULDER), "LB no longer jumps")
+	assert_true(_buttons(&"jump").has(JOY_BUTTON_A), "A still does")
+	# Posed with the slide: Ctrl, B and RB.
+	assert_eq(_keys(&"slide"), [KEY_CTRL] as Array[Key])
+	var slide: Array[JoyButton] = [JOY_BUTTON_B, JOY_BUTTON_RIGHT_SHOULDER]
+	assert_eq(_buttons(&"slide"), slide)
+	# Shift and X do nothing any more.
+	for action: StringName in _project_actions():
+		assert_false(_keys(action).has(KEY_SHIFT), "%s is not on Shift" % action)
+		assert_false(_buttons(action).has(JOY_BUTTON_X), "%s is not on X" % action)
+
+
 func test_keyboard_keys_are_physical_keys() -> void:
 	var keys: int = 0
 	for action: StringName in _project_actions():
@@ -78,6 +93,24 @@ func test_keyboard_keys_are_physical_keys() -> void:
 
 	var expected: int = GAME_ACTIONS.size() + KEYBOARD_ONLY_ACTIONS.size()
 	assert_gte(keys, expected, "every action of the project was examined")
+
+
+## The physical keys of `action`.
+func _keys(action: StringName) -> Array[Key]:
+	var keys: Array[Key] = []
+	for event: InputEvent in InputMap.action_get_events(action):
+		if event is InputEventKey:
+			keys.append((event as InputEventKey).physical_keycode)
+	return keys
+
+
+## The gamepad buttons of `action`.
+func _buttons(action: StringName) -> Array[JoyButton]:
+	var buttons: Array[JoyButton] = []
+	for event: InputEvent in InputMap.action_get_events(action):
+		if event is InputEventJoypadButton:
+			buttons.append((event as InputEventJoypadButton).button_index)
+	return buttons
 
 
 ## The actions project.godot declares, without the ones built into the engine.

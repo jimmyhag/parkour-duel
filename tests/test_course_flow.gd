@@ -163,7 +163,7 @@ func test_returning_to_the_checkpoint_on_request_empties_the_gauge() -> void:
 	assert_true(flow.in_combo(), "a runner with gauge, in a combo")
 	assert_gt(flow.gauge, 0.0)
 
-	await _replay(course, ScriptedIntentSource.new().request_respawn(), 0)
+	await _replay(course, ScriptedIntentSource.new().request_respawn(), 1)
 
 	assert_eq(flow.gauge, 0.0, "the gauge is at zero")
 	assert_false(flow.in_combo(), "the combo is broken")
@@ -179,10 +179,19 @@ func test_restarting_resets_everything() -> void:
 	_count(flow, WALL_JUMP_MOVE)
 	flow.finish()
 	assert_eq(flow.best_style_score, 300, "a first run, finished")
-	await _replay(course, ScriptedIntentSource.new().request_restart(), 0)
+	await _replay(course, ScriptedIntentSource.new().request_restart(), 1)
 	assert_false(flow.frozen, "a new run")
 	_start_at(course, SHORT_JUMPS)
-	# 300 points at x1, then 300 + 300 + 100 + 150 at x2: 1 150 points of style.
+	# 300 points at x1, then 300 + 300 + a jump again (50) and a wall run again (150) at
+	# x2, each worth less if the repetition window of the tuning still holds its first
+	# time: 6 moves back for the jump, 3 for the wall run.
+	var window: int = flow.tuning.flow_repetition_window
+	var again: float = flow.tuning.flow_second_time_share
+	var jump_again: int = roundi(50 * (again if window >= 6 else 1.0))
+	var wall_run_again: int = roundi(150 * (again if window >= 3 else 1.0))
+	var style: int = 300 + 2 * (150 + 150 + jump_again + wall_run_again)
+	var per_ammo: int = flow.tuning.flow_points_per_ammo
+	assert_lt(style, 2 * per_ammo, "less than two ammunition's worth")
 	for kind: RunnerEvent.Kind in [
 		RunnerEvent.Kind.JUMP,
 		RunnerEvent.Kind.SLIDE,
@@ -196,10 +205,10 @@ func test_restarting_resets_everything() -> void:
 		_count(flow, kind)
 	assert_true(flow.in_combo(), "a runner with gauge, a combo")
 	assert_eq(flow.ammo, 1, "ammunition")
-	assert_eq(flow.ammo_progress, 150, "points towards the next one")
-	assert_eq(flow.style_score, 1150, "and a style score")
+	assert_eq(flow.ammo_progress, style - per_ammo, "points towards the next one")
+	assert_eq(flow.style_score, style, "and a style score")
 
-	await _replay(course, ScriptedIntentSource.new().request_restart(), 0)
+	await _replay(course, ScriptedIntentSource.new().request_restart(), 1)
 
 	assert_eq(course.race.phase, RaceState.Phase.NOT_STARTED, "the course restarted")
 	assert_eq(flow.gauge, 0.0, "the gauge is at zero")

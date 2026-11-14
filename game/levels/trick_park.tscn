@@ -1,0 +1,238 @@
+[gd_scene load_steps=35 format=3]
+
+[ext_resource type="Script" path="res://game/levels/trick_park.gd" id="1_park"]
+[ext_resource type="PackedScene" path="res://game/player/player.tscn" id="2_player"]
+[ext_resource type="PackedScene" path="res://game/ui/flow_hud.tscn" id="3_flow_hud"]
+[ext_resource type="PackedScene" path="res://game/ui/debug_overlay.tscn" id="4_debug_overlay"]
+[ext_resource type="PackedScene" path="res://game/ui/flow_sounds.tscn" id="5_flow_sounds"]
+[ext_resource type="PackedScene" path="res://game/ui/trick_pad.tscn" id="6_trick_pad"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ground"]
+albedo_color = Color(0.36, 0.38, 0.42, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_block"]
+albedo_color = Color(0.55, 0.55, 0.58, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_step"]
+albedo_color = Color(0.62, 0.6, 0.56, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wall"]
+albedo_color = Color(0.45, 0.5, 0.6, 1)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_Ground"]
+size = Vector3(120, 1, 120)
+
+[sub_resource type="BoxMesh" id="BoxMesh_Ground"]
+material = SubResource("StandardMaterial3D_ground")
+size = Vector3(120, 1, 120)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_Block1"]
+size = Vector3(6, 1, 8)
+
+[sub_resource type="BoxMesh" id="BoxMesh_Block1"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(6, 1, 8)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_Block2"]
+size = Vector3(6, 2, 8)
+
+[sub_resource type="BoxMesh" id="BoxMesh_Block2"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(6, 2, 8)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_Block3"]
+size = Vector3(6, 3, 8)
+
+[sub_resource type="BoxMesh" id="BoxMesh_Block3"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(6, 3, 8)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_Block5"]
+size = Vector3(6, 5, 8)
+
+[sub_resource type="BoxMesh" id="BoxMesh_Block5"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(6, 5, 8)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_Step5"]
+size = Vector3(5, 2.5, 3)
+
+[sub_resource type="BoxMesh" id="BoxMesh_Step5"]
+material = SubResource("StandardMaterial3D_step")
+size = Vector3(5, 2.5, 3)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_Block8"]
+size = Vector3(6, 8, 8)
+
+[sub_resource type="BoxMesh" id="BoxMesh_Block8"]
+material = SubResource("StandardMaterial3D_block")
+size = Vector3(6, 8, 8)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_Step8High"]
+size = Vector3(5, 5, 3)
+
+[sub_resource type="BoxMesh" id="BoxMesh_Step8High"]
+material = SubResource("StandardMaterial3D_step")
+size = Vector3(5, 5, 3)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_Step8Low"]
+size = Vector3(4, 2.5, 3)
+
+[sub_resource type="BoxMesh" id="BoxMesh_Step8Low"]
+material = SubResource("StandardMaterial3D_step")
+size = Vector3(4, 2.5, 3)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_FacingLeft"]
+size = Vector3(1, 8, 20)
+
+[sub_resource type="BoxMesh" id="BoxMesh_FacingLeft"]
+material = SubResource("StandardMaterial3D_wall")
+size = Vector3(1, 8, 20)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_FacingRight"]
+size = Vector3(1, 8, 20)
+
+[sub_resource type="BoxMesh" id="BoxMesh_FacingRight"]
+material = SubResource("StandardMaterial3D_wall")
+size = Vector3(1, 8, 20)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_WallRun"]
+size = Vector3(1, 4, 24)
+
+[sub_resource type="BoxMesh" id="BoxMesh_WallRun"]
+material = SubResource("StandardMaterial3D_wall")
+size = Vector3(1, 4, 24)
+
+[node name="TrickPark" type="Node3D"]
+script = ExtResource("1_park")
+fall_limit = -10.0
+
+[node name="Spawn" type="Marker3D" parent="."]
+
+[node name="Blocks" type="Node3D" parent="."]
+
+[node name="Ground" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, -50)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/Ground"]
+shape = SubResource("BoxShape3D_Ground")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/Ground"]
+mesh = SubResource("BoxMesh_Ground")
+
+[node name="Block1" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -24, 0.5, -20)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/Block1"]
+shape = SubResource("BoxShape3D_Block1")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/Block1"]
+mesh = SubResource("BoxMesh_Block1")
+
+[node name="Block2" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 1, -20)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/Block2"]
+shape = SubResource("BoxShape3D_Block2")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/Block2"]
+mesh = SubResource("BoxMesh_Block2")
+
+[node name="Block3" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, -20)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/Block3"]
+shape = SubResource("BoxShape3D_Block3")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/Block3"]
+mesh = SubResource("BoxMesh_Block3")
+
+[node name="Block5" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 2.5, -20)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/Block5"]
+shape = SubResource("BoxShape3D_Block5")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/Block5"]
+mesh = SubResource("BoxMesh_Block5")
+
+[node name="Step5" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 12, 1.25, -14.5)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/Step5"]
+shape = SubResource("BoxShape3D_Step5")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/Step5"]
+mesh = SubResource("BoxMesh_Step5")
+
+[node name="Block8" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24, 4, -20)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/Block8"]
+shape = SubResource("BoxShape3D_Block8")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/Block8"]
+mesh = SubResource("BoxMesh_Block8")
+
+[node name="Step8High" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24, 2.5, -14.5)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/Step8High"]
+shape = SubResource("BoxShape3D_Step8High")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/Step8High"]
+mesh = SubResource("BoxMesh_Step8High")
+
+[node name="Step8Low" type="StaticBody3D" parent="Blocks"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24, 1.25, -11.5)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/Step8Low"]
+shape = SubResource("BoxShape3D_Step8Low")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Blocks/Step8Low"]
+mesh = SubResource("BoxMesh_Step8Low")
+
+[node name="Walls" type="Node3D" parent="."]
+
+[node name="FacingLeft" type="StaticBody3D" parent="Walls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -42.5, 4, -40)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Walls/FacingLeft"]
+shape = SubResource("BoxShape3D_FacingLeft")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Walls/FacingLeft"]
+mesh = SubResource("BoxMesh_FacingLeft")
+
+[node name="FacingRight" type="StaticBody3D" parent="Walls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -37.5, 4, -40)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Walls/FacingRight"]
+shape = SubResource("BoxShape3D_FacingRight")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Walls/FacingRight"]
+mesh = SubResource("BoxMesh_FacingRight")
+
+[node name="WallRun" type="StaticBody3D" parent="Walls"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 40.5, 2, -40)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Walls/WallRun"]
+shape = SubResource("BoxShape3D_WallRun")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Walls/WallRun"]
+mesh = SubResource("BoxMesh_WallRun")
+
+[node name="Player" parent="." instance=ExtResource("2_player")]
+
+[node name="Hud" type="CanvasLayer" parent="."]
+
+[node name="FlowHud" parent="Hud" instance=ExtResource("3_flow_hud")]
+
+[node name="TrickPad" parent="Hud" instance=ExtResource("6_trick_pad")]
+
+[node name="DebugOverlay" parent="Hud" instance=ExtResource("4_debug_overlay")]
+
+[node name="FlowSounds" parent="." instance=ExtResource("5_flow_sounds")]
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.8193, -0.4559, 0.3478, 0, 0.6066, 0.795, -0.5735, -0.6513, 0.4969, 0, 20, 0)
+shadow_enabled = true

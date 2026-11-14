@@ -152,22 +152,63 @@ extends Resource
 @export var flow_stop_duration: float = 0.0
 
 @export_group("Tricks")
-## How long one turn of a trick lasts, in s.
+## How long one turn of a trick lasts, in s: a spin lasts one turn.
 @export var trick_turn_duration: float = 0.0
-## Most twists a front flip or a backflip takes during one of its turns.
+## How long each twist adds to a trick, in s.
+@export var trick_twist_duration: float = 0.0
+## Most turns of a trick.
+@export var trick_max_turns: int = 0
+## Most twists a front flip or a backflip takes for each of its turns.
 @export var trick_max_twists_per_turn: int = 0
-## Points of a trick for each of its turns, and for each of its twists.
-@export var trick_points_per_turn: int = 0
+## Points of a front flip or a backflip, of a side flip or a spin, and of the trick of
+## the context (nothing drawn), each of one turn.
+@export var trick_points_flip: int = 0
+@export var trick_points_side_flip: int = 0
+@export var trick_points_context: int = 0
+## What the points of the flip are multiplied by for a double, and for a triple.
+@export var trick_double_multiplier: float = 0.0
+@export var trick_triple_multiplier: float = 0.0
+## Points each twist adds.
 @export var trick_points_per_twist: int = 0
-## Share of its points a trick gains for each trick already done in the same jump.
-@export var trick_air_chain_bonus: float = 0.0
-## Longest time between the end of the last trick of a jump and the contact with the
-## ground for the landing to be perfect, in s.
+## Longest time between the slide press and the contact with the ground for a finished
+## trick to be posed, and for it to be perfect, in s.
+@export var trick_landing_window: float = 0.0
 @export var trick_perfect_window: float = 0.0
-## Share of its points the last trick gains on a perfect landing.
+## Share of its points a trick gains on a perfect landing.
 @export var trick_perfect_bonus: float = 0.0
 ## Horizontal speed a perfect landing gains, in m/s.
 @export var trick_perfect_speed_gain: float = 0.0
+## The pad a trick is drawn on, while the trick button is held: how far one pixel of the
+## mouse moves it, and how fast the right stick fully pushed moves it, per second, in
+## units of the pad.
+@export var trick_pad_mouse_scale: float = 0.0
+@export var trick_pad_stick_speed: float = 0.0
+## Least length of a stroke, and most the pad may move during a press that draws nothing
+## (the trick of the context), in units of the pad.
+@export var trick_gesture_stroke_length: float = 0.0
+@export var trick_gesture_still_length: float = 0.0
+## Least arc a curve must turn after a flip to be a twist, least arc of a whole circle
+## (a spin, or a turn more of it), and least arc of a curve after a flip to be two
+## twists, in degrees.
+@export var trick_gesture_half_circle_angle: float = 0.0
+@export var trick_gesture_circle_angle: float = 0.0
+@export var trick_gesture_two_twists_angle: float = 0.0
+## How long the pad must stay still to end one element of the drawing, in s. The stick
+## back in its dead zone ends it at once.
+@export var trick_gesture_pause: float = 0.0
+## Under this motion in one fixed step, in units of the pad, the pad stands still.
+@export var trick_gesture_noise: float = 0.0
+## A change of direction sharper than this from one moving step to the next ends an
+## element, in degrees: the hand going back between two strokes.
+@export var trick_gesture_corner_angle: float = 0.0
+## How far the straight start or end of an element may turn from its first or last
+## direction, in degrees: what is straight before a curve, or after it.
+@export var trick_gesture_bend_angle: float = 0.0
+## How far a stroke may turn from its start to its end, in degrees.
+@export var trick_gesture_stroke_turn: float = 0.0
+## The least share of the length of an element its straight start must have to be the
+## stroke of a flip before the curve it curls into (a J).
+@export_range(0.0, 1.0) var trick_gesture_stroke_share: float = 0.0
 
 @export_group("Sabotage")
 ## Share of its top speed a runner keeps on the ground while it aims (0 to 1); in the
