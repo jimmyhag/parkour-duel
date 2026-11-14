@@ -29,3 +29,5 @@ cell means not assessed yet.
 | Blend space: blending clips on a continuous value, in phase | `game/core/`, `game/player/`, first applied by `docs/specs/locomotion-blend.md` | discovered | 2026-11-14 |
 | Animation at the display rate, simulation at a fixed step, interpolation between them | `game/player/`, first applied by `docs/specs/animation-polish.md` | discovered | 2026-11-14 |
 | A movement made of a loop and a procedural pose rather than a dedicated clip | `game/player/`, first applied by `docs/specs/animation-polish.md` | discovered | 2026-11-14 |
+| Placing limbs by IK on the real scenery | `game/player/`, first applied by `docs/specs/vault.md` | discovered | 2026-11-14 |
+| Split screen and per-device inputs | `game/levels/`, `game/player/`, first applied by `docs/specs/chase-mode.md` | discovered | 2026-11-14 |
