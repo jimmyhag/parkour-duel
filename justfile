@@ -50,8 +50,8 @@ typecheck: import
 
 # Lint and formatting of every script; any finding fails (gdtoolkit defaults)
 lint:
-    {{ venv_bin }}gdlint game tests
-    {{ venv_bin }}gdformat --check game tests
+    {{ venv_bin }}gdlint game tests tools/typecheck.gd
+    {{ venv_bin }}gdformat --check game tests tools/typecheck.gd
 
 # Layer boundaries, dead files, course replay names, .claude/ mirror (tools/check_structure.py)
 deadcode:
