@@ -26,3 +26,4 @@ cell means not assessed yet.
 | Separating a gesture (input presentation) from its recipe (logic) | `game/core/`, `game/player/`, first applied by `docs/specs/trick-gestures.md` | discovered | 2026-11-14 |
 | An asset under a restrictive licence kept out of a public repository, with a fallback | `assets/`, first applied by `docs/specs/character-animations.md` | discovered | 2026-11-14 |
 | Separating the choice of an animation (testable logic) from its display | `game/player/`, first applied by `docs/specs/character-animations.md` | discovered | 2026-11-14 |
+| Blend space: blending clips on a continuous value, in phase | `game/core/`, `game/player/`, first applied by `docs/specs/locomotion-blend.md` | discovered | 2026-11-14 |
