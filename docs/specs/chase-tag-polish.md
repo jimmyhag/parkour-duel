@@ -88,8 +88,11 @@ Après l'inspection, le 2026-11-15, par la session principale (choix délégué 
   rythme peut monter jusqu'à `tag_getup_max_pace` (**2,0**), et `tag_dive_recovery`
   jusqu'à **1,6 s**. Une coupe entre deux morceaux n'est permise qu'entre deux poses
   proches : les hanches et les mains à **moins de 0,1 m** l'une de l'autre. La poussée
-  des mains se joue, elle n'est jamais pontée. Le relevé finit **debout** (les hanches
-  à au moins 90 % de leur hauteur de course).
+  des mains se joue, elle n'est jamais pontée. Le relevé finit **debout** : les hanches
+  à au moins **84 %** de leur hauteur de course à la fin du clip. Debout, Getting Up les
+  tient à environ 89 %, et le fondu vers la course y mène. Les 90 % du premier amendement
+  demandaient un rythme de 2,47 ou 1,92 s au sol. La règle des 0,1 m vaut pour les coupes
+  du relevé. Le plongeon passe au corps couché par le fondu ordinaire.
 - **Décision 2** : le déséquilibre ne se joue qu'au sol. Une touche ratée en l'air ne
   trébuche pas : son bras revient seulement.
 - **Décision 3** : la pause vaut aussi pour l'attrape qui finit le match ; l'écran de fin
