@@ -23,7 +23,8 @@ assistant. `CLAUDE.md` and `GEMINI.md` only import it: edit this file, not them.
 - `just setup` installs a fresh checkout or worktree: it creates `.venv` with the
   pinned tooling of `requirements-dev.txt` and builds Godot's import cache. `just dev`
   starts the game; in the editor, F5 does the same. No secret is needed and there is no
-  server: the project runs entirely on the local machine.
+  server: the project runs on the local machine, and the chase online joins two of them
+  directly, one hosting (README, "Play online").
 - `just fetch-templates`, once per machine: downloads the export templates the release
   builds of `just check` need (about 1 GB, checksum verified).
 
@@ -128,8 +129,9 @@ come later:
 
 ### Ports and adapters
 
-There is no external service before roadmap step 5: no server, no backend, no account.
-When one appears (the network transport, then Steam), these rules apply:
+The only external service is the network transport of the chase online (roadmap step 5,
+`game/net/`): there is still no server, no backend, no account. These rules apply to it
+and to every service that comes later (Steam):
 
 - Every external service goes through a contract written with `core` types only, and
   lives in `game/net/`.
@@ -160,7 +162,11 @@ game/               the game, one folder per layer (table above)
                     it lets through), the mind of the bot of the chase (its goal at each
                     decision, the flee points it weighs, its levels), the bot's rule of
                     sabotage, the recorded run the
-                    ghost replays, the session, the animation chosen from the runner's state
+                    ghost replays, the session (and the last address joined online),
+                    what crosses the network in a chase online (the snapshot of a
+                    runner, the messages of the match, and the state and the failures
+                    of the link) and the snapshots of the other machine shown with their
+                    delay, the animation chosen from the runner's state
                     (with the weights of its locomotion, the table of blend times, the
                     fastest pace of a clip, the roll of the body along a wall, how low the
                     body is, and the reaction of a runner caught), and
@@ -186,7 +192,8 @@ game/               the game, one folder per layer (table above)
                     walls, ledges, obstacles ahead) and under the reticle; the pilot,
                     the bot's intents, the bot of the chase (its path over the
                     navigation of the arena and its links, its trick, its touches and
-                    dives), and the ghost
+                    dives), and the ghost; the runner of the other machine of a chase
+                    online, which follows its snapshots and simulates nothing
   world/            checkpoints, race lines, the four sabotageable target blocks, and
                     the grid shader of the blocks of the chase arena (a line every
                     metre, laid in the world, over the colour of its kind of obstacle)
@@ -196,19 +203,29 @@ game/               the game, one folder per layer (table above)
                     and the result screens, and for the chase the view
                     of each player of the split screen, its role, time and indicator,
                     the screen between two rounds (which, like the result, waits for the
-                    pause after a catch), and the sounds of a catch and of a miss
+                    pause after a catch), and the sounds of a catch and of a miss; for
+                    the chase online, HOST and JOIN on the start screen (the wait with
+                    the addresses of the machine, the address typed on the keyboard or
+                    the gamepad, why it failed) and the ping
+  net/              the link of the chase online to the other machine: its contract
+                    (NetLink: the handshake of the versions, the third player refused,
+                    the machines that never tell their version let go, the timeouts, the ping, every packet checked), its real adapter over
+                    ENet and its fake one, deterministic, over a fake network
   levels/           the lane of the course, the solo course (test_course.tscn), the
                     duel (two lanes), the Trick Park (trick_park.tscn), the chase (its
                     arena of 24 m with its loops round its obstacles and their
                     shortcuts, its navigation, its links and its flee points, its split
-                    screen, the pause after a catch, and in full screen against the bot,
-                    chase.tscn), and
-                    main.tscn, the main scene: the start screen and the mode it starts
+                    screen, the pause after a catch, and in full screen against the bot
+                    or online, chase.tscn), the lobby that hosts or joins online, and
+                    main.tscn, the main scene: the start screen and the mode it starts,
+                    and the composition root that chooses the adapter of the link
 addons/gut/         GUT 9.7.1, the test framework (vendored, MIT, not exported)
 tests/              headless tests, one script per subject: test_<subject>.gd; the other
                     scripts are their helpers (written sequences of intents, a runner
                     without a scene, the bases of the replay, course, duel and trick
-                    tests, the rounds between bots of the chase)
+                    tests, the rounds between bots of the chase, the contract suite of
+                    the link, two machines of a chase online side by side, the clocks
+                    of the links)
 tools/              the gate tools and the copy of the Mixamo files (Python, standard
                     library only), and the script the type gate runs inside Godot
 .agents/            the roles AI assistants play and the skills they load (README.md)

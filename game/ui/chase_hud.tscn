@@ -40,3 +40,22 @@ theme_override_constants/outline_size = 6
 theme_override_font_sizes/font_size = 32
 text = "0:20.00"
 horizontal_alignment = 1
+
+[node name="PingLabel" type="Label" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -260.0
+offset_top = 16.0
+offset_right = -24.0
+offset_bottom = 52.0
+grow_horizontal = 0
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 24
+text = "PING 42 ms"
+horizontal_alignment = 2

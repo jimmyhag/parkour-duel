@@ -459,3 +459,9 @@ extends Resource
 @export var camera_mouse_sensitivity: float = 0.0
 ## Rotation speed with the stick fully pushed, in rad/s.
 @export var camera_stick_speed: float = 0.0
+
+@export_group("Net")
+## How long after the newest snapshot of the runner of the other machine of an online chase
+## its body is shown, in s: the margin that keeps it moving smoothly though the packets come
+## irregularly (docs/specs/online-chase.md).
+@export var net_interpolation_delay: float = 0.0

@@ -1,6 +1,6 @@
 # Le Chase en ligne : héberger la partie sur son PC, un ami s'y connecte
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-15. Jimmy : « est-ce que tu peux me créer une logique pour avoir juste
 un serveur qui correspond à mon PC ? Comme ça mon pote peut se connecter à mon serveur
@@ -174,3 +174,21 @@ Avec les fichiers, le développeur rapporte :
 | Autorité : qui simule, qui arbitre (chacun son coureur, l'hôte la partie) | — | discovered |
 | Interpolation d'un objet distant avec un retard fixe | — | discovered |
 | Ne jamais faire confiance à ce qui arrive du réseau | — | discovered |
+
+## Amendements
+
+Après l'inspection, le 2026-11-15, par la session principale (choix délégué par Jimmy) :
+
+- **Décision 3 : les corps se traversent.** Le coureur distant n'est jamais poussé : il est
+  placé seulement par ses instantanés. Mais il n'est pas un obstacle solide : les corps se
+  traversent, comme le veut `chase-tag.md` (décision 1), que cette spec ne doit pas casser.
+- **Décision 4 : les règles de la partie viennent de l'hôte.** Le message qui ouvre la
+  partie porte la durée d'une manche et le nombre de manches à gagner de l'hôte, et l'invité
+  compte avec elles : deux réglages différents donnent quand même le même score.
+- **Décision 10 : la version du jeu** est `config/version` de `project.godot` (0.5.0 pour
+  commencer). Le HELLO compare ses octets sans les lire comme du texte, et l'hôte lâche une
+  machine connectée qui ne dit pas HELLO dans les 5 s : des inconnus muets ne bloquent pas
+  la place de l'ami. Un troisième joueur voit « COULD NOT CONNECT ».
+- **Décision 9 : l'adresse est une IPv4**, sans nom d'hôte.
+- **Décision 11 : « THE OTHER PLAYER LEFT »** s'affiche sur l'écran de départ, au retour au
+  menu.

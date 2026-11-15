@@ -16,7 +16,10 @@ extends CharacterBody3D
 ## one sees lies forward, and the camera goes down with the body. Caught by the cat of a
 ## chase, its body reacts until it is put back at a start point (react_to_the_catch). Held (a
 ## countdown), it follows no intent. It decides nothing about the movement, the shot or the
-## catch itself.
+## catch itself. At every step it can tell what it is in a snapshot (RunnerSnapshot); the
+## runner of the other machine of an online chase (remote) simulates nothing: its body
+## follows the snapshots of that machine as they are shown (SnapshotBuffer), and nothing
+## pushes it (docs/specs/online-chase.md).
 
 ## Emitted at the end of every fixed step, with the intent the runner just followed.
 signal stepped(intent: MoveIntent)
@@ -57,6 +60,9 @@ var animation: RunnerAnimation = RunnerAnimation.new()
 ## The runner a touch of this one reaches for, the hand of its character on its body: the
 ## other runner of a chase; null for none.
 var tag_target: CollisionObject3D = null
+## The snapshots of the other machine of an online chase this runner shows, simulating
+## nothing; null for a runner that runs here. To set before its first step.
+var remote: SnapshotBuffer = null
 
 ## Where the visible body looks, as a rotation around the vertical axis, and how far it
 ## leans to its left, in radians.
@@ -80,6 +86,8 @@ var _caught_the_target: bool = false
 ## The axis of its capsule as its last step started (axis_of): where the level measures, with
 ## where it is now, how near the two runners came during the step.
 var _axis_at_the_step_start: PackedVector3Array = PackedVector3Array()
+## How many times it was put somewhere (teleport).
+var _placements: int = 0
 
 @onready var camera_rig: CameraRig = $CameraRig as CameraRig
 @onready var _collider: CollisionShape3D = $CollisionShape3D as CollisionShape3D
@@ -102,6 +110,9 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	_axis_at_the_step_start = axis_of(self)
+	if remote != null:
+		_show_the_remote(delta)
+		return
 	var intent: MoveIntent = MoveIntent.new() if held else intent_source.next_intent()
 	var facts: RunnerFacts = _observe(intent)
 	velocity = motor.step(intent, facts, delta)
@@ -264,6 +275,70 @@ func teleport(spawn: Transform3D) -> void:
 	camera_rig.face(yaw)
 	reset_physics_interpolation()
 	_axis_at_the_step_start = axis_of(self)
+	_placements += 1
+
+
+## What this runner is at its last step, dated `step`, for the other machine of an online
+## chase: its body, its visible body, its animation, its gesture, whether it was caught.
+func snapshot(step: int) -> RunnerSnapshot:
+	var made: RunnerSnapshot = RunnerSnapshot.new()
+	made.step = step
+	made.position = global_position
+	made.velocity = velocity
+	made.capsule_height = _capsule_height()
+	made.visual = _visual.transform
+	made.placement = _placements
+	made.animation = animation
+	made.caught = _caught
+	if motor.tag != null:
+		made.gesture = motor.tag.gesture
+		made.gesture_phase = motor.tag.phase
+		made.gesture_start = motor.tag.start_step
+	return made
+
+
+## One step of the runner of the other machine: its body where the snapshot shown now puts
+## it, at the height of its capsule, its visible body placed and animated as it says, its
+## gesture held by its motor (for the sounds); put somewhere anew, it is not seen sliding
+## there, and its catch is over. Caught by the cat on this machine, it reacts at once, until
+## its snapshots say it is caught: from then on, the reaction its machine plays.
+func _show_the_remote(delta: float) -> void:
+	var shown: RunnerSnapshot = remote.show_next(tuning.net_interpolation_delay / delta)
+	if shown == null:
+		return
+	if remote.placed_anew:
+		_caught = false
+		_caught_the_target = false
+	global_position = shown.position
+	velocity = shown.velocity
+	if not is_equal_approx(_capsule_height(), shown.capsule_height):
+		_set_capsule_height(shown.capsule_height)
+	_visual.transform = shown.visual
+	if remote.placed_anew:
+		reset_physics_interpolation()
+	_hold_the_gesture(shown, delta)
+	if _caught and not shown.caught:
+		var elapsed: float = _caught_steps * delta
+		animation = RunnerAnimation.caught(_caught_by, elapsed, motor, delta, animation)
+		_caught_steps += 1
+	else:
+		animation = shown.animation
+	if _character != null:
+		_character.play(animation)
+		_reach_for_the_target()
+
+
+## The motor of the runner of the other machine holds the gesture its snapshot tells of: a
+## new one when it started anew, in the phase it is in; none without one.
+func _hold_the_gesture(shown: RunnerSnapshot, delta: float) -> void:
+	if shown.gesture == RunnerSnapshot.NO_GESTURE:
+		motor.tag = null
+		return
+	var kind: Tag.Gesture = shown.gesture as Tag.Gesture
+	var held_one: Tag = motor.tag
+	if held_one == null or held_one.gesture != kind or held_one.start_step != shown.gesture_start:
+		motor.tag = Tag.new(kind, tuning, delta, shown.gesture_start)
+	motor.tag.phase = shown.gesture_phase
 
 
 ## What the motor needs to know about the body and the world around it. Nothing of it
