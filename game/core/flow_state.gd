@@ -96,12 +96,13 @@ func follow(motor: RunnerMotor) -> void:
 
 
 ## The runner fell off the course or asked for its last checkpoint: the gauge empties, the
-## combo is broken and the last tricks are forgotten; the ammunition and the style score
-## stay.
+## combo is broken and the last moves and tricks are forgotten; the ammunition and the style
+## score stay.
 func respawn() -> void:
 	if frozen:
 		return
 	_break_the_combo()
+	_last_moves.clear()
 	_last_tricks.clear()
 	gauge = 0.0
 	_steps_stopped = 0
@@ -317,16 +318,18 @@ func _watch_for_a_stop(horizontal_speed: float, on_foot: bool) -> void:
 		_break_the_combo()
 
 
-## An error: the combo is over, broken.
+## An error: the combo is over, broken. Its last moves are kept: an error makes no move new
+## again (docs/specs/flow-combo.md, as amended with docs/specs/vault.md).
 func _break_the_combo() -> void:
 	if in_combo():
 		combos_broken += 1
-	_end_the_combo()
+	_end_the_combo(false)
 
 
 ## The combo is over: its multiplier back to x1; its last moves forgotten, unless it ended
-## by its delay (`forget` false): the repetition goes on across combos. The last tricks
-## are kept either way: only a fall and a restart forget them.
+## by its delay or by an error (`forget` false): the repetition goes on across combos. The
+## last tricks are kept either way: only a fall and a restart forget them, and the last
+## moves too.
 func _end_the_combo(forget: bool = true) -> void:
 	_combo_moves = 0
 	_steps_on_the_ground = 0

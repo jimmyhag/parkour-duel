@@ -24,6 +24,8 @@ const WALK_SPEED: float = 2.0
 ## Too high, and too deep, for the fixed tuning.
 const TOO_HIGH: float = 1.6
 const TOO_DEEP: float = 3.0
+## Where a runner in the air is, above its floor.
+const IN_THE_AIR: float = 0.5
 ## Steps enough for a runner to reach the wall, and more than any vault lasts.
 const MANY_STEPS: int = 120
 const STEPS_PER_SECOND: int = 60
@@ -39,10 +41,10 @@ func test_a_low_and_thin_obstacle_is_vaulted_at_a_run() -> void:
 	var front: float = body.position.z - body.velocity.z * MotorBody.STEP - tuning.capsule_radius
 	assert_lte(front - body.ledge_face, tuning.vault_reach + TOLERANCE, "with the wall in reach")
 	var vault_steps: int = 0
-	var exit_velocity: Vector3 = Vector3.ZERO
+	var last_velocity: Vector3 = Vector3.ZERO
 	while body.motor.state == VAULTING and steps < MANY_STEPS:
 		vault_steps += 1
-		exit_velocity = body.velocity
+		last_velocity = body.velocity
 		assert_gt(
 			body.position.y + TOLERANCE,
 			body.ledge_top if _is_over(body) else 0.0,
@@ -57,9 +59,14 @@ func test_a_low_and_thin_obstacle_is_vaulted_at_a_run() -> void:
 	assert_almost_eq(body.position.y, 0.0, TOLERANCE, "the ground behind the wall")
 	assert_lt(body.position.z, body.ledge_face - WALL_DEPTH, "on the other side of the wall")
 	var kept: float = RUN_SPEED * tuning.vault_speed_kept
-	var horizontal: Vector3 = Vector3(exit_velocity.x, 0.0, exit_velocity.z)
-	assert_almost_eq(horizontal.length(), kept, TOLERANCE, "at 90 % of its speed")
-	assert_almost_eq(horizontal.normalized(), FORWARD, Vector3.ONE * TOLERANCE, "the same way")
+	var horizontal: Vector3 = Vector3(last_velocity.x, 0.0, last_velocity.z)
+	assert_almost_eq(horizontal.length(), kept, TOLERANCE, "over the wall, 90 % of its speed")
+	# Out of the vault, the runner sets off from 90 % of its speed, the same way, gaining
+	# what the ground gives in one step towards the speed it asks for.
+	var out: float = minf(kept + tuning.ground_acceleration * MotorBody.STEP, RUN_SPEED)
+	assert_almost_eq(body.horizontal_speed(), out, TOLERANCE, "it comes out at 90 % of it")
+	var way: Vector3 = Vector3(body.velocity.x, 0.0, body.velocity.z).normalized()
+	assert_almost_eq(way, FORWARD, Vector3.ONE * TOLERANCE, "the same way")
 
 	# A jump asked for as the wall comes within reach comes first: the runner jumps.
 	var jumper: MotorBody = _running_at_a_wall(tuning, RUN_SPEED, WALL_HEIGHT, WALL_DEPTH)
@@ -123,6 +130,78 @@ func test_no_vault_without_room_behind() -> void:
 		assert_ne(body.motor.state, VAULTING, "no vault at step %d" % i)
 
 
+func test_the_vault_gains_no_speed() -> void:
+	var tuning: MovementTuning = MotorBody.fixed_tuning()
+	var entry: float = tuning.vault_min_speed
+	# As high as a vault passes over, and as deep as one hand vaults: at this speed, the
+	# runner can only clear it from close to its face.
+	var body: MotorBody = _running_at_a_wall(
+		tuning, entry, tuning.vault_max_height, tuning.vault_two_hands_depth
+	)
+	var steps: int = _run_until_it_vaults(body, entry)
+	assert_eq(body.motor.state, VAULTING, "the runner vaults at its least speed")
+
+	var fastest: float = body.horizontal_speed()
+	while body.motor.state == VAULTING and steps < MANY_STEPS:
+		body.step(_run(FORWARD))
+		if body.motor.state == VAULTING:
+			fastest = maxf(fastest, body.horizontal_speed())
+		steps += 1
+
+	assert_lte(fastest, entry + TOLERANCE, "never faster than it came")
+	assert_eq(body.motor.state, GROUNDED, "out on the ground")
+	assert_lt(body.position.z, body.ledge_face - body.ledge_depth, "on the other side")
+	var kept: float = entry * tuning.vault_speed_kept
+	var out: float = kept + tuning.ground_acceleration * MotorBody.STEP
+	assert_almost_eq(body.horizontal_speed(), out, TOLERANCE, "it comes out at 90 % of it")
+
+	# What it cannot clear at that speed in the time of a vault, it does not vault.
+	var too_deep: MotorBody = _running_at_a_wall(
+		tuning, entry, tuning.vault_max_height, tuning.vault_max_depth
+	)
+	for i: int in MANY_STEPS:
+		too_deep.step(_run(FORWARD * entry / tuning.top_speed))
+		assert_ne(too_deep.motor.state, VAULTING, "too deep for its speed: no vault (%d)" % i)
+
+
+func test_no_vault_without_standing_or_pushing_towards_the_obstacle() -> void:
+	var tuning: MovementTuning = MotorBody.fixed_tuning()
+	# Sliding at it.
+	var sliding: MotorBody = _running_at_a_wall(tuning, RUN_SPEED, WALL_HEIGHT, WALL_DEPTH)
+	var slide: MoveIntent = _run(FORWARD * RUN_SPEED / tuning.top_speed)
+	slide.slide_pressed = true
+	slide.slide_held = true
+	sliding.step(slide)
+	slide.slide_pressed = false
+	assert_eq(sliding.motor.state, RunnerMotor.State.SLIDING, "a runner slides at the wall")
+	for i: int in MANY_STEPS:
+		sliding.step(slide)
+		assert_ne(sliding.motor.state, VAULTING, "sliding: no vault at step %d" % i)
+
+	# In the air, the wall within reach as the ground would show it.
+	var flying: RunnerMotor = RunnerMotor.new(tuning)
+	var facts: RunnerFacts = _wall_in_reach(tuning)
+	facts.on_floor = false
+	facts.altitude = IN_THE_AIR
+	for i: int in 10:
+		flying.step(_run(FORWARD), facts, MotorBody.STEP)
+		assert_ne(flying.state, VAULTING, "in the air: no vault at step %d" % i)
+
+	# On the ground, at a run, not pushing towards it: aside, back, or not at all.
+	for push: Vector3 in [Vector3.RIGHT, Vector3.BACK, Vector3.ZERO]:
+		var running: RunnerMotor = RunnerMotor.new(tuning)
+		var on_foot: RunnerFacts = _wall_in_reach(tuning)
+		running.step(_run(FORWARD), RunnerFacts.new(), MotorBody.STEP)
+		running.step(_run(push), on_foot, MotorBody.STEP)
+		assert_ne(running.state, VAULTING, "pushing %s: no vault" % push)
+	var pushing: RunnerMotor = RunnerMotor.new(tuning)
+	var ground: RunnerFacts = RunnerFacts.new()
+	ground.on_floor = true
+	pushing.step(_run(FORWARD), ground, MotorBody.STEP)
+	pushing.step(_run(FORWARD), _wall_in_reach(tuning), MotorBody.STEP)
+	assert_eq(pushing.state, VAULTING, "the same, pushing towards it: a vault")
+
+
 func test_the_vault_goes_to_the_end() -> void:
 	var tuning: MovementTuning = MotorBody.fixed_tuning()
 	var body: MotorBody = _running_at_a_wall(tuning, RUN_SPEED, WALL_HEIGHT, WALL_DEPTH)
@@ -183,6 +262,19 @@ func test_the_vault_is_a_flow_move() -> void:
 	again.step(vault, RUN_SPEED, false)
 	again.step(vault, RUN_SPEED, false)
 	assert_eq(again.last_points, 75, "a second vault in a row is worth half")
+
+
+## What a runner on the floor at a run along -Z observes with a low wall within reach.
+func _wall_in_reach(tuning: MovementTuning) -> RunnerFacts:
+	var facts: RunnerFacts = RunnerFacts.new()
+	facts.on_floor = true
+	facts.velocity = FORWARD * RUN_SPEED
+	facts.obstacle_normal = Vector3.BACK
+	facts.obstacle_distance = tuning.vault_reach / 2.0
+	facts.obstacle_height = WALL_HEIGHT
+	facts.obstacle_depth = WALL_DEPTH
+	facts.obstacle_clear = true
+	return facts
 
 
 ## Steps `body` at `speed` along -Z until it vaults, or for many steps: how many.

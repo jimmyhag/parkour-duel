@@ -83,6 +83,7 @@ static func fixed_tuning() -> MovementTuning:
 	tuning.vault_min_height = 0.6
 	tuning.vault_max_height = 1.3
 	tuning.vault_max_depth = 1.5
+	tuning.vault_max_drop = 1.5
 	tuning.vault_duration = 0.4
 	tuning.vault_speed_kept = 0.9
 	tuning.vault_two_hands_depth = 0.8

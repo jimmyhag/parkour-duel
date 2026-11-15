@@ -172,12 +172,15 @@ a reduced speed whatever speed it came with. The climb goes to the end: jump and
 do nothing meanwhile.
 
 Vault: on the ground, run at a low and thin obstacle (its top 0.6 to 1.3 m above the
-feet, at most 1.5 m deep, with room over it and behind it) and keep pushing towards it.
-Once it is within reach, the runner passes over it by itself, without a button, and
-comes out on the other side, on the ground, the same way, with 90 % of its speed. Too
-slow (under 4 m/s), too high, too deep or blocked behind: nothing happens, jump or
-climb it as before. A jump pressed as it comes within reach jumps instead. The vault
-goes to the end: jump and slide do nothing meanwhile.
+feet, at most 1.5 m deep across its face) and keep pushing towards it, straight or up to
+45 degrees from its face. Once it is within reach, the runner passes over it by itself,
+without a button, and comes out on the other side, on the ground, the same way, with
+90 % of its speed; it never goes faster than it came. Too slow (under 4 m/s, or too
+slow to clear it in 0.4 s), too high, too deep, without room all the way over it to
+where it would come down, or without a floor there (at most 1.5 m lower): nothing
+happens, jump or climb it as before. A jump pressed as it comes within reach jumps
+instead. The vault goes to the end: jump and slide do nothing meanwhile. The pilot and
+the bot run into what they vault instead of jumping at it.
 
 Wall run: in the air, fast enough along the wall and high enough above the ground,
 push anywhere but away from a wall beside you: along it, diagonally towards it, or
@@ -252,8 +255,8 @@ turns, twists) again is worth less, and the combo multiplies. A trick is judged 
 the last eight tricks, whatever the moves between them (half once among them, nothing
 twice); any other move against the last ten moves. A combo that ends by its delay keeps
 both: a break on the ground does not make the same tricks new again. An error (a hard
-landing, a crash, a sabotage, a stop) forgets the last moves but keeps the last tricks;
-only a fall or a restart forgets them. A trick changes nothing
+landing, a crash, a sabotage, a stop) keeps both too: stopping on purpose makes no move
+new again; only a fall or a restart forgets them. A trick changes nothing
 to the flight, but no wall run and no mantle starts before it is over; during a trick,
 jump never makes the runner jump.
 

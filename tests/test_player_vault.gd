@@ -3,8 +3,9 @@ extends ReplayTest
 ## wall ahead to game/core from probes the way the body moves, never from where the
 ## visible body looks, and the runner passes over the wall on its own, without stopping,
 ## led by the pilot (which does not jump at what a vault passes over) or only pushing;
-## the hands of the character go on the real top of the wall (HandPlant). Faster than real
-## time with the same fixed step of 1/60 s (see ReplayTest).
+## the hands of the character go on the real top of the wall (HandPlant). A wall behind it,
+## or a void, keeps the runner from vaulting; coming at it slantwise does not. Faster than
+## real time with the same fixed step of 1/60 s (see ReplayTest).
 
 const PLAYER_SCENE: PackedScene = preload("res://game/player/player.tscn")
 const FORWARD: Vector3 = Vector3.FORWARD
@@ -31,6 +32,16 @@ const HAND_ON_THE_TOP: float = 0.05
 ## How far from the wall, before and after it, the runner of the hand test is played in real
 ## time, in m.
 const NEAR_THE_WALL: float = 3.0
+## A tall wall behind the low one: how tall, and how far behind it it stands in the cases of
+## the scenario, in m.
+const TALL: float = 3.0
+## How thick that tall wall is: thin, so that the back of the low wall and the tall wall
+## together seem no deeper than a vault passes over.
+const THIN: float = 0.3
+const GAPS_BEHIND: Array[float] = [0.3, 1.0]
+## The diagonal of the keyboard, and how wide the floor and the wall are for a run along it.
+const DIAGONAL: Vector3 = Vector3(0.70710678, 0.0, -0.70710678)
+const WIDE: float = 60.0
 
 
 ## A flat floor, a low wall across it and a goal past it, and a runner at its start; what
@@ -42,6 +53,8 @@ class AtALowWall:
 	var goal: Area3D
 	var vaulted: bool = false
 	var jumped: bool = false
+	## The highest the feet of the runner went, in m above the floor.
+	var highest: float = 0.0
 	## The state of the runner at the step that followed its first vault.
 	var state_after_the_vault: int = -1
 	## The slowest the runner went from the step it came within a few metres of the wall to
@@ -54,16 +67,23 @@ class AtALowWall:
 
 	var _visual: Node3D
 
-	func _init() -> void:
+	## A floor `width` wide, with a floor behind the low wall or a void (`floor_behind`), and a
+	## tall wall `gap` behind the low one (INF: none).
+	func _init(width: float = WIDTH, floor_behind: bool = true, gap: float = INF) -> void:
 		runner = PLAYER_SCENE.instantiate() as Player
 		add_child(runner)
 		_visual = runner.get_node("Visual") as Node3D
-		var length: float = GOAL + 10.0
-		_block(Vector3(WIDTH, 1.0, length), Vector3(0.0, -0.5, -length / 2.0 + 2.0))
+		var back: float = FACE + WALL_DEPTH
+		_block(Vector3(width, 1.0, back + 2.0), Vector3(0.0, -0.5, -(back + 2.0) / 2.0 + 2.0))
+		if floor_behind:
+			var length: float = GOAL + 10.0 - back
+			_block(Vector3(width, 1.0, length), Vector3(0.0, -0.5, -back - length / 2.0))
 		_block(
-			Vector3(WIDTH, WALL_HEIGHT, WALL_DEPTH),
+			Vector3(width, WALL_HEIGHT, WALL_DEPTH),
 			Vector3(0.0, WALL_HEIGHT / 2.0, -FACE - WALL_DEPTH / 2.0)
 		)
+		if is_finite(gap):
+			_block(Vector3(width, TALL, THIN), Vector3(0.0, TALL / 2.0, -back - gap - THIN / 2.0))
 		goal = Area3D.new()
 		var zone: CollisionShape3D = CollisionShape3D.new()
 		var box: BoxShape3D = BoxShape3D.new()
@@ -95,6 +115,7 @@ class AtALowWall:
 		if was_vaulting and runner.motor.state != VAULTING:
 			state_after_the_vault = runner.motor.state
 		vaulted = vaulted or runner.motor.state == VAULTING
+		highest = maxf(highest, runner.global_position.y - global_position.y)
 		jumped = jumped or intent.jump_pressed
 		var along: float = -(runner.global_position.z - global_position.z)
 		var beyond: float = FACE + WALL_DEPTH + runner.tuning.capsule_radius
@@ -203,9 +224,65 @@ func test_the_hand_lands_on_top_of_the_obstacle() -> void:
 	assert_gte(lowest, 0.0, "never under it")
 
 
-func _at_a_low_wall(place: int) -> AtALowWall:
-	var scene: AtALowWall = AtALowWall.new()
-	scene.position.x = place * ASIDE * 2.0
+func test_a_low_wall_against_a_tall_wall_is_not_vaulted_in_the_real_physics() -> void:
+	var scenes: Array[AtALowWall] = []
+	for index: int in GAPS_BEHIND.size():
+		var scene: AtALowWall = _at_a_low_wall(index, WIDTH, true, GAPS_BEHIND[index])
+		scene.runner.intent_source = ScriptedIntentSource.new().hold(FORWARD, false, RUN_STEPS)
+		scenes.append(scene)
+
+	for i: int in RUN_STEPS:
+		await get_tree().physics_frame
+
+	for index: int in scenes.size():
+		var scene: AtALowWall = scenes[index]
+		var context: String = "a tall wall %.1f m behind: " % GAPS_BEHIND[index]
+		assert_false(scene.vaulted, context + "no vault")
+		assert_lt(scene.highest, WALL_HEIGHT / 2.0, context + "the runner stays off the low wall")
+		var along: float = -(scene.runner.global_position.z - scene.global_position.z)
+		var against: float = FACE - scene.runner.tuning.capsule_radius
+		assert_almost_eq(along, against, 0.05, context + "it stops against it")
+
+
+func test_the_vault_works_at_an_angle() -> void:
+	var scene: AtALowWall = _at_a_low_wall(0, WIDE)
+	scene.runner.intent_source = ScriptedIntentSource.new().hold(DIAGONAL, false, RUN_STEPS)
+	var depths: Array[float] = []
+	scene.runner.stepped.connect(
+		func(_intent: MoveIntent) -> void:
+			if scene.runner.motor.state == VAULTING and depths.is_empty():
+				depths.append(scene.runner.motor.vault.depth)
+	)
+
+	for i: int in RUN_STEPS:
+		await get_tree().physics_frame
+
+	assert_true(scene.vaulted, "at 45 degrees from the face, the runner vaults")
+	assert_eq(depths.size(), 1, "its vault is seen")
+	if depths.size() == 1:
+		assert_almost_eq(depths[0], WALL_DEPTH, 0.01, "its depth measured across the face")
+	assert_gt(scene.slowest_near_the_wall, STOPPED, "it never stopped at the wall")
+	assert_gt(scene.steps_past_the_wall, 0, "it went on, on the other side")
+	assert_false(scene.jumped, "without a jump")
+
+
+func test_no_vault_at_the_edge_of_a_void() -> void:
+	var scene: AtALowWall = _at_a_low_wall(0, WIDTH, false)
+	scene.runner.intent_source = ScriptedIntentSource.new().hold(FORWARD, false, RUN_STEPS)
+
+	for i: int in RUN_STEPS:
+		await get_tree().physics_frame
+
+	assert_false(scene.vaulted, "no vault into the void")
+	var altitude: float = scene.runner.global_position.y - scene.global_position.y
+	assert_almost_eq(altitude, 0.0, 0.05, "the runner stays on its floor, against the wall")
+
+
+func _at_a_low_wall(
+	place: int, width: float = WIDTH, floor_behind: bool = true, gap: float = INF
+) -> AtALowWall:
+	var scene: AtALowWall = AtALowWall.new(width, floor_behind, gap)
+	scene.position.x = place * (ASIDE * 2.0 + width)
 	add_child_autofree(scene)
 	scene.start()
 	return scene

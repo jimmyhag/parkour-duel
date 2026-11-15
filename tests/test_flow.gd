@@ -115,7 +115,7 @@ func test_the_repetition_of_tricks_survives_the_end_of_a_combo() -> void:
 	assert_eq(jumping.last_points, 0, "a third jump among the last moves: worth nothing")
 	_move(jumping, HARD_LANDING)
 	_move(jumping, JUMP)
-	assert_eq(jumping.last_points, 50, "after an error, the jump is worth all its points")
+	assert_eq(jumping.last_points, 0, "after an error, the jump is still a repetition")
 
 
 func test_a_move_absent_from_the_last_four_is_worth_all_its_points() -> void:
@@ -236,7 +236,7 @@ func test_stopping_breaks_the_combo() -> void:
 	assert_eq(flow.multiplier(), 1, "the multiplier is back to x1")
 	assert_eq(flow.repeat_count, 0, "and the repetition to zero")
 	_move(flow, ROLL)
-	assert_eq(flow.last_points, 100, "the roll is worth all its points again")
+	assert_eq(flow.last_points, 0, "the roll, twice among the last moves, is still worth nothing")
 
 	# At the speed of a stop, but not under it, or under it in the air: no stop.
 	for case: int in 2:

@@ -525,7 +525,7 @@ func _mantle(facts: RunnerFacts, delta: float) -> void:
 ## passes over (Vault.fits), and the runner pushes towards it: it vaults. A jump asked for
 ## at this step comes first.
 func _can_vault(intent: MoveIntent, facts: RunnerFacts) -> bool:
-	if state != State.GROUNDED or not Vault.fits(facts, real_speed(), tuning):
+	if state != State.GROUNDED or not Vault.fits(facts, tuning):
 		return false
 	if not _pushes_into(intent.direction, _horizontal_unit(facts.obstacle_normal)):
 		return false

@@ -148,8 +148,8 @@ func _ledge_stands_ahead() -> bool:
 ## observes it, from the body.
 func _vaults_within(reach: float) -> bool:
 	var facts: RunnerFacts = RunnerFacts.new()
-	_runner.observe_the_obstacle_towards(facts, _direction, reach)
-	return Vault.passes_over(facts, _speed_ahead(), _runner.tuning)
+	_runner.observe_the_obstacle_towards(facts, _direction * _speed_ahead(), reach)
+	return Vault.passes_over(facts, _direction * _speed_ahead(), _runner.tuning)
 
 
 ## Something would stop the runner's body within `reach`, and the same body, lifted by

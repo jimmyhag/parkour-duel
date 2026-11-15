@@ -88,8 +88,10 @@ extends Resource
 ## over, in m.
 @export var vault_min_height: float = 0.0
 @export var vault_max_height: float = 0.0
-## Deepest obstacle a vault passes over, the way the runner goes, in m.
+## Deepest obstacle a vault passes over, across its face, in m.
 @export var vault_max_depth: float = 0.0
+## Deepest the floor behind an obstacle may be under the feet for a vault, in m.
+@export var vault_max_drop: float = 0.0
 ## How long a vault lasts, from the ground before the obstacle to the ground behind it, in s.
 @export var vault_duration: float = 0.0
 ## Share of its horizontal speed the runner keeps out of a vault (0 to 1).
