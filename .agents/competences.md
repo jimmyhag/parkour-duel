@@ -31,3 +31,5 @@ cell means not assessed yet.
 | A movement made of a loop and a procedural pose rather than a dedicated clip | `game/player/`, first applied by `docs/specs/animation-polish.md` | discovered | 2026-11-14 |
 | Placing limbs by IK on the real scenery | `game/player/`, first applied by `docs/specs/vault.md` | discovered | 2026-11-14 |
 | Split screen and per-device inputs | `game/levels/`, `game/player/`, first applied by `docs/specs/chase-mode.md` | discovered | 2026-11-14 |
+| Matching the game's durations to motion capture's | `game/core/`, `game/player/`, first applied by `docs/specs/motion-weight.md` | discovered | 2026-11-15 |
+| Driving a pose by a physical quantity (vertical speed) rather than by time | `game/player/`, first applied by `docs/specs/motion-weight.md` | discovered | 2026-11-15 |
