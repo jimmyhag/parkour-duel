@@ -4,19 +4,20 @@ extends RefCounted
 ## or a dive. A touch reaches out for its time, the runner running on no faster than a share
 ## of its top speed, then, if nothing ended the round, costs its recovery: a lower cap. A
 ## dive throws the runner forward, low, faster than it ran, for its time, nothing stopping
-## it but a wall; then the runner lies down for its recovery, still, and gets up. The motor
-## plays it and never knows whether it caught anything: the level observes, while the gesture
-## reaches (reaches), whether the mouse is within its reach (from body to body) and its cone,
-## and tells the chase so in a dated message. What it does not catch is a miss, and costs
-## its recovery.
+## it but a wall (it falls once it has left the ground it dived from); then the runner lies
+## down for its recovery, still, and gets up. The motor plays it and never knows whether it
+## caught anything: the level observes, while the gesture reaches (reaches), whether the
+## mouse is within its reach (from body to body) and its cone, and tells the chase so in a
+## dated message. What it does not catch is a miss, and costs its recovery.
 
 enum Gesture { TOUCH, DIVE }
 ## Reaching out: the window in which it catches. Then the recovery of a touch missed, the
 ## time down after a dive, and its end.
 enum Phase { REACHING, RECOVERING, DOWN, OVER }
 
-## Under this share of the speed of its dive, along its way, the runner has met a wall.
-const STOPPED_SHARE: float = 0.5
+## How far under the ground it left the floor under a dive must be for the dive to have
+## left it (off the edge of a block or a platform), in m: the rounding of a contact.
+const OFF_THE_GROUND: float = 0.05
 
 var gesture: Gesture = Gesture.TOUCH
 var phase: Phase = Phase.REACHING
@@ -34,6 +35,8 @@ var _recovery_steps: int = 1
 ## The horizontal speed of a dive, and the altitude of the ground it left.
 var _speed: float = 0.0
 var _ground: float = 0.0
+## The dive has left the ground it dived from: it falls.
+var _falling: bool = false
 
 
 func _init(kind: Gesture, tuning: MovementTuning, step_seconds: float, at_step: int) -> void:
@@ -126,7 +129,7 @@ func advance(facts: RunnerFacts) -> void:
 			var stopped: bool = false
 			if gesture == Gesture.DIVE:
 				var along: float = Vector3(facts.velocity.x, 0.0, facts.velocity.z).dot(heading)
-				stopped = along < _speed * STOPPED_SHARE
+				stopped = along < _speed * _tuning.tag_dive_stopped_share
 			if steps > _reaching_steps or stopped:
 				phase = Phase.RECOVERING if gesture == Gesture.TOUCH else Phase.DOWN
 				steps = 1
@@ -155,17 +158,29 @@ func speed_cap(top_speed: float) -> float:
 
 ## The velocity of the dive at this step, the runner having observed `facts`, the step
 ## lasting `delta` s: its way at its speed, up and down an arc no higher than the tuning
-## says, back on the ground it left at its end; then, down, still, falling if there is no
-## floor under it.
+## says, back on the ground it left at its end; once the floor under it is lower than that
+## ground (off an edge), it falls, still going its way, to the end of the dive. Then, down,
+## still, falling if there is no floor under it.
 func step(facts: RunnerFacts, delta: float) -> Vector3:
 	if phase == Phase.REACHING:
+		var velocity: Vector3 = heading * _speed
+		var floor_under: float = facts.altitude - facts.ground_clearance
+		_falling = _falling or floor_under < _ground - OFF_THE_GROUND
+		if _falling:
+			velocity.y = _fall(facts, delta)
+			return velocity
 		var share: float = float(steps) / _reaching_steps
 		var height: float = 4.0 * _tuning.tag_dive_height * share * (1.0 - share)
-		var velocity: Vector3 = heading * _speed
 		velocity.y = (_ground + height - facts.altitude) / delta
 		return velocity
+	return Vector3(0.0, _fall(facts, delta), 0.0)
+
+
+## The vertical speed of a runner that falls at this step, the runner having observed
+## `facts`: none kept on a floor.
+func _fall(facts: RunnerFacts, delta: float) -> float:
 	var falling: float = 0.0 if facts.on_floor else facts.velocity.y
-	return Vector3(0.0, maxf(falling - _tuning.fall_gravity * delta, -_tuning.max_fall_speed), 0.0)
+	return maxf(falling - _tuning.fall_gravity * delta, -_tuning.max_fall_speed)
 
 
 ## A duration of `seconds`, in fixed steps of `step_seconds`: at least one.

@@ -332,6 +332,9 @@ extends Resource
 @export var tag_dive_height: float = 0.0
 @export var tag_dive_reach: float = 0.0
 @export var tag_dive_cone: float = 0.0
+## Under this share of the speed of its dive, along its way, the diving cat has met a wall
+## and stops.
+@export var tag_dive_stopped_share: float = 0.0
 ## A dive that caught nothing: how long the cat lies on the ground, still, in s.
 @export var tag_dive_recovery: float = 0.0
 

@@ -152,6 +152,7 @@ tag_dive_time = 0.4
 tag_dive_height = 0.3
 tag_dive_reach = 0.8
 tag_dive_cone = 40.0
+tag_dive_stopped_share = 0.5
 tag_dive_recovery = 0.9
 chase_bot_decision_time = Array[float]([0.5, 0.25, 0.1])
 chase_bot_lead = Array[float]([0.0, 0.3, 0.6])

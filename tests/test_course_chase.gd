@@ -46,6 +46,8 @@ const RUN_STEPS: int = 90
 const DIVE_RUN_UP: float = 6.0
 const DIVE_FROM_THE_WALL: float = 1.0
 const DIVE_STEPS: int = 240
+## How far within the reach of a touch a catch is played, in m.
+const IN_REACH_MARGIN: float = 0.1
 ## The share of its top speed a runner has at least as it vaults at it.
 const AT_TOP_SPEED: float = 0.99
 
@@ -200,7 +202,8 @@ func test_the_catch_of_a_touch_is_observed_not_the_contact() -> void:
 			break
 	assert_eq(chase.chase.phase, ChaseState.Phase.ROUND_OVER, "the round is over")
 	assert_eq(chase.chase.round_winner_role, ChaseState.Role.CAT, "won by the cat")
-	assert_between(chase.chase.end_step, touched_at + 1, touched_at + 3, "a catch message, dated")
+	# The touch is played at the next step, and seen reaching at the one after.
+	assert_eq(chase.chase.end_step, touched_at + 2, "a catch message, dated")
 	# The screens follow the match at every frame shown.
 	await get_tree().process_frame
 	await get_tree().process_frame
@@ -243,9 +246,14 @@ func test_a_catch_on_the_step_the_time_ends_lets_the_mouse_win() -> void:
 	mouse.teleport(Transform3D(Basis.IDENTITY, at))
 	cat.teleport(Transform3D(Basis.IDENTITY, at + Vector3.BACK * _in_reach(cat.tuning)))
 	cat.intent_source = ScriptedIntentSource.new().gesture(Vector3.ZERO)
+	var caught_at_the_time_up: bool = false
 	for step: int in 3:
 		await get_tree().physics_frame
+		# The step the chase is about to play: the catch it sees then.
+		if chase.match_steps + 1 == time_up:
+			caught_at_the_time_up = Chase.catches(cat, mouse)
 
+	assert_true(caught_at_the_time_up, "the touch catches the mouse at the step the time ends")
 	assert_eq(chase.chase.phase, ChaseState.Phase.ROUND_OVER, "the round ends with the time")
 	assert_eq(chase.chase.round_winner_role, ChaseState.Role.MOUSE, "won by the mouse")
 	assert_eq(chase.chase.end_step, time_up, "at the step the time ends")
@@ -402,9 +410,10 @@ func _catch(chase: Chase, at: Vector3) -> void:
 			return
 
 
-## How far apart the axes of two runners are, their bodies half the reach of a touch apart.
+## How far apart the axes of two runners are, their bodies a margin within the reach of a
+## touch.
 func _in_reach(tuning: MovementTuning) -> float:
-	return 2.0 * tuning.capsule_radius + tuning.tag_touch_reach / 2.0
+	return 2.0 * tuning.capsule_radius + tuning.tag_touch_reach - IN_REACH_MARGIN
 
 
 ## Both players at their start points, the distance of the tuning apart, each facing the

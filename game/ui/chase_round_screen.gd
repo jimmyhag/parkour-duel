@@ -7,7 +7,6 @@ extends Control
 ## countdown of the next round shows over it. Hidden during a round and once
 ## the match is over. Nothing takes the focus.
 
-const CAUGHT: String = "CAUGHT!"
 const CAT_WINS: String = "CAT WINS"
 const MOUSE_WINS: String = "MOUSE WINS"
 const SCORE: String = "%s   %d - %d   %s"

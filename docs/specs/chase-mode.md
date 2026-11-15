@@ -74,6 +74,7 @@ Fonctionnalité: Le mode Chase
     Quand on mesure ses obstacles
     Alors elle a des murets franchissables, des blocs à hisser, des murs à wall-run, des passages bas et au moins une plateforme, dans environ 20 m sur 20 m, chaque mur d'un seul bloc
 
+  # remplacé par docs/specs/chase-tag.md (décision 1) : seul un geste du chat attrape
   Scénario: Le contact des deux corps est constaté
     Soit deux coureurs dans l'arène qui se rapprochent
     Quand leurs capsules se touchent

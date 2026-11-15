@@ -2,7 +2,8 @@ class_name ChaseSounds
 extends Node
 ## The sounds of the gestures of the cat (docs/specs/chase-tag.md), played from what
 ## game/core says: an impact when a gesture catches the mouse (the cat wins a round), a
-## short sound when one misses (it stops reaching without the round ending).
+## short sound when one misses (it stops reaching while the round is still on). A gesture
+## that stops reaching once the round is over, the one that caught among them, is no miss.
 
 ## The chase, and the motor of each of its runners.
 var chase: ChaseState
@@ -27,10 +28,15 @@ func refresh() -> void:
 	if won and chase.round_winner_role == ChaseState.Role.CAT and chase.end_step != _caught_at:
 		_caught_at = chase.end_step
 		_catch.play()
+	var running: bool = chase == null or chase.phase == ChaseState.Phase.RUNNING
 	_missed.resize(motors.size())
 	for index: int in motors.size():
 		var gesture: Tag = motors[index].tag
-		if gesture == null or gesture == _missed[index] or gesture.phase == Tag.Phase.REACHING:
+		if gesture == null or gesture == _missed[index]:
 			continue
-		_missed[index] = gesture
-		_miss.play()
+		if not running:
+			# Over before it missed: it never will.
+			_missed[index] = gesture
+		elif gesture.phase != Tag.Phase.REACHING:
+			_missed[index] = gesture
+			_miss.play()

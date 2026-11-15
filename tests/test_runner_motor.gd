@@ -350,6 +350,7 @@ func _tuning() -> MovementTuning:
 	tuning.tag_dive_push = 2.0
 	tuning.tag_dive_time = 0.4
 	tuning.tag_dive_height = 0.3
+	tuning.tag_dive_stopped_share = 0.5
 	tuning.tag_dive_recovery = 0.9
 	return tuning
 

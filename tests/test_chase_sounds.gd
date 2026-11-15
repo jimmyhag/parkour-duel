@@ -1,11 +1,14 @@
 extends GutTest
 ## The sounds of the gestures of the cat (game/ui, docs/specs/chase-tag.md, decision 8): a
-## catch plays an impact, a gesture that misses plays a short sound, from assets/sounds/.
+## catch plays an impact, a gesture that misses while the round is on plays a short sound,
+## from assets/sounds/.
 
 const SOUNDS_SCENE: PackedScene = preload("res://game/ui/chase_sounds.tscn")
 const STEPS_PER_SECOND: int = 60
 ## The steps a touch of the fixed tuning reaches.
 const TOUCH_STEPS: int = 15
+## More steps than the recovery of a touch lasts.
+const RECOVERY_STEPS: int = 30
 ## The players of the scene, and the sound each one plays.
 const SOUNDS: Dictionary[String, String] = {
 	"Catch": "res://assets/sounds/impactPunch_heavy_000.ogg",
@@ -42,10 +45,18 @@ func test_a_catch_and_a_miss_play_their_sounds() -> void:
 	cat.step(MoveIntent.new())
 	_assert_plays(sounds, [], "once only")
 
-	# A gesture catches the mouse: the impact.
-	chase.receive(ChaseMessage.catch(100, chase.cat, Tag.Gesture.DIVE))
+	# A touch catches the mouse: the impact, and no miss for it once the round is over.
+	for step: int in RECOVERY_STEPS:
+		cat.step(MoveIntent.new())
+	cat.step(touch)
+	chase.receive(ChaseMessage.catch(100, chase.cat, Tag.Gesture.TOUCH))
 	_assert_plays(sounds, ["Catch"], "a catch")
-	_assert_plays(sounds, [], "once only")
+	for step: int in TOUCH_STEPS:
+		cat.step(MoveIntent.new())
+	assert_eq(
+		cat.motor.tag.phase, Tag.Phase.RECOVERING, "the touch that caught has stopped reaching"
+	)
+	_assert_plays(sounds, [], "no miss for the touch that caught, the round over")
 
 
 ## Refreshes the sounds and checks that exactly `players` started, then silences them.

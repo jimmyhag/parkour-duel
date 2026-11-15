@@ -22,6 +22,8 @@ const RECOVERY_SPEED_SHARE: float = 0.6
 ## Steps played after a gesture, well past its end and its recovery.
 const LONG_ENOUGH: int = 120
 const NEAR: float = 0.001
+## The height of the block a cat dives off, in m.
+const BLOCK_TOP: float = 2.0
 
 var _tuning: MovementTuning
 
@@ -136,6 +138,35 @@ func test_a_missed_dive_leaves_the_cat_on_the_ground() -> void:
 	for step: int in LONG_ENOUGH:
 		_play(chase, cat, _run(), mouse, _run(), DIVE_STEPS + DOWN_STEPS + step + 2)
 	assert_almost_eq(cat.horizontal_speed(), _tuning.top_speed, NEAR, "and runs again")
+
+
+func test_a_dive_off_an_edge_falls() -> void:
+	# A cat on a block 2 m high, its edge 1.5 m ahead: its dive leaves the block and falls,
+	# instead of going on level over the void.
+	var cat: MotorBody = MotorBody.new(_tuning, BLOCK_TOP)
+	cat.has_ledge = true
+	cat.ledge_face = 0.5
+	cat.ledge_top = BLOCK_TOP
+	cat.ledge_depth = 2.0
+	cat.on_floor = true
+	cat.motor.can_tag = true
+	cat.velocity = Vector3.FORWARD * _tuning.top_speed
+	cat.step(_run())
+	assert_true(cat.on_floor, "the cat runs on the block")
+
+	cat.step(_run(false, true))
+	assert_eq(cat.motor.state, RunnerMotor.State.DIVING, "it dives")
+	var highest: float = cat.position.y
+	for step: int in DIVE_STEPS - 1:
+		cat.step(_run())
+		highest = maxf(highest, cat.position.y)
+	assert_lte(highest, BLOCK_TOP + 0.4, "low, as any dive")
+	assert_lt(cat.position.z, -1.5, "past the edge")
+	assert_lt(cat.position.y, BLOCK_TOP - 1.0, "falling, not level over the void")
+	for step: int in DOWN_STEPS + LONG_ENOUGH:
+		cat.step(_run())
+	assert_almost_eq(cat.position.y, 0.0, NEAR, "down on the floor under the block")
+	assert_eq(cat.motor.state, RunnerMotor.State.GROUNDED, "then up again")
 
 
 func test_the_dive_asks_for_momentum() -> void:

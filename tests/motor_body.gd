@@ -222,6 +222,7 @@ static func fixed_tuning() -> MovementTuning:
 	tuning.tag_dive_height = 0.3
 	tuning.tag_dive_reach = 1.6
 	tuning.tag_dive_cone = 40.0
+	tuning.tag_dive_stopped_share = 0.5
 	tuning.tag_dive_recovery = 0.9
 	tuning.chase_cat_colour = Color(0.9, 0.1, 0.1)
 	tuning.chase_mouse_colour = Color(0.1, 0.4, 1.0)

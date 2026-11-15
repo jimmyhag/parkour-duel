@@ -62,9 +62,6 @@ var intents: int = 0
 ## it last started playing a role.
 var steps_without_progress: int = 0
 var most_steps_without_progress: int = 0
-## The touches and the dives it asked for so far.
-var touches: int = 0
-var dives: int = 0
 
 var _runner: Player
 var _other: CharacterBody3D
@@ -211,10 +208,8 @@ func _tag(intent: MoveIntent) -> void:
 	var delay: int = roundi(mind.tag_delay() / _runner.get_physics_process_delta_time())
 	if _steps_in_touch_reach > delay:
 		intent.touch_pressed = true
-		touches += 1
 	elif _steps_in_dive_reach > delay:
 		intent.dive_pressed = true
-		dives += 1
 
 
 ## Whether a dive started now would keep the mouse within its reach and its cone all
