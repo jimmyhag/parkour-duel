@@ -7,8 +7,10 @@ extends Node3D
 ## of a round at GO, the catch of the mouse by a gesture of the cat (Tag,
 ## docs/specs/chase-tag.md), which this level observes from their capsules while the gesture
 ## reaches, the cat facing the way it runs (the way its camera looks when it stands), and
-## the time up of the clock of the round (RoundClock). The bodies touching alone catch
-## nothing; only the cat may touch and dive. Before every round
+## the time up of the clock of the round (RoundClock); the catch counts if the mouse came
+## within the reach of the gesture at any instant of the step (docs/specs/chase-tag-reach.md),
+## and the hand of the cat lands on it then. The bodies touching alone catch nothing; only the
+## cat may touch and dive. Before every round
 ## the players stand at their start points, the distance of the tuning apart on either
 ## side of the centre of the arena, face to face, held through the countdown; they wear
 ## the colour of their role. A fall out of the arena brings a player back to its start
@@ -196,6 +198,7 @@ func _play_the_step() -> void:
 		chase.receive(ChaseMessage.catch(match_steps, chase.cat, gesture))
 		# A catch once the time is up wins nothing: the clock still says it is up.
 		if chase.phase != ChaseState.Phase.RUNNING:
+			players[chase.cat].catch_the_target()
 			players[chase.mouse()].react_to_the_catch(gesture)
 			return
 	match clock.tick():
@@ -221,13 +224,14 @@ func _follow_the_phase() -> void:
 				_end_the_match()
 
 
-## Whether the cat `cat` catches the mouse `mouse` at the step they just played: a gesture
-## of the cat reaches, and the mouse is within its reach and its cone (Tag.catches), the cat
-## facing as a gesture does (Player.tag_facing).
+## Whether the cat `cat` catches the mouse `mouse` during the step they just played: a
+## gesture of the cat reaches, and the mouse came within its reach and its cone at one instant
+## of the step, from where their capsules were as it started to where they are
+## (Tag.catches), the cat facing as a gesture does (Player.tag_facing).
 static func catches(cat: Player, mouse: Player) -> bool:
 	var radii: float = Player.radius_of(cat) + Player.radius_of(mouse)
 	return Tag.catches(
-		cat.motor, Player.axis_of(cat), Player.axis_of(mouse), radii, cat.tag_facing()
+		cat.motor, cat.axes_of_the_step(), mouse.axes_of_the_step(), radii, cat.tag_facing()
 	)
 
 

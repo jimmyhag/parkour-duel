@@ -9,6 +9,8 @@ extends ReplayTest
 ## four tests that read them.
 
 const CHASE_SCENE: String = "res://game/levels/chase.tscn"
+## The tuning of the game.
+const TUNING: String = "res://game/core/movement_tuning.tres"
 const ONE: int = Chase.PLAYER_ONE
 const TWO: int = Chase.PLAYER_TWO
 const EASY: ChaseBot.Level = ChaseBot.Level.EASY
@@ -290,8 +292,19 @@ func test_the_polish_keeps_the_balance() -> void:
 	# docs/specs/chase-tag-polish.md, decision 5: with the new times (lying down, the getting
 	# up, the pause after a catch), the NORMAL cat still wins 1 to 5 of its 6 rounds against
 	# the NORMAL mouse.
-	var tuning: MovementTuning = load("res://game/core/movement_tuning.tres") as MovementTuning
+	var tuning: MovementTuning = load(TUNING) as MovementTuning
 	assert_gt(tuning.tag_down_lying, 0.0, "the new times")
+	var played: ChaseBotRounds = await _played_rounds()
+	assert_eq(played.rounds[0], ROUNDS, "6 rounds of NORMAL against NORMAL")
+	assert_gt(played.touches[NORMAL] + played.dives[NORMAL], 0, "the cat made its gestures")
+	assert_between(played.cat_wins[0], EVEN_CAT_LEAST, EVEN_CAT_MOST, "the cat wins 1 to 5")
+
+
+func test_the_balance_holds_with_the_real_reaches() -> void:
+	# docs/specs/chase-tag-reach.md, decision 7: with the reaches of the body, the NORMAL cat
+	# still wins 1 to 5 of its 6 rounds against the NORMAL mouse.
+	var tuning: MovementTuning = load(TUNING) as MovementTuning
+	assert_gt(tuning.tag_touch_reach, 0.0, "the reach of the arm, not a contact")
 	var played: ChaseBotRounds = await _played_rounds()
 	assert_eq(played.rounds[0], ROUNDS, "6 rounds of NORMAL against NORMAL")
 	assert_gt(played.touches[NORMAL] + played.dives[NORMAL], 0, "the cat made its gestures")

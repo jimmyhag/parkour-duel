@@ -1,6 +1,6 @@
 # Ce qui touche à l'écran attrape : la portée des gestes prise sur le corps
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-15, après avoir joué l'attrape polie (`docs/specs/chase-tag-polish.md`).
 Jimmy : « les hitbox sont bizarres. Quand tu touches, ça a l'air de pas trop marcher.

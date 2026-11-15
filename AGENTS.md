@@ -149,7 +149,8 @@ game/               the game, one folder per layer (table above)
   core/             runner motor with its aerial tricks, its vaults and its mantles (and
                     how a push goes against a surface, and whether a wall may be run
                     along), the touch and the dive of the cat of a chase and the
-                    reach in which they catch, the drawing of a trick and
+                    reach in which they catch (at any instant of a step), the drawing
+                    of a trick and
                     the recipe it reads, intents, the facts the player observes, race
                     state, the flow state and the motor's dated messages, the weapon,
                     the state machines of the sabotageable targets and their dated
@@ -171,7 +172,10 @@ game/               the game, one folder per layer (table above)
                     and laid against it from the measure of the bones of its run, its
                     hands put by inverse kinematics on what it vaults or climbs and its
                     body at the real height of a vault, its upper body reaching out for a
-                    touch and its hand on the runner it reaches, the getting up made of
+                    touch, turned towards the runner it reaches for, and its hand
+                    stretched towards it, on it only once the catch is observed, the
+                    reaches of the touch and of the dive measured on its bones, the
+                    getting up made of
                     two parts of its file; the capsule otherwise, lying forward in a
                     dive), the clips made from the Mixamo files, camera rig (over the
                     shoulder while aiming, still while a trick is drawn, down with the
