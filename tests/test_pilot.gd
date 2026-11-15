@@ -347,7 +347,11 @@ func _course_under_a_beam(aside: float, crack_share: float) -> UnderTheBeam:
 	var after_the_crack: Vector3 = track.add_block(2.3)
 	var under_the_beam: Vector3 = (before_the_crack + after_the_crack) / 2.0
 	var clearance: float = (tuning.slide_capsule_height + tuning.capsule_height) / 2.0
-	var beam_length: float = 2.7
+	# The runner slides from a jump's reach before the beam, and slows down: at the tempo
+	# of docs/specs/realistic-tempo.md it meets the crack in the middle of this beam at
+	# about 3.4 m/s. Under about 3 m/s, its body would sink into a crack this wide and stay
+	# caught on its far edge.
+	var beam_length: float = 2.1
 	track.add_beam(under_the_beam, beam_length, clearance, tuning.jump_height * 2.0)
 	var goal: Area3D = track.add_goal(track.add_block(9.8))
 	runner.teleport(Transform3D(Basis.IDENTITY, track.position + start))

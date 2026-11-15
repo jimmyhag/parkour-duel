@@ -3,16 +3,16 @@
 [ext_resource type="Script" path="res://game/world/target_block.gd" id="1_target"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_body"]
-size = Vector3(6, 1, 8)
+size = Vector3(6, 1, 6.3)
 
 [sub_resource type="BoxMesh" id="BoxMesh_body"]
-size = Vector3(6, 1, 8)
+size = Vector3(6, 1, 6.3)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_zone"]
-size = Vector3(6, 3, 8)
+size = Vector3(6, 3, 6.3)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_place"]
-size = Vector3(6, 0.9, 8)
+size = Vector3(6, 0.9, 6.3)
 
 [node name="FallingPlatform" type="Node3D"]
 script = ExtResource("1_target")

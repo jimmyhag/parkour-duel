@@ -75,6 +75,8 @@ const SETTLE_STEPS: int = 20
 const PHASE_TOLERANCE: float = 0.06
 ## How close to the speed of the ground the foot on it goes back, as a share of it.
 const GROUND_TOLERANCE: float = 0.1
+## The precision of a pace computed by the logic.
+const TOLERANCE: float = 0.0001
 ## How many times a second the tree is advanced to follow a foot; the feet followed, and
 ## the bones of each one (its ankle, its toe) in RunnerCharacter's names of the left one.
 const FOOT_SAMPLES_PER_SECOND: float = 240.0
@@ -357,6 +359,60 @@ func test_the_blended_clips_keep_the_same_phase() -> void:
 			assert_almost_eq(back[side], ground, ground * GROUND_TOLERANCE, named + ": it keeps up")
 
 
+func test_the_feet_follow_the_ground_up_to_tier_3() -> void:
+	# docs/specs/realistic-tempo.md, decision 7: the project's tuning, on the ground from the
+	# walk to the top speed of tier 3 of the flow. The rule: the locomotion chosen for the
+	# runner plays under its cap, and its stride goes back at the speed of the ground, within
+	# 10 %.
+	var game_tuning: MovementTuning = load(TUNING) as MovementTuning
+	var bonuses: Array[float] = game_tuning.flow_tier_speed_bonus
+	var tier_3: float = bonuses[game_tuning.flow_tier_count - 1]
+	var fastest: float = game_tuning.top_speed * (1.0 + tier_3)
+	var speeds: Array[float] = []
+	var sampled: float = game_tuning.animation_walk_speed
+	while sampled < fastest:
+		speeds.append(sampled)
+		sampled += 0.05
+	speeds.append(fastest)
+	for speed: float in speeds:
+		var animation: RunnerAnimation = _locomotion_of_a_runner_at(speed, tier_3, game_tuning)
+		var context: String = "%.2f m/s" % speed
+		var stride: float = RunnerAnimation.own_speed(animation.locomotion, game_tuning)
+		stride *= animation.speed
+		assert_lte(
+			animation.speed, game_tuning.animation_max_pace + TOLERANCE, context + ": capped"
+		)
+		assert_almost_eq(stride, speed, speed * GROUND_TOLERANCE, context + ": the stride keeps up")
+
+	# With the files: the planted foot of the character, at the speed of each clip that
+	# strides, at the top speed and at the top speed of each tier.
+	var character: RunnerCharacter = _character()
+	if character == null:
+		pass_test("without the Mixamo files, the rule alone")
+		return
+	var points: Array[float] = [
+		game_tuning.animation_walk_speed,
+		game_tuning.animation_jog_speed,
+		game_tuning.animation_run_speed * game_tuning.animation_run_alone_pace,
+		game_tuning.top_speed,
+	]
+	for bonus: float in bonuses:
+		points.append(game_tuning.top_speed * (1.0 + bonus))
+	for ground: float in points:
+		var animation: RunnerAnimation = _locomotion_of_a_runner_at(ground, tier_3, game_tuning)
+		var named: String = "at %.2f m/s" % ground
+		var back: PackedFloat32Array = _planted_feet_speeds_playing(character, animation, named)
+		for side: int in back.size():
+			var foot: String = "%s, its %s foot" % [named, FEET[side]]
+			gut.p(
+				(
+					"%s: planted, it goes back at %.2f m/s (%+.1f %%), the clips at %.2f times"
+					% [foot, back[side], (back[side] / ground - 1.0) * 100.0, animation.speed]
+				)
+			)
+			assert_almost_eq(back[side], ground, ground * GROUND_TOLERANCE, foot + ": it keeps up")
+
+
 func test_each_transition_has_its_blend_time() -> void:
 	var pairs: Array[Array] = [
 		[RunnerAnimation.Clip.RUNNING, RunnerAnimation.Clip.JUMP, 0.05, "run → jump"],
@@ -520,14 +576,23 @@ func _assert_the_walk_keeps_up_with_the_ground() -> void:
 func _planted_feet_speeds(
 	character: RunnerCharacter, clip: RunnerAnimation.Clip, ground: float
 ) -> PackedFloat32Array:
-	var tree: AnimationTree = _tree_of(character)
-	var skeleton: Skeleton3D = _skeleton_of(character)
 	var game_tuning: MovementTuning = load(TUNING) as MovementTuning
 	var animation: RunnerAnimation = RunnerAnimation.new()
 	animation.clip = RunnerAnimation.Clip.RUNNING
 	animation.locomotion = [0.0, 0.0, 0.0, 0.0, 0.0]
 	animation.locomotion[RunnerAnimation.LOCOMOTION.find(clip)] = 1.0
 	animation.speed = ground / RunnerAnimation.own_speed(animation.locomotion, game_tuning)
+	var title: String = RunnerAnimation.Clip.keys()[clip]
+	return _planted_feet_speeds_playing(character, animation, title)
+
+
+## The same, the tree of `character` playing the locomotion `animation`; `title` names it
+## in the messages.
+func _planted_feet_speeds_playing(
+	character: RunnerCharacter, animation: RunnerAnimation, title: String
+) -> PackedFloat32Array:
+	var tree: AnimationTree = _tree_of(character)
+	var skeleton: Skeleton3D = _skeleton_of(character)
 	for step: int in SETTLE_STEPS:
 		character.play(animation)
 		tree.advance(1.0 / ReplayTest.STEPS_PER_SECOND)
@@ -562,7 +627,7 @@ func _planted_feet_speeds(
 			if maxf(here[low].y, next[low].y) - lowest[foot][low] <= ON_THE_GROUND:
 				# The character faces -Z: a foot that goes back goes towards +Z.
 				back.append((next[low].z - here[low].z) * FOOT_SAMPLES_PER_SECOND)
-		var context: String = "%s, its %s foot" % [RunnerAnimation.Clip.keys()[clip], FEET[foot]]
+		var context: String = "%s, its %s foot" % [title, FEET[foot]]
 		assert_gt(back.size(), 0, context + ": planted")
 		back.sort()
 		speeds.append(back[back.size() / 2] if not back.is_empty() else 0.0)
@@ -595,6 +660,18 @@ func _running_at(speed: float) -> MotorBody:
 	var body: MotorBody = MotorBody.running(_tuning, FORWARD, speed)
 	body.step(_push(FORWARD * speed / _tuning.top_speed))
 	return body
+
+
+## The locomotion RunnerAnimation chooses for a runner on its feet at `speed`, with
+## `tuning`, its top speed raised by `bonus` (the share a tier of the flow gives).
+func _locomotion_of_a_runner_at(
+	speed: float, bonus: float, tuning: MovementTuning
+) -> RunnerAnimation:
+	var body: MotorBody = MotorBody.new(tuning)
+	body.motor.top_speed_bonus = bonus
+	body.velocity = FORWARD * speed
+	body.step(_push(FORWARD * minf(speed / body.motor.top_speed(), 1.0)))
+	return RunnerAnimation.of(body.motor, STEP)
 
 
 ## The locomotion of a runner at `speed`, with `tuning`.

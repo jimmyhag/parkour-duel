@@ -301,7 +301,10 @@ func test_the_tricks_between_two_walls_earn_little_without_risk() -> void:
 	# off each wall with the jump button and releases its trick at once, then with the
 	# trick button, which jumps off the wall into the trick (decision 28). Then, with tricks
 	# too long to be over at the wall in front, crashes on purpose: an error does not make
-	# the tricks new again (decision 22).
+	# the tricks new again (decision 22); triples and twisted doubles, too long also for the
+	# fall to the ground when the wall in front is missed. Last, the longest tricks that may
+	# end before the ground (a single with a twist, a double): either they crash, or they
+	# earn under the threshold too (docs/specs/realistic-tempo.md, amendment).
 	var singles: Array[TrickRecipe] = [
 		TrickRecipe.drawn(TrickRecipe.Flip.FRONT_FLIP),
 		TrickRecipe.drawn(TrickRecipe.Flip.BACKFLIP),
@@ -313,24 +316,44 @@ func test_the_tricks_between_two_walls_earn_little_without_risk() -> void:
 		crashing
 		. append_array(
 			[
-				TrickRecipe.drawn(TrickRecipe.Flip.FRONT_FLIP, 1, 1),
-				TrickRecipe.drawn(TrickRecipe.Flip.BACKFLIP, 1, 1),
-				TrickRecipe.drawn(TrickRecipe.Flip.SIDE_FLIP, 2),
-				TrickRecipe.drawn(TrickRecipe.Flip.BACKFLIP, 2),
+				TrickRecipe.drawn(TrickRecipe.Flip.FRONT_FLIP, 2, 1),
+				TrickRecipe.drawn(TrickRecipe.Flip.BACKFLIP, 2, 1),
+				TrickRecipe.drawn(TrickRecipe.Flip.SIDE_FLIP, 3),
+				TrickRecipe.drawn(TrickRecipe.Flip.BACKFLIP, 3),
 			]
 		)
 	)
-	for loop: int in 3:
+	var longest: Array[TrickRecipe] = singles.duplicate()
+	(
+		longest
+		. append_array(
+			[
+				TrickRecipe.drawn(TrickRecipe.Flip.FRONT_FLIP, 1, 1),
+				TrickRecipe.drawn(TrickRecipe.Flip.BACKFLIP, 1, 1),
+				TrickRecipe.drawn(TrickRecipe.Flip.FRONT_FLIP, 2),
+				TrickRecipe.drawn(TrickRecipe.Flip.BACKFLIP, 2),
+				TrickRecipe.drawn(TrickRecipe.Flip.SIDE_FLIP, 2),
+			]
+		)
+	)
+	for loop: int in 4:
 		var trick_exits: bool = loop == 1
 		var crashes: bool = loop == 2
+		var long: bool = loop == 3
 		var how: String = "the trick button" if trick_exits else "the jump button"
 		if crashes:
 			how += ", crashing on purpose"
+		if long:
+			how += ", with the longest tricks that may land"
 		var park: TrickPark = _add_park()
 		var runner: Player = park.player
 		var start: Vector3 = Vector3(WallBot.LANE, 0.0, WallBot.NEAR_END + 8.0)
 		runner.teleport(Transform3D(Basis.IDENTITY, start))
-		var recipes: Array[TrickRecipe] = crashing if crashes else singles
+		var recipes: Array[TrickRecipe] = singles
+		if crashes:
+			recipes = crashing
+		elif long:
+			recipes = longest
 		var bot: WallBot = WallBot.new(runner, recipes, trick_exits)
 		runner.intent_source = bot
 		var watch: TrickWatch = TrickWatch.new(runner)
@@ -373,7 +396,11 @@ func test_the_tricks_between_two_walls_earn_little_without_risk() -> void:
 			)
 		)
 		assert_gt(paid_by_a_wall_run, 10, how + ": the wall runs pay its tricks again and again")
-		if crashes:
+		if long:
+			var style: int = park.flow.style_score
+			var risky: bool = watch.crashes > 0
+			assert_true(risky or style < RISKLESS_STYLE_PER_MINUTE, how + ": a risk, or little")
+		elif crashes:
 			assert_gt(watch.crashes, 3, how + ": crashes")
 			var style: int = park.flow.style_score
 			assert_lt(style, CRASHING_WHEN_ERRORS_FORGOT, how + ": the crashes earn less now")
@@ -505,7 +532,9 @@ func _assert_a_wall_exit_with(fingers: Fingers, device: String) -> void:
 			released_at = step
 		for event: RunnerEvent in runner.motor.events:
 			wall_jumped = wall_jumped or event.kind == RunnerEvent.Kind.WALL_JUMP
-		var falling: bool = runner.velocity.y < 0.0 and released_at >= 0
+		# Off the wall: a wall run lower than the height of the pose is not the ground coming.
+		var off_the_wall: bool = state != RunnerMotor.State.WALL_RUNNING
+		var falling: bool = runner.velocity.y < 0.0 and released_at >= 0 and off_the_wall
 		if falling and not posed and runner.global_position.y < POSE_HEIGHT:
 			_send(fingers.pose_press)
 			posed = true

@@ -1,6 +1,6 @@
 # Un tempo réaliste : courir, sauter et tourner à vitesse humaine
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-15, avec Jimmy, après avoir joué la passe « du poids et du liant »
 (`docs/specs/motion-weight.md`) : « c'est trop rapide […] pour le système que je veux
@@ -30,7 +30,7 @@ l'arène du Chase ; ce que le coureur constate ne dépend jamais du corps visibl
 | 1 | La course | `top_speed` **6,5 m/s** ; `ground_acceleration` **16** et `ground_deceleration` **26 m/s²** (le coureur met environ 0,4 s pour atteindre sa pointe, 0,25 s pour s'arrêter) ; `air_acceleration` **11**. | Q1 de Jimmy. Un départ et un arrêt d'humain. |
 | 2 | Le saut | `jump_height` **1,2 m** ; `rise_gravity` **16** et `fall_gravity` **22 m/s²** : environ 0,72 s de vol à plat (0,59 avant) et une portée à pleine vitesse proche d'avant (4,7 m contre 4,8). Le saut relâché tôt, le coyote et la mémoire du saut ne changent pas. | Q2. Plus bas, moins sec, plus de temps de vol ressenti. |
 | 3 | Les figures | Les durées des figures suivent le temps de vol : `trick_turn_duration` et `trick_twist_duration` sont multipliées par le rapport entre le nouveau temps de vol d'un saut à plat et l'ancien (environ 1,22 : un tour vers **0,43 s**, une vrille vers **0,37 s**). Le développeur calcule les valeurs depuis le réglage et les écrit dans la ressource. Les fenêtres de réception (`trick_landing_window`, `trick_perfect_window`) ne changent pas. | Q2. Des figures plus lentes, sans rouvrir les règles et les boucles fermées : un simple tient toujours dans un saut à plat, un double et une vrille non. |
-| 4 | Le wall-run | `wall_run_duration` **1,0 s** ; lancé à partir de `wall_run_start_speed` **4,8 m/s**, arrêté sous `wall_run_stop_speed` **3,2 m/s** ; `wall_jump_away_speed` **5,5** et `wall_jump_up_speed` **6,5 m/s** (environ la vitesse d'appel d'un saut). | Q2. Plus court et moins rapide. |
+| 4 | Le wall-run | `wall_run_duration` **1,0 s** ; lancé à partir de `wall_run_start_speed` **4,8 m/s**, arrêté sous `wall_run_stop_speed` **3,2 m/s** ; `wall_jump_away_speed` **5,5** et `wall_jump_up_speed` **5,8 m/s** (**amendement**, 6,5 avant : la montée du saut de mur s'allonge comme les figures, ×1,22). | Q2. Plus court et moins rapide. |
 | 5 | Le flow | `flow_tier_speed_bonus` **[0,04 ; 0,07 ; 0,10]** (au palier 3 : 7,15 m/s, contre 9,43 aujourd'hui). `perfect_slide_speed_gain` **1,5** et `trick_perfect_speed_gain` **0,8 m/s**. | Q2. Le bonus reste une récompense, à l'échelle de la nouvelle course. |
 | 6 | Les seuils qui suivent la vitesse | Multipliés par 6,5 / 8,2 (environ 0,79) et arrondis au dixième : `slide_min_speed` **4,0**, `slide_stop_speed` **2,0**, `vault_min_speed` **3,2**, `mantle_exit_speed` **3,2**. Les durées des gestes de `motion-weight.md` ne changent pas. | Les mouvements gardent le même rapport à la course. |
 | 7 | Les pieds | Au sol, de la marche au palier 3 du flow, la locomotion est lue sous `animation_max_pace` et le pied d'appui suit le sol à plus ou moins 10 % (mesuré avec les fichiers, rapporté). À 6,5 m/s, le sprint est lu à environ 1,16 fois. | Les pieds ne glissent plus. |
@@ -88,6 +88,36 @@ Fonctionnalité: Un tempo réaliste
 Avec les fichiers, le développeur mesure localement le pied d'appui (décision 7) et
 rapporte les chiffres ; il mesure aussi, en vraie physique, les boucles de points de style
 les moins risquées (avant et après) et les rapporte.
+
+## Choix acceptés après le développement
+
+Acceptés le 2026-11-15 par la session principale (délégation de Jimmy) ; Jimmy peut
+rouvrir chacun après avoir joué.
+
+- **La plateforme qui tombe** passe de 8 à 6,3 m (8 × 6,5 / 8,2), pour que l'alerte
+  laisse toujours le temps d'en sortir (`docs/specs/sabotage.md`) ; dans le couloir, le
+  départ des marches s'allonge de 1,7 m vers l'arrière. Le reste du parcours ne bouge pas.
+- **L'arène du Chase ne change pas** ; le chat gagne toujours plus vite que la souris
+  contre des bots qui foncent droit (2,25 s avant, 2,80 s après) : l'équilibre se juge
+  entre humains.
+- **Une fente sous un plafond bas peut encore coincer un coureur lent** (sous 3 m/s
+  environ), contrairement à la décision 18 de `docs/specs/movement-walls.md`. Le défaut
+  existait déjà avec l'ancien réglage ; aucune fente de ce genre sur le parcours ni dans
+  l'arène. Il sera traité dans sa propre demande ; d'ici là, aucun niveau n'en dessine.
+- **Les tests des scénarios vérifient les valeurs que la spec nomme** (6,5 m/s, 1,2 m,
+  7,15 m/s, 4,8 m/s) : changer l'une d'elles passe désormais par une spec, même sans
+  ligne de code.
+- **Le saut de mur à 5,8 m/s** (amendement de la décision 4, après l'inspection) : à 6,5,
+  sa montée s'allongeait de ×1,37 quand les figures ne s'allongeaient que de ×1,22, et un
+  simple vrillé ou un double tenait jusqu'au sol entre les deux murs du Trick Park, sans
+  risque : 13 701 points par minute, sans un crash. À 5,8 : 6 141, avec 6 crashs. Le test
+  des figures entre deux murs joue maintenant aussi ces figures-là.
+- **Le scénario du parcours** rejoue le réglage du projet ; sa garantie à plus et moins
+  10 % est dans `test_the_course_stays_feasible_with_the_new_tuning`.
+- **`just check` met de 106 à 120 s** sur la machine de Jimmy avec les fichiers Mixamo
+  (94 s sur `main` avant cette passe) : le coureur plus lent demande plus de pas aux
+  rejeux. Au-dessus de la limite de 90 s ; à traiter dans sa propre demande, avant la
+  suivante.
 
 ## Hors périmètre
 
