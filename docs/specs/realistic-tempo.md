@@ -89,6 +89,29 @@ Avec les fichiers, le développeur mesure localement le pied d'appui (décision 
 rapporte les chiffres ; il mesure aussi, en vraie physique, les boucles de points de style
 les moins risquées (avant et après) et les rapporte.
 
+## Choix acceptés après le développement
+
+Acceptés le 2026-11-15 par la session principale (délégation de Jimmy) ; Jimmy peut
+rouvrir chacun après avoir joué.
+
+- **La plateforme qui tombe** passe de 8 à 6,3 m (8 × 6,5 / 8,2), pour que l'alerte
+  laisse toujours le temps d'en sortir (`docs/specs/sabotage.md`) ; dans le couloir, le
+  départ des marches s'allonge de 1,7 m vers l'arrière. Le reste du parcours ne bouge pas.
+- **L'arène du Chase ne change pas** ; le chat gagne toujours plus vite que la souris
+  contre des bots qui foncent droit (2,25 s avant, 2,80 s après) : l'équilibre se juge
+  entre humains.
+- **Une fente sous un plafond bas peut encore coincer un coureur lent** (sous 3 m/s
+  environ), contrairement à la décision 18 de `docs/specs/movement-walls.md`. Le défaut
+  existait déjà avec l'ancien réglage ; aucune fente de ce genre sur le parcours ni dans
+  l'arène. Il sera traité dans sa propre demande ; d'ici là, aucun niveau n'en dessine.
+- **Les tests des scénarios vérifient les valeurs que la spec nomme** (6,5 m/s, 1,2 m,
+  7,15 m/s, 4,8 m/s) : changer l'une d'elles passe désormais par une spec, même sans
+  ligne de code.
+- **`just check` met de 106 à 120 s** sur la machine de Jimmy avec les fichiers Mixamo
+  (94 s sur `main` avant cette passe) : le coureur plus lent demande plus de pas aux
+  rejeux. Au-dessus de la limite de 90 s ; à traiter dans sa propre demande, avant la
+  suivante.
+
 ## Hors périmètre
 
 - La caméra (champ de vision, distance) : à juger après cette passe.
