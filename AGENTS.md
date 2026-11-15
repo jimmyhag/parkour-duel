@@ -175,7 +175,9 @@ game/               the game, one folder per layer (table above)
                     walls, ledges, obstacles ahead) and under the reticle; the pilot,
                     the bot's intents, the bot of the chase (its path over the
                     navigation of the arena and its links, its trick), and the ghost
-  world/            checkpoints, race lines, and the four sabotageable target blocks
+  world/            checkpoints, race lines, the four sabotageable target blocks, and
+                    the grid shader of the blocks of the chase arena (a line every
+                    metre, laid in the world, over the colour of its kind of obstacle)
   ui/               timer, flow and debug displays, the reticle, the pad of the trick
                     being drawn, the sounds of the flow and of the sabotage, the
                     countdown, the start screen (and the level of the bot of the chase)
@@ -184,7 +186,8 @@ game/               the game, one folder per layer (table above)
                     and the screen between two rounds
   levels/           the lane of the course, the solo course (test_course.tscn), the
                     duel (two lanes), the Trick Park (trick_park.tscn), the chase (its
-                    arena with its navigation, its links and its flee points, its split
+                    arena of 32 m with its loops round its obstacles and their
+                    shortcuts, its navigation, its links and its flee points, its split
                     screen, and in full screen against the bot, chase.tscn), and
                     main.tscn, the main scene: the start screen and the mode it starts
 addons/gut/         GUT 9.7.1, the test framework (vendored, MIT, not exported)

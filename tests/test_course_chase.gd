@@ -9,8 +9,9 @@ const ONE: int = Chase.PLAYER_ONE
 const TWO: int = Chase.PLAYER_TWO
 ## More steps than a countdown lasts.
 const COUNTDOWN_STEPS: int = 400
-## How much the arena may differ from 20 m by 20 m, in m.
-const ARENA_SIZE: float = 20.0
+## How much the arena may differ from 32 m by 32 m, in m (docs/specs/chase-arena.md,
+## decision 1, after the 20 m by 20 m of docs/specs/chase-mode.md).
+const ARENA_SIZE: float = 32.0
 const ARENA_TOLERANCE: float = 2.0
 ## The height of a low wall the vault will take, and how thin it is at most, in m.
 const LOW_WALL_LOWEST: float = 0.8
@@ -53,11 +54,11 @@ func test_the_arena_has_all_its_obstacles() -> void:
 	var arena: Node3D = chase.get_node("Arena") as Node3D
 	var ground_top: float = _box_of(arena.get_node("Ground") as StaticBody3D).end.y
 
-	# Enclosed by walls not to be run along, about 20 m by 20 m.
+	# Enclosed by walls not to be run along, about 32 m by 32 m.
 	var enclosure: Array[AABB] = _boxes(arena, "Enclosure", "the enclosure")
 	var inside: AABB = _inside_of(enclosure)
-	assert_almost_eq(inside.size.x, ARENA_SIZE, ARENA_TOLERANCE, "about 20 m wide")
-	assert_almost_eq(inside.size.z, ARENA_SIZE, ARENA_TOLERANCE, "about 20 m deep")
+	assert_almost_eq(inside.size.x, ARENA_SIZE, ARENA_TOLERANCE, "about 32 m wide")
+	assert_almost_eq(inside.size.z, ARENA_SIZE, ARENA_TOLERANCE, "about 32 m deep")
 	for wall: Node in arena.get_node("Enclosure").get_children():
 		assert_true(wall.is_in_group(Player.NO_WALL_RUN_GROUP), wall.name + ": no wall run on it")
 	# No way out: higher than a jump from the highest top, and the mantle above it.
@@ -87,7 +88,12 @@ func test_the_arena_has_all_its_obstacles() -> void:
 		assert_gte(maxf(box.size.x, box.size.z), 4.0, "long enough")
 	for wall: Node in walls.get_children():
 		assert_false(wall.is_in_group(Player.NO_WALL_RUN_GROUP), wall.name + ": may be run along")
-	for box: AABB in _boxes(arena, "LowPassages", "low passages to slide under"):
+	# The low passages are the tunnels, under their roofs.
+	var roofs: Array[AABB] = []
+	for tunnel: Node in arena.get_node("Tunnels").get_children():
+		roofs.append(_box_of(tunnel.get_node("Roof") as StaticBody3D))
+	assert_gte(roofs.size(), 2, "the arena has low passages to slide under")
+	for box: AABB in roofs:
 		var room: float = box.position.y - ground_top
 		assert_gt(room, tuning.slide_capsule_height, "room for a slide under it")
 		assert_lt(room, tuning.capsule_height, "none for a runner on its feet")
