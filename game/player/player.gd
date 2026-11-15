@@ -12,8 +12,10 @@ extends CharacterBody3D
 ## (AimFacts), or on the line from its head that its intent gives (the bot's aim), and
 ## puts the camera over its shoulder. While a touch of the cat reaches, the character's hand
 ## reaches for the runner it may catch (tag_target); in a dive and down after it, the capsule
-## one sees lies forward. Held (a countdown), it follows no intent. It decides nothing about
-## the movement, the shot or the catch itself.
+## one sees lies forward, and the camera goes down with the body. Caught by the cat of a
+## chase, its body reacts until it is put back at a start point (react_to_the_catch). Held (a
+## countdown), it follows no intent. It decides nothing about the movement, the shot or the
+## catch itself.
 
 ## Emitted at the end of every fixed step, with the intent the runner just followed.
 signal stepped(intent: MoveIntent)
@@ -67,6 +69,11 @@ var _wall_run_distance: float = 0.0
 var _wall_run_locomotion: PackedFloat32Array = []
 ## The Mixamo character in the visible body; null with the capsule.
 var _character: RunnerCharacter = null
+## The gesture of the cat that caught the runner, and the steps since: what its body shows
+## (RunnerAnimation.caught); not caught, none.
+var _caught: bool = false
+var _caught_by: Tag.Gesture = Tag.Gesture.TOUCH
+var _caught_steps: int = 0
 
 @onready var camera_rig: CameraRig = $CameraRig as CameraRig
 @onready var _collider: CollisionShape3D = $CollisionShape3D as CollisionShape3D
@@ -97,7 +104,13 @@ func _physics_process(delta: float) -> void:
 	camera_rig.aiming = intent.aim_held
 	aim_facts = _observe_the_aim(intent)
 	_turn(intent, delta)
-	animation = RunnerAnimation.of(motor, delta, animation)
+	if _caught:
+		var elapsed: float = _caught_steps * delta
+		animation = RunnerAnimation.caught(_caught_by, elapsed, motor, delta, animation)
+		_caught_steps += 1
+	else:
+		animation = RunnerAnimation.of(motor, delta, animation)
+	camera_rig.lowered = animation.lowered
 	_lean_along_the_wall(delta)
 	_pose()
 	if _character != null:
@@ -130,6 +143,14 @@ func paint(colour: Color) -> void:
 	_body.material_override = material
 	if _character != null:
 		_character.tint(colour)
+
+
+## The cat of a chase caught this runner with `gesture`: from the next step on, its body
+## reacts (RunnerAnimation.caught), until it is put somewhere (teleport).
+func react_to_the_catch(gesture: Tag.Gesture) -> void:
+	_caught = true
+	_caught_by = gesture
+	_caught_steps = 0
 
 
 ## Shows the world through this runner's camera, or not: a duel shows the player's only,
@@ -202,12 +223,13 @@ static func radius_of(body: CollisionObject3D) -> float:
 
 
 ## Puts the runner at `spawn`, standing and at rest, facing its -Z axis, with the camera
-## in its back.
+## in its back; a catch it reacted to is over.
 func teleport(spawn: Transform3D) -> void:
 	var yaw: float = spawn.basis.get_euler().y
 	global_position = spawn.origin
 	velocity = Vector3.ZERO
 	motor.reset()
+	_caught = false
 	_fit_capsule()
 	_yaw = yaw
 	_lean = 0.0

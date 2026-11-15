@@ -153,7 +153,11 @@ tag_dive_height = 0.3
 tag_dive_reach = 0.8
 tag_dive_cone = 40.0
 tag_dive_stopped_share = 0.5
-tag_dive_recovery = 0.9
+tag_dive_recovery = 1.2
+tag_down_lying = 0.25
+tag_camera_down_height = 0.7
+tag_camera_follow = 0.15
+chase_catch_pause = 0.8
 chase_bot_decision_time = Array[float]([0.5, 0.25, 0.1])
 chase_bot_lead = Array[float]([0.0, 0.3, 0.6])
 chase_bot_climbs = Array[bool]([false, true, true])
@@ -170,11 +174,13 @@ capsule_radius = 0.35
 turn_speed = 14.0
 animation_blend_time = 0.2
 animation_blend_times = Dictionary[String, float]({
+"*>fall_flat": 0.1,
 "*>falling_to_roll": 0.1,
 "*>hard_landing": 0.06,
 "*>land_to_run": 0.08,
 "*>landing": 0.08,
 "*>ledge_pull_up": 0.12,
+"*>stumble": 0.1,
 "*>tuck": 0.08,
 "*>vault_one_hand": 0.12,
 "*>vault_two_hands": 0.12,
@@ -186,6 +192,7 @@ animation_blend_times = Dictionary[String, float]({
 "running>running_jump": 0.12,
 "running>running_slide": 0.15,
 "running_slide>running": 0.25,
+"stumble>*": 0.2,
 "tuck>*": 0.12,
 "vault_one_hand>*": 0.2,
 "vault_two_hands>*": 0.2

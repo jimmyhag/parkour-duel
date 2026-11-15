@@ -1,6 +1,6 @@
 # L'attrape se voit : la chute, le relevé, le déséquilibre, la souris touchée
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-15, après la première version de l'attrape (`docs/specs/chase-tag.md`).
 Jimmy : « j'aime bien le principe, c'est plutôt sympathique. Améliore-moi tout ce que tu

@@ -61,11 +61,14 @@ ANIMATIONS = {
     "Running Jump.fbx": "running_jump.fbx",
     "Land To Run.fbx": "land_to_run.fbx",
     # The touch, the dive and the getting up of the cat (docs/specs/chase-tag.md),
-    # downloaded without the character. The other candidates measured for it (Falling Flat
-    # Impact, Jogging Stumble) are not used.
+    # downloaded without the character.
     "Reaching Out.fbx": "reaching_out.fbx",
     "Run To Dive.fbx": "run_to_dive.fbx",
     "Getting Up.fbx": "getting_up.fbx",
+    # The stumble of a touch missed and of the mouse touched, and the fall of the mouse
+    # caught by a dive (docs/specs/chase-tag-polish.md), downloaded without the character.
+    "Jogging Stumble.fbx": "jogging_stumble.fbx",
+    "Falling Flat Impact.fbx": "falling_flat_impact.fbx",
 }
 # The pistol pack, and the clips taken out of it (skeleton and animation only).
 PACK = "Pistol_Handgun Locomotion Pack.zip"

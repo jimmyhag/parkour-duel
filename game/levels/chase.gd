@@ -13,7 +13,10 @@ extends Node3D
 ## side of the centre of the arena, face to face, held through the countdown; they wear
 ## the colour of their role. A fall out of the arena brings a player back to its start
 ## point, the time going on. The flow of each player counts its moves and gives its speed
-## bonus to its motor; there is no weapon, no aim and no target (ChaseIntentSource). Between
+## bonus to its motor; there is no weapon, no aim and no target (ChaseIntentSource). A catch
+## ends the round at its very step; the players are held where they are, and the mouse
+## reacts to the gesture that caught it, for the pause of the tuning, before the countdown
+## of the next round (docs/specs/chase-tag-polish.md). Between
 ## two rounds a screen shows the winner of the round and the score over the countdown;
 ## at the end of the match, the result, with the rematch and the way back to the menu. A
 ## catch and a miss each play their sound (ChaseSounds).
@@ -60,6 +63,8 @@ var steps_per_second: int
 var spawns: Array[Transform3D] = []
 ## The bot of each player a bot runs, by player.
 var bots: Dictionary[int, ChaseBotIntentSource] = {}
+## Fixed steps left of the pause after a catch, before the countdown: 0 out of one.
+var catch_pause: int = 0
 
 ## The end of the match has been shown.
 var _over: bool = false
@@ -113,6 +118,8 @@ func rematch() -> void:
 	var first_cat: int = PLAYER_ONE if chase == null else 1 - chase.first_cat
 	chase = ChaseState.new(players[PLAYER_ONE].tuning, steps_per_second, first_cat)
 	match_steps = 0
+	catch_pause = 0
+	_round_screen.waiting = false
 	_over = false
 	for player: int in _views.size():
 		_views[player].hud.chase = chase
@@ -123,14 +130,21 @@ func rematch() -> void:
 	_begin_the_countdown()
 
 
-## One fixed step of the match: the catch of the mouse while a round is on, or the step of
-## the clock (GO, the time up); then what the new phase asks for.
+## One fixed step of the match: the pause after a catch, or the catch of the mouse while a
+## round is on, or the step of the clock (GO, the time up); then what the new phase asks
+## for.
 func _physics_process(_delta: float) -> void:
 	match_steps += 1
-	var before: ChaseState.Phase = chase.phase
-	_play_the_step()
-	if chase.phase != before:
-		_follow_the_phase()
+	if catch_pause > 0:
+		catch_pause -= 1
+		if catch_pause == 0:
+			_round_screen.waiting = false
+			_begin_the_countdown()
+	else:
+		var before: ChaseState.Phase = chase.phase
+		_play_the_step()
+		if chase.phase != before:
+			_follow_the_phase()
 	for view: PlayerView in _views:
 		view.hud.step = match_steps
 
@@ -175,11 +189,11 @@ func _play_the_step() -> void:
 		chase.phase == ChaseState.Phase.RUNNING
 		and catches(players[chase.cat], players[chase.mouse()])
 	):
-		chase.receive(
-			ChaseMessage.catch(match_steps, chase.cat, players[chase.cat].motor.tag.gesture)
-		)
+		var gesture: Tag.Gesture = players[chase.cat].motor.tag.gesture
+		chase.receive(ChaseMessage.catch(match_steps, chase.cat, gesture))
 		# A catch once the time is up wins nothing: the clock still says it is up.
 		if chase.phase != ChaseState.Phase.RUNNING:
+			players[chase.mouse()].react_to_the_catch(gesture)
 			return
 	match clock.tick():
 		RoundClock.Event.GO:
@@ -193,7 +207,10 @@ func _follow_the_phase() -> void:
 		ChaseState.Phase.RUNNING:
 			_hold_the_players(false)
 		ChaseState.Phase.ROUND_OVER:
-			_begin_the_countdown()
+			if chase.round_winner_role == ChaseState.Role.CAT:
+				_show_the_catch()
+			else:
+				_begin_the_countdown()
 		ChaseState.Phase.MATCH_OVER:
 			_end_the_match()
 
@@ -238,6 +255,15 @@ func _begin_the_countdown() -> void:
 		runner.motor.can_tag = cat
 		if bots.has(player):
 			bots[player].play(chase.role(player))
+	_hold_the_players(true)
+
+
+## The cat has just caught the mouse: the players held where they are, and the screen
+## between two rounds hidden, for the pause of the tuning, so that the mouse is seen reacting.
+func _show_the_catch() -> void:
+	var tuning: MovementTuning = players[PLAYER_ONE].tuning
+	catch_pause = maxi(roundi(tuning.chase_catch_pause * steps_per_second), 1)
+	_round_screen.waiting = true
 	_hold_the_players(true)
 
 

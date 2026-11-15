@@ -7,8 +7,10 @@ extends SpringArm3D
 ## its field of view, so that the centre of the screen, where the reticle is, shows what
 ## the runner aims at. While the trick button is held, the mouse and the right stick draw
 ## the trick instead: the camera keeps still, and the motion of the mouse is kept for the
-## drawing (take_pad_motion). The camera is not part of the simulation: it follows frame
-## time, and the interpolated position of its target. It obeys its device only
+## drawing (take_pad_motion). As the body of the runner goes down to the ground (a dive,
+## lying after it) and back up, the camera goes down and up with it, smoothed
+## (docs/specs/chase-tag-polish.md, decision 4). The camera is not part of the simulation:
+## it follows frame time, and the interpolated position of its target. It obeys its device only
 ## (InputDevice): any device alone; in a split screen, the mouse and the keyboard, or the
 ## right stick of the gamepad, and the camera of the gamepad's player ignores the mouse.
 
@@ -25,11 +27,14 @@ var target: Node3D
 var device: InputDevice.Kind = InputDevice.Kind.ANY
 ## The runner aims: the camera goes over its shoulder.
 var aiming: bool = false
+## How low the body of the runner is, from 0 on its feet to 1 lying (RunnerAnimation).
+var lowered: float = 0.0
 var tuning: MovementTuning:
 	set(value):
 		tuning = value
 		spring_length = tuning.camera_distance
 		(shape as SphereShape3D).radius = tuning.camera_collision_radius
+		_look_height = look_height(lowered, tuning)
 
 ## How far the camera is over the shoulder: 0 behind the back, 1 over the shoulder.
 var _aim_blend: float = 0.0
@@ -37,6 +42,8 @@ var _aim_blend: float = 0.0
 var _usual_fov: float = 0.0
 ## The motion of the mouse while the trick button was held, not taken yet, in pixels.
 var _pad_motion: Vector2 = Vector2.ZERO
+## How high above the feet of the runner the camera looks from, in m.
+var _look_height: float = 0.0
 
 @onready var _camera: Camera3D = $Camera3D as Camera3D
 
@@ -57,10 +64,12 @@ func _process(delta: float) -> void:
 	if tuning.aim_camera_blend_time > 0.0:
 		blend_step = delta / tuning.aim_camera_blend_time
 	_aim_blend = move_toward(_aim_blend, 1.0 if aiming else 0.0, blend_step)
+	var wanted: float = look_height(lowered, tuning)
+	_look_height = followed_height(_look_height, wanted, delta, tuning.tag_camera_follow)
 	var feet: Vector3 = target.get_global_transform_interpolated().origin
 	# The right of the view stays horizontal: looking up or down turns around it.
 	var shoulder: Vector3 = global_basis.x * tuning.aim_camera_offset * _aim_blend
-	global_position = feet + Vector3.UP * tuning.camera_look_height + shoulder
+	global_position = feet + Vector3.UP * _look_height + shoulder
 	_camera.fov = lerpf(_usual_fov, tuning.aim_camera_fov, _aim_blend)
 
 
@@ -110,6 +119,21 @@ func turn(yaw: float, pitch: float) -> void:
 ## Puts the camera behind the back of a runner that faces `yaw`.
 func face(yaw: float) -> void:
 	rotation.y = yaw
+
+
+## How high above the feet of a runner whose body is `lowered` (0 on its feet, 1 lying) the
+## camera should look from, in m.
+static func look_height(lowered_by: float, with: MovementTuning) -> float:
+	return lerpf(with.camera_look_height, with.tag_camera_down_height, lowered_by)
+
+
+## The height the camera looks from `delta` s after it was `height`, on its way to `wanted`:
+## smoothed, closer by the same share in the same time, so that it never jumps (at once
+## without a time to follow, `follow`).
+static func followed_height(height: float, wanted: float, delta: float, follow: float) -> float:
+	if follow <= 0.0:
+		return wanted
+	return lerpf(height, wanted, 1.0 - exp(-delta / follow))
 
 
 ## The camera at the end of the arm: the eye the reticle is the centre of.

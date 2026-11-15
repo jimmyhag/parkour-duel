@@ -170,10 +170,14 @@ func _check_the_speed(runner: Player, bonus: float, trail: PackedVector3Array) -
 		steps_too_fast += 1
 
 
-## Waits for the countdown before a round: the first of a match, or the one after a round.
+## Waits for the countdown before a round: the first of a match, or the one after a round,
+## once the pause after a catch is over (docs/specs/chase-tag-polish.md).
 func _wait_for_the_countdown(chase: Chase) -> void:
 	for step: int in LONGEST_WAIT:
 		var phase: ChaseState.Phase = chase.chase.phase
-		if phase == ChaseState.Phase.COUNTDOWN or phase == ChaseState.Phase.ROUND_OVER:
+		var counting: bool = (
+			phase == ChaseState.Phase.COUNTDOWN or phase == ChaseState.Phase.ROUND_OVER
+		)
+		if counting and chase.catch_pause == 0:
 			return
 		await _tree.physics_frame

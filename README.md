@@ -68,6 +68,8 @@ game moves (another character keeps the capsule):
 | `Reaching Out.fbx` | Mixamo's "Reaching Out Gesture" (the touch of the cat), downloaded the same way as `Vault One Hand.fbx` |
 | `Run To Dive.fbx` | Mixamo's "Diving From A Run Pose" (the dive of the cat), downloaded the same way as `Vault One Hand.fbx` |
 | `Getting Up.fbx` | Mixamo's "Getting Up From Stomach" (the cat getting up after a dive missed), downloaded the same way as `Vault One Hand.fbx` |
+| `Jogging Stumble.fbx` | the Mixamo animation downloaded under that name (the stumble of a touch missed, and of the mouse touched), downloaded the same way as `Vault One Hand.fbx` |
+| `Falling Flat Impact.fbx` | the Mixamo animation downloaded under that name (the end of the dive of the cat, and the fall of the mouse caught by a dive), downloaded the same way as `Vault One Hand.fbx` |
 
 Then, from the repository root:
 
@@ -342,8 +344,10 @@ pass through each other). The touch (left click, or the right trigger) stretches
 for a quarter of a second while the cat runs on, a little slower; the dive (right
 click, or the left trigger), on the ground and running, throws the cat forward, low and
 faster, and reaches farther. A gesture that reaches nobody costs: after a touch the cat
-runs slower for a moment, after a dive it lies on the ground, then gets up. Caught, the
-mouse loses the round (CAUGHT!, and an impact); still free after 20 s, it wins it. The
+runs slower for a moment and stumbles, after a dive it lies on the ground, then gets up
+(the camera goes down with it, and back up). Caught, the mouse loses the round (an
+impact, and the mouse stumbles after a touch or falls flat after a dive; CAUGHT! shows
+once it has been seen); still free after 20 s, it wins it. The
 mouse has no gesture. The roles swap at every round, and the first to win 3 rounds wins the
 match. Each view shows its player's role (CAT or MOUSE) and the time left at the top,
 its flow at the bottom (the flow, the tricks and their speed bonus work as everywhere,

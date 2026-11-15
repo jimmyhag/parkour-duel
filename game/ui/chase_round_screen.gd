@@ -4,8 +4,9 @@ extends Control
 ## who won the round that just ended, CAT WINS under CAUGHT! (the cat wins a round only by
 ## catching the mouse, docs/specs/chase-tag.md) or MOUSE WINS, and the rounds each player
 ## has won, with their names (PLAYER 1 and PLAYER 2, or YOU and BOT against the bot); the
-## countdown of the next round shows over it. Hidden during a round and once
-## the match is over. Nothing takes the focus.
+## countdown of the next round shows over it. Hidden during a round, while it waits (the
+## pause after a catch, docs/specs/chase-tag-polish.md), and once the match is over. Nothing
+## takes the focus.
 
 const CAT_WINS: String = "CAT WINS"
 const MOUSE_WINS: String = "MOUSE WINS"
@@ -15,6 +16,8 @@ const SCORE: String = "%s   %d - %d   %s"
 var chase: ChaseState
 ## The names of player 1 and of player 2.
 var names: Array[String] = ["PLAYER 1", "PLAYER 2"]
+## The screen waits, hidden, though the round is over.
+var waiting: bool = false
 
 @onready var _caught: Label = %Caught as Label
 @onready var _verdict: Label = %Verdict as Label
@@ -26,7 +29,7 @@ func _process(_delta: float) -> void:
 
 
 func refresh() -> void:
-	visible = chase != null and chase.phase == ChaseState.Phase.ROUND_OVER
+	visible = chase != null and chase.phase == ChaseState.Phase.ROUND_OVER and not waiting
 	if not visible:
 		return
 	var cat_won: bool = chase.round_winner_role == ChaseState.Role.CAT
