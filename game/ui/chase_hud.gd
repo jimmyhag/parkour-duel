@@ -5,7 +5,8 @@ extends Control
 ## chase (ChaseState, game/core) says them at the match step given; between two rounds,
 ## the role and the time of the coming one. When the other player is out of sight, behind
 ## the camera or out of its field of view, an arrow at the edge of the view points
-## towards it: the way to turn, from where the camera looks. Nothing takes the focus.
+## towards it: the way to turn, from where the camera looks. Online, the ping shows in the
+## top right corner (docs/specs/online-chase.md). Nothing takes the focus.
 
 const CAT: String = "CAT"
 const MOUSE: String = "MOUSE"
@@ -16,11 +17,16 @@ const INDICATOR_SIZE: float = 28.0
 ## The point of the other player the camera looks for: about its chest, in m above its
 ## feet.
 const LOOKED_AT_HEIGHT: float = 1.0
+const PING: String = "PING %d ms"
+## No ping to show: offline, or not measured yet.
+const NO_PING: int = -1
 
 ## The chase, the player of this display in it, and the match step now.
 var chase: ChaseState
 var player: int = 0
 var step: int = 0
+## The last round trip to the other machine, in ms; NO_PING for none.
+var ping: int = NO_PING
 ## The camera of the view, and the body of the other player.
 var camera: Camera3D
 var other: Node3D
@@ -32,6 +38,7 @@ var indicator_direction: Vector2 = Vector2.DOWN
 
 @onready var _role_label: Label = %RoleLabel as Label
 @onready var _time_label: Label = %TimeLabel as Label
+@onready var _ping_label: Label = %PingLabel as Label
 
 
 func _process(_delta: float) -> void:
@@ -46,6 +53,8 @@ func refresh() -> void:
 	_role_label.text = CAT if cat else MOUSE
 	_role_label.modulate = chase.tuning.chase_cat_colour if cat else chase.tuning.chase_mouse_colour
 	_time_label.text = RaceHud.clock(chase.centiseconds_left(step))
+	_ping_label.visible = ping != NO_PING
+	_ping_label.text = PING % ping
 	_place_the_indicator()
 	queue_redraw()
 

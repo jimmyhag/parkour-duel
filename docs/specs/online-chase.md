@@ -1,6 +1,6 @@
 # Le Chase en ligne : héberger la partie sur son PC, un ami s'y connecte
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-15. Jimmy : « est-ce que tu peux me créer une logique pour avoir juste
 un serveur qui correspond à mon PC ? Comme ça mon pote peut se connecter à mon serveur

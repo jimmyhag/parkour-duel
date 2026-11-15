@@ -16,6 +16,8 @@ const GAME_ACTIONS: Array[StringName] = [
 	&"menu",
 	&"menu_up",
 	&"menu_down",
+	&"menu_left",
+	&"menu_right",
 ]
 const KEYBOARD_ONLY_ACTIONS: Array[StringName] = [
 	&"release_mouse",

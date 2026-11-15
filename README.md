@@ -16,7 +16,8 @@ godot --path .
 ```
 
 The game opens on its start screen: SOLO PRACTICE, DUEL VS GHOST, DUEL VS BOT (see
-"Local duel" below), TRICK PARK (see "Trick Park" below) and CHASE (see "Chase" below). Solo practice is the test course, a short timed run made of grey
+"Local duel" below), TRICK PARK (see "Trick Park" below), CHASE and CHASE VS BOT (see
+"Chase" below) and CHASE ONLINE (see "Play online" below). Solo practice is the test course, a short timed run made of grey
 blocks: a start
 platform and its start line, a straight to gather speed with a bridge in its middle, a
 series of short jumps, a
@@ -149,6 +150,8 @@ below are the keys at those places on a QWERTY keyboard (Z, Q, S, D on an AZERTY
 | Back to the start screen, which frees the mouse | Escape | Start |
 | Menus: change the choice | Up and Down arrows, or W and S | Left stick, or the cross |
 | Menus: take the choice | Space | A |
+| Address of the host (JOIN): move the cursor | Left and Right arrows, or A and D | Left stick, or the cross |
+| Address of the host (JOIN): change the character under the cursor | Up and Down arrows, or W and S; or type it | Left stick, or the cross |
 | Debug display (state, speeds, timers) | F3 | none |
 | Reload the tuning file | F4 | none |
 
@@ -362,6 +365,40 @@ The time of a round, the rounds to win, the start distance and the two colours a
 the tuning file (group Chase), the reaches, times and costs of the gestures too (group
 Tag).
 
+## Play online
+
+The chase, one player per machine, with no server: one PC hosts the game and plays it, a
+friend joins it by its address (`docs/specs/online-chase.md`). Both machines must run the
+same build, the one of the same version (`project.godot`): another version is refused on
+both sides with DIFFERENT GAME VERSION. Send the friend the build you play (`just build`
+writes it to `build/`).
+
+1. To host: CHASE ONLINE, then HOST. The game opens the UDP port 24680 and shows WAITING
+   FOR A PLAYER, the port, and the addresses of the PC on the home network. The first time,
+   Windows asks whether the game (or Godot) may use the network: allow it. Escape or Start
+   stops hosting.
+2. A friend on the same home network joins one of those addresses. Over the internet, two
+   things only you can do, the game touches neither: in the settings of the internet box
+   (the router), forward the UDP port 24680 to the address of the hosting PC on the home
+   network; then give the friend the public address of the box (the box shows it): the game
+   does not look it up. A private virtual network between friends, if you choose one, works
+   too: give its address instead.
+3. To join: CHASE ONLINE, then JOIN, and the address of the host (`192.168.1.20`, or
+   `86.12.3.4:24680` with a port), typed on the keyboard or on the gamepad (up and down
+   change the character under the cursor among 0-9 . :, left and right move the cursor),
+   then Space or A. The last address joined is offered again during the session. Nobody
+   answering within 5 s: COULD NOT CONNECT. A third player is refused.
+4. The match is the chase, each player alone in full screen, on the keyboard and the mouse
+   or on the gamepad. The host is player 1, the cat of the first round. Each machine runs
+   its own runner, which answers at once, and shows the other one a moment late (the
+   latency, then `net_interpolation_delay`, 0.05 s, in the tuning file, group Net, so that
+   it moves smoothly though the packets come irregularly). The host holds the match: the
+   countdown, the time and the score. The machine of the cat judges a catch on what it
+   shows; a catch that reaches the host once the time is up does not count. The screens say
+   YOU and FRIEND, and the ping shows in the top right corner (PING 42 ms). REMATCH on either
+   machine starts a match on both; MENU, Escape or Start leaves, and the other player sees
+   THE OTHER PLAYER LEFT, as after 3 s without any news.
+
 ## Roadmap
 
 | Step | Content | Status |
@@ -371,5 +408,5 @@ Tag).
 | 2 | Tricks and flow | built: the flow gauge and combo (`docs/specs/flow-combo.md`), the aerial tricks and the sounds (`docs/specs/air-tricks.md`), then tricks drawn and posed, and the Trick Park (`docs/specs/trick-gestures.md`); chained without validation on the owner's delegation (2026-11-14), judged at stop point 3 |
 | 3 | Shooting and sabotage | built: aiming, shooting and the four sabotageable targets, on the runner's own course (`docs/specs/sabotage.md`); chained without validation on the owner's delegation, judged at stop point 3 |
 | 4 | Local duel (ghost, then bot) | built: two lanes side by side, the start screen, the ghost of the best solo run, the bot, the round, the result and the rematch (`docs/specs/local-duel.md`); chained without validation on the owner's delegation, judged at stop point 3 |
-| 5 | Online PVP | not started |
+| 5 | Online PVP | in progress: the chase online, hosted on a player's PC, a friend joining it by its address (`docs/specs/online-chase.md`) |
 | 6 | Art, audio, menus, release | in progress, brought forward before step 5 by the owner (2026-11-14): the animated Mixamo character (`docs/specs/character-animations.md`), its locomotion blend (`docs/specs/locomotion-blend.md`), clean animations and the wall run rebuilt (`docs/specs/animation-polish.md`) |

@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://game/ui/start_screen.gd" id="1_screen"]
 [ext_resource type="Script" path="res://game/ui/choice_menu.gd" id="2_menu"]
+[ext_resource type="Script" path="res://game/ui/address_field.gd" id="3_address"]
 
 [node name="StartScreen" type="Control"]
 layout_mode = 3
@@ -30,9 +31,9 @@ anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
 offset_left = -420.0
-offset_top = -180.0
+offset_top = -210.0
 offset_right = 420.0
-offset_bottom = 180.0
+offset_bottom = 210.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 24
@@ -96,6 +97,12 @@ theme_override_font_sizes/font_size = 40
 text = "CHASE VS BOT"
 horizontal_alignment = 1
 
+[node name="ChaseOnline" type="Label" parent="Choices"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 40
+text = "CHASE ONLINE"
+horizontal_alignment = 1
+
 [node name="Levels" type="VBoxContainer" parent="."]
 unique_name_in_owner = true
 visible = false
@@ -131,4 +138,151 @@ horizontal_alignment = 1
 layout_mode = 2
 theme_override_font_sizes/font_size = 40
 text = "HARD"
+horizontal_alignment = 1
+
+[node name="OnlinePanel" type="VBoxContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -420.0
+offset_top = -180.0
+offset_right = 420.0
+offset_bottom = 180.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 24
+alignment = 1
+
+[node name="Online" type="VBoxContainer" parent="OnlinePanel"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 24
+alignment = 1
+script = ExtResource("2_menu")
+
+[node name="Host" type="Label" parent="OnlinePanel/Online"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 40
+text = "HOST"
+horizontal_alignment = 1
+
+[node name="Join" type="Label" parent="OnlinePanel/Online"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 40
+text = "JOIN"
+horizontal_alignment = 1
+
+[node name="OnlineFailure" type="Label" parent="OnlinePanel"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = ""
+horizontal_alignment = 1
+
+[node name="Waiting" type="VBoxContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -420.0
+offset_top = -180.0
+offset_right = 420.0
+offset_bottom = 180.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="WaitingForAPlayer" type="Label" parent="Waiting"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 40
+text = "WAITING FOR A PLAYER"
+horizontal_alignment = 1
+
+[node name="Port" type="Label" parent="Waiting"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 32
+text = "PORT 24680"
+horizontal_alignment = 1
+
+[node name="YourAddresses" type="Label" parent="Waiting"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "YOUR ADDRESSES ON THIS NETWORK"
+horizontal_alignment = 1
+
+[node name="Addresses" type="Label" parent="Waiting"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 32
+text = ""
+horizontal_alignment = 1
+
+[node name="WaitingFailure" type="Label" parent="Waiting"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = ""
+horizontal_alignment = 1
+
+[node name="Join" type="VBoxContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -420.0
+offset_top = -180.0
+offset_right = 420.0
+offset_bottom = 180.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 24
+alignment = 1
+
+[node name="AddressOfTheHost" type="Label" parent="Join"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 32
+text = "ADDRESS OF THE HOST"
+horizontal_alignment = 1
+
+[node name="AddressField" type="Label" parent="Join"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 40
+text = "[ ]"
+horizontal_alignment = 1
+script = ExtResource("3_address")
+
+[node name="JoinMessage" type="Label" parent="Join"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = ""
+horizontal_alignment = 1
+
+[node name="Notice" type="Label" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 48.0
+offset_bottom = 96.0
+grow_horizontal = 2
+theme_override_font_sizes/font_size = 32
+text = "THE OTHER PLAYER LEFT"
 horizontal_alignment = 1

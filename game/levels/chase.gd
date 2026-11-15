@@ -28,6 +28,19 @@ extends Node3D
 ## baked from its blocks as the first bot comes, as low as a slide, and built at once, at
 ## that fixed step, whatever the frame time; it takes the links the arena declares and flees
 ## to its flee points; it is told its role before every round.
+## Online (docs/specs/online-chase.md), the other machine is at the other end of the link:
+## each player plays alone, in full screen, on the keyboard and the mouse or on the gamepad,
+## the host as player 1, the guest as player 2. Each machine simulates its own runner, sends
+## a snapshot of it at every step, and shows the runner of the other machine from its
+## snapshots (Player.remote), a little late, simulating nothing; each places its own runner at
+## the countdown and brings it back when it falls. The host holds the match: its clock, and
+## every dated message its state receives, which it sends to the guest, whose state receives
+## the same ones in the same order; the guest's runner is held until the GO of the host
+## arrives. The machine of the cat judges a catch on what it shows: the host at once, the
+## guest by telling the host, who takes it if the round is still on when it arrives. A
+## rematch chosen on either machine starts a match on both. The screens call the players YOU
+## and FRIEND, and the ping shows; the link failing (the other player left) asks for the
+## menu.
 ## Expected children: Arena (a NavigationRegion3D, with Centre, its marker, Links and
 ## FleePoints), Screens/Views/PlayerOne and Screens/Views/PlayerTwo (PlayerView),
 ## Screens/CountdownDisplay, Screens/RoundScreen, Screens/ResultScreen and ChaseSounds.
@@ -44,14 +57,20 @@ const DEVICES: Array[InputDevice.Kind] = [
 	InputDevice.Kind.GAMEPAD,
 ]
 const NAMES: Array[String] = ["PlayerOne", "PlayerTwo"]
-## What the screens call the two players against the bot.
+## What the screens call the two players against the bot, and online.
 const NAMES_AGAINST_THE_BOT: Array[String] = ["YOU", "BOT"]
+const YOU: String = "YOU"
+const FRIEND: String = "FRIEND"
 
 ## The altitude under which a player has fallen out of the arena.
 @export var fall_limit: float = 0.0
 ## Player 2 is a bot, of the level `bot_level`; to set before the chase enters the tree.
 @export var against_the_bot: bool = false
 @export var bot_level: ChaseBot.Level = ChaseBot.Level.NORMAL
+
+## Online: the link to the other machine, hosting or joining (NetLink.hosting); null on one
+## machine. To set before the chase enters the tree.
+var link: NetLink = null
 
 ## The two players' runners.
 var players: Array[Player] = []
@@ -68,10 +87,18 @@ var spawns: Array[Transform3D] = []
 var bots: Dictionary[int, ChaseBotIntentSource] = {}
 ## Fixed steps left of the pause after a catch, before the countdown: 0 out of one.
 var catch_pause: int = 0
+## Online, the player of this machine; the other one is its remote runner.
+var local_player: int = PLAYER_ONE
 
 ## The end of the match has been shown.
 var _over: bool = false
-var _views: Array[PlayerView] = []
+## The view of each player who has one.
+var _views: Dictionary[int, PlayerView] = {}
+## Online: the snapshots sent so far, the date of the next one; the catch of the round told
+## to the host; the menu asked for, the link having failed.
+var _snapshots_sent: int = 0
+var _catch_told: bool = false
+var _left: bool = false
 ## What each player's inputs say, before the chase takes out what it does not have.
 var _inputs: Array[InputIntentSource] = []
 
@@ -85,17 +112,30 @@ var _inputs: Array[InputIntentSource] = []
 
 func _ready() -> void:
 	steps_per_second = roundi(Engine.physics_ticks_per_second / Engine.time_scale)
+	if link != null:
+		local_player = PLAYER_ONE if link.hosting else PLAYER_TWO
 	for player: int in ChaseState.PLAYERS:
-		_views.append(get_node("Screens/Views/" + NAMES[player]) as PlayerView)
+		_views[player] = get_node("Screens/Views/" + NAMES[player]) as PlayerView
 		players.append(_add_player(player))
-	if against_the_bot:
-		# One player, in full screen: the view of player 2 goes.
-		var view: PlayerView = _views.pop_back()
+	if against_the_bot or link != null:
+		# One player, in full screen: the view of the other one goes.
+		var other: int = 1 - local_player
+		var view: PlayerView = _views[other]
+		_views.erase(other)
 		view.get_parent().remove_child(view)
 		view.queue_free()
+	if against_the_bot:
 		make_bot(PLAYER_TWO, bot_level)
 		_round_screen.names = NAMES_AGAINST_THE_BOT
-	for player: int in _views.size():
+	if link != null:
+		var remote: Player = players[1 - local_player]
+		remote.remote = SnapshotBuffer.new()
+		remote.watch(false)
+		var names: Array[String] = [YOU, FRIEND]
+		if not link.hosting:
+			names.reverse()
+		_round_screen.names = names
+	for player: int in _views:
 		var runner: Player = players[player]
 		var view: PlayerView = _views[player]
 		# The runner's camera shows nothing itself: its view's camera takes its place.
@@ -110,27 +150,46 @@ func _ready() -> void:
 	for player: int in ChaseState.PLAYERS:
 		players[player].tag_target = players[1 - player]
 		_sounds.motors.append(players[player].motor)
-	_result.rematch_chosen.connect(rematch)
+	_result.rematch_chosen.connect(_on_rematch_chosen)
 	_result.menu_chosen.connect(_on_menu_chosen)
-	rematch()
+	if _is_the_guest():
+		# The match of the host comes with its first message.
+		_start_a_match(PLAYER_ONE)
+		_hold_the_players(true)
+	else:
+		rematch()
+
+
+## Online, leaving (the menu, the game closed) tells the other machine.
+func _exit_tree() -> void:
+	if link != null:
+		link.close()
 
 
 ## A match from zero: the scores, the flows, and the countdown. Player 1 is the cat of the
-## first round of the first match; each rematch gives that first round to the other.
+## first round of the first match; each rematch gives that first round to the other. Online,
+## the host tells the guest.
 func rematch() -> void:
 	var first_cat: int = PLAYER_ONE if chase == null else 1 - chase.first_cat
+	_start_a_match(first_cat)
+	if link != null:
+		link.send_message(OnlineMessage.match_start(match_steps, first_cat))
+	_begin_the_countdown()
+
+
+## A match from zero whose first cat is `first_cat`, its countdown not begun.
+func _start_a_match(first_cat: int) -> void:
 	chase = ChaseState.new(players[PLAYER_ONE].tuning, steps_per_second, first_cat)
 	match_steps = 0
 	catch_pause = 0
 	_round_screen.waiting = false
 	_over = false
-	for player: int in _views.size():
+	for player: int in _views:
 		_views[player].hud.chase = chase
 		_views[player].flow_hud.flow = chase.flows[player]
 	_round_screen.chase = chase
 	_sounds.chase = chase
 	_result.hide_result()
-	_begin_the_countdown()
 
 
 ## One fixed step of the match: the pause after a catch, or the catch of the mouse while a
@@ -138,21 +197,24 @@ func rematch() -> void:
 ## for.
 func _physics_process(_delta: float) -> void:
 	match_steps += 1
+	if link != null and not _hear_the_other():
+		return
 	if catch_pause > 0:
 		catch_pause -= 1
 		if catch_pause == 0:
 			_round_screen.waiting = false
 			if chase.phase == ChaseState.Phase.MATCH_OVER:
 				_end_the_match()
-			else:
+			elif not _is_the_guest():
 				_begin_the_countdown()
 	else:
 		var before: ChaseState.Phase = chase.phase
 		_play_the_step()
 		if chase.phase != before:
 			_follow_the_phase()
-	for view: PlayerView in _views:
+	for view: PlayerView in _views.values():
 		view.hud.step = match_steps
+		view.hud.ping = ChaseHud.NO_PING if link == null else link.ping_ms()
 
 
 ## From now on a bot of `level` runs the runner of `player`, against the other one; the
@@ -196,22 +258,116 @@ func _bake_the_navigation() -> void:
 func _play_the_step() -> void:
 	if chase.phase == ChaseState.Phase.MATCH_OVER:
 		return
+	if _is_the_guest():
+		_play_the_step_as_the_guest()
+		return
 	if (
 		chase.phase == ChaseState.Phase.RUNNING
+		and _is_played_here(chase.cat)
 		and catches(players[chase.cat], players[chase.mouse()])
 	):
 		var gesture: Tag.Gesture = players[chase.cat].motor.tag.gesture
-		chase.receive(ChaseMessage.catch(match_steps, chase.cat, gesture))
+		_receive(ChaseMessage.catch(match_steps, chase.cat, gesture))
 		# A catch once the time is up wins nothing: the clock still says it is up.
 		if chase.phase != ChaseState.Phase.RUNNING:
-			players[chase.cat].catch_the_target()
-			players[chase.mouse()].react_to_the_catch(gesture)
 			return
 	match clock.tick():
 		RoundClock.Event.GO:
-			chase.receive(ChaseMessage.start(match_steps))
+			_receive(ChaseMessage.start(match_steps))
 		RoundClock.Event.TIME_UP:
-			chase.receive(ChaseMessage.time_up(match_steps))
+			_receive(ChaseMessage.time_up(match_steps))
+
+
+## A step of the guest: its cat catching the mouse on its screen tells the host, once a
+## round; its clock only shows the countdown (the host's messages start and end the round).
+func _play_the_step_as_the_guest() -> void:
+	if (
+		chase.phase == ChaseState.Phase.RUNNING
+		and not _catch_told
+		and chase.cat == local_player
+		and catches(players[chase.cat], players[chase.mouse()])
+	):
+		_catch_told = true
+		var gesture: Tag.Gesture = players[chase.cat].motor.tag.gesture
+		var caught: ChaseMessage = ChaseMessage.catch(match_steps, chase.cat, gesture)
+		link.send_message(OnlineMessage.of_chase(caught))
+	if clock != null:
+		clock.tick()
+
+
+## The state of the match receives `message`; a catch that ends the round lands the hand of
+## the cat on the mouse, which reacts. The host tells the guest every message.
+func _receive(message: ChaseMessage) -> void:
+	var running: bool = chase.phase == ChaseState.Phase.RUNNING
+	chase.receive(message)
+	if link != null and link.hosting:
+		link.send_message(OnlineMessage.of_chase(message))
+	var ended: bool = running and chase.phase != ChaseState.Phase.RUNNING
+	if ended and message.kind == ChaseMessage.Kind.CATCH:
+		players[chase.cat].catch_the_target()
+		players[chase.mouse()].react_to_the_catch(message.gesture)
+
+
+## Online, at every step: what came from the other machine. The snapshots of its runner go to
+## its body; the host takes the catch of the guest's cat if the round is still on, and its
+## rematch once the match is over; the guest follows the match, the countdowns and the
+## messages of the host. The link failing (the other player left) asks for the menu, once;
+## whether the chase goes on.
+func _hear_the_other() -> bool:
+	if _left:
+		return false
+	link.poll()
+	if link.state != LinkStatus.State.CONNECTED:
+		_left = true
+		menu_requested.emit()
+		return false
+	players[1 - local_player].remote.receive_all(link.take_snapshots())
+	for message: OnlineMessage in link.take_messages():
+		if link.hosting:
+			_hear_the_guest(message)
+		else:
+			_hear_the_host(message)
+	return true
+
+
+## A message of the guest: its rematch once the match is over and shown; the catch of its cat
+## while it is the cat and the round is still on, dated now.
+func _hear_the_guest(message: OnlineMessage) -> void:
+	var guest: int = 1 - local_player
+	if message.kind == OnlineMessage.Kind.REMATCH:
+		if _over:
+			rematch()
+		return
+	if message.kind != OnlineMessage.Kind.CHASE or message.chase.kind != ChaseMessage.Kind.CATCH:
+		return
+	var running: bool = chase.phase == ChaseState.Phase.RUNNING
+	if not running or chase.cat != guest or message.chase.player != guest:
+		return
+	_receive(ChaseMessage.catch(match_steps, guest, message.chase.gesture))
+	if chase.phase != ChaseState.Phase.RUNNING:
+		_follow_the_phase()
+
+
+## A message of the host: a match, a countdown (the pause after a catch over), or a message of
+## the chase, the match step set to its date when a round starts.
+func _hear_the_host(message: OnlineMessage) -> void:
+	match message.kind:
+		OnlineMessage.Kind.MATCH:
+			_start_a_match(message.first_cat)
+			match_steps = message.step
+			_hold_the_players(true)
+		OnlineMessage.Kind.COUNTDOWN:
+			match_steps = message.step
+			catch_pause = 0
+			_round_screen.waiting = false
+			_begin_the_countdown()
+		OnlineMessage.Kind.CHASE:
+			if message.chase.kind == ChaseMessage.Kind.START:
+				match_steps = message.step
+			var before: ChaseState.Phase = chase.phase
+			_receive(message.chase)
+			if chase.phase != before:
+				_follow_the_phase()
 
 
 func _follow_the_phase() -> void:
@@ -221,7 +377,7 @@ func _follow_the_phase() -> void:
 		ChaseState.Phase.ROUND_OVER:
 			if chase.round_winner_role == ChaseState.Role.CAT:
 				_show_the_catch()
-			else:
+			elif not _is_the_guest():
 				_begin_the_countdown()
 		ChaseState.Phase.MATCH_OVER:
 			if chase.round_winner_role == ChaseState.Role.CAT:
@@ -246,7 +402,7 @@ func _add_player(player: int) -> Player:
 	runner.name = NAMES[player]
 	add_child(runner)
 	runner.camera_rig.device = DEVICES[player]
-	if against_the_bot:
+	if against_the_bot or link != null:
 		runner.camera_rig.device = InputDevice.Kind.ANY
 	var inputs: InputIntentSource = InputIntentSource.new(runner.camera_rig)
 	_inputs.append(inputs)
@@ -257,15 +413,19 @@ func _add_player(player: int) -> Player:
 
 ## A countdown before a round: a new clock, the players held at their start points, face
 ## to face, in the colours of their roles in the coming round; the cat may tag, the mouse
-## may not.
+## may not. Online, each machine places its own runner; the host tells the guest.
 func _begin_the_countdown() -> void:
 	var tuning: MovementTuning = players[PLAYER_ONE].tuning
 	clock = RoundClock.new(tuning, steps_per_second, tuning.chase_round_time)
 	_countdown.clock = clock
+	_catch_told = false
+	if link != null and link.hosting:
+		link.send_message(OnlineMessage.countdown(match_steps))
 	_place_the_spawns(tuning.chase_start_distance)
 	for player: int in ChaseState.PLAYERS:
 		var runner: Player = players[player]
-		runner.teleport(spawns[player])
+		if _is_played_here(player):
+			runner.teleport(spawns[player])
 		var cat: bool = chase.role(player) == ChaseState.Role.CAT
 		runner.paint(tuning.chase_cat_colour if cat else tuning.chase_mouse_colour)
 		runner.motor.can_tag = cat
@@ -306,11 +466,14 @@ func _hold_the_players(held: bool) -> void:
 func _on_player_stepped(_intent: MoveIntent, player: int) -> void:
 	var runner: Player = players[player]
 	var flow: FlowState = chase.flows[player]
-	if runner.global_position.y < fall_limit:
+	if runner.global_position.y < fall_limit and not spawns.is_empty():
 		runner.teleport(spawns[player])
 		flow.respawn()
 	flow.tuning = runner.tuning
 	flow.follow(runner.motor)
+	if link != null:
+		link.send_snapshot(runner.snapshot(_snapshots_sent))
+		_snapshots_sent += 1
 
 
 ## The match is over: the players stop, and the result shows.
@@ -319,7 +482,29 @@ func _end_the_match() -> void:
 		return
 	_over = true
 	_hold_the_players(true)
-	_result.show_chase(chase, against_the_bot)
+	if link != null:
+		_result.show_chase_of(chase, local_player, FRIEND)
+	else:
+		_result.show_chase(chase, against_the_bot)
+
+
+## Whether the runner of `player` runs on this machine: always, but the other machine's one
+## online.
+func _is_played_here(player: int) -> bool:
+	return link == null or player == local_player
+
+
+## Whether this machine joined a chase online: the host holds the match.
+func _is_the_guest() -> bool:
+	return link != null and not link.hosting
+
+
+## REMATCH: a match from zero; the guest asks the host for it, and waits for it.
+func _on_rematch_chosen() -> void:
+	if _is_the_guest():
+		link.send_message(OnlineMessage.rematch())
+	else:
+		rematch()
 
 
 func _on_menu_chosen() -> void:

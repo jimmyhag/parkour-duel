@@ -3,7 +3,8 @@ extends Control
 ## The screen between two rounds of the chase (ChaseState, game/core), over both views:
 ## who won the round that just ended, CAT WINS under CAUGHT! (the cat wins a round only by
 ## catching the mouse, docs/specs/chase-tag.md) or MOUSE WINS, and the rounds each player
-## has won, with their names (PLAYER 1 and PLAYER 2, or YOU and BOT against the bot); the
+## has won, with their names (PLAYER 1 and PLAYER 2, YOU and BOT against the bot, YOU and
+## FRIEND online, each machine calling its own player YOU); the
 ## countdown of the next round shows over it. Hidden during a round, while it waits (the
 ## pause after a catch, docs/specs/chase-tag-polish.md), and once the match is over. Nothing
 ## takes the focus.

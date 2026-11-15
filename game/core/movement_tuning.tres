@@ -221,3 +221,4 @@ camera_look_up_limit = 50.0
 camera_collision_radius = 0.2
 camera_mouse_sensitivity = 0.0025
 camera_stick_speed = 2.6
+net_interpolation_delay = 0.05

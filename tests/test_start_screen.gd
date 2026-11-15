@@ -1,11 +1,17 @@
 extends GutTest
-## The start screen (game/ui): its six choices, the duel against the ghost greyed with
+## The start screen (game/ui): its seven choices, the duel against the ghost greyed with
 ## its reason until a solo run is finished, the chase that waits for the gamepad of player
 ## 2, the level of the bot of the chase against it, and its navigation.
 
 const SCREEN_SCENE: PackedScene = preload("res://game/ui/start_screen.tscn")
 const LABELS: Array[String] = [
-	"SOLO PRACTICE", "DUEL VS GHOST", "DUEL VS BOT", "TRICK PARK", "CHASE", "CHASE VS BOT"
+	"SOLO PRACTICE",
+	"DUEL VS GHOST",
+	"DUEL VS BOT",
+	"TRICK PARK",
+	"CHASE",
+	"CHASE VS BOT",
+	"CHASE ONLINE",
 ]
 const REASON: String = "FINISH A SOLO RUN FIRST"
 const NO_GAMEPAD: String = "CONNECT A GAMEPAD FOR PLAYER 2"
@@ -25,7 +31,7 @@ func after_each() -> void:
 func test_the_ghost_duel_needs_a_solo_run() -> void:
 	var screen: StartScreen = _add_screen(false)
 
-	assert_eq(_texts(screen), LABELS, "the six choices")
+	assert_eq(_texts(screen), LABELS, "the seven choices")
 	assert_true(_is_greyed(screen, StartScreen.Choice.DUEL_VS_GHOST), "the ghost greyed")
 	var reason: Label = screen.get_node("%Reason") as Label
 	assert_true(reason.is_visible_in_tree(), "with its reason")
@@ -35,6 +41,7 @@ func test_the_ghost_duel_needs_a_solo_run() -> void:
 	assert_false(_is_greyed(screen, StartScreen.Choice.TRICK_PARK), "nor the trick park")
 	assert_false(_is_greyed(screen, StartScreen.Choice.CHASE), "nor the chase")
 	assert_false(_is_greyed(screen, StartScreen.Choice.CHASE_VS_BOT), "nor the chase vs bot")
+	assert_false(_is_greyed(screen, StartScreen.Choice.CHASE_ONLINE), "nor the chase online")
 
 	screen.open(true)
 
@@ -56,7 +63,9 @@ func test_the_start_screen_chooses_with_up_down_and_jump() -> void:
 	await _tap(&"menu_down")
 	await _tap(&"menu_down")
 	await _tap(&"menu_down")
-	assert_eq(screen.selected(), StartScreen.Choice.CHASE_VS_BOT, "it stops at the last one")
+	await _tap(&"menu_down")
+	assert_eq(screen.selected(), StartScreen.Choice.CHASE_ONLINE, "it stops at the last one")
+	await _tap(&"menu_up")
 	await _tap(&"menu_up")
 	await _tap(&"menu_up")
 	await _tap(&"menu_up")
