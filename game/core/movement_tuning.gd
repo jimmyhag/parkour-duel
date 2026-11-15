@@ -297,6 +297,18 @@ extends Resource
 ## The ammunition each runner of a duel has at the start of a round.
 @export var duel_start_ammo: int = 0
 
+@export_group("Chase")
+## How long a round of the chase lasts from GO, in s: the mouse that is not caught by then
+## wins it.
+@export var chase_round_time: float = 0.0
+## The rounds a player must win to win the match.
+@export var chase_rounds_to_win: int = 0
+## How far apart the two players start a round, face to face, in m.
+@export var chase_start_distance: float = 0.0
+## The colours of the cat and of the mouse: the tint of their body.
+@export var chase_cat_colour: Color = Color.WHITE
+@export var chase_mouse_colour: Color = Color.WHITE
+
 @export_group("Character")
 ## Dead zone of both sticks (0 to 1).
 @export_range(0.0, 1.0) var stick_deadzone: float = 0.0

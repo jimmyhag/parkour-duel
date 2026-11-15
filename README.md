@@ -16,7 +16,7 @@ godot --path .
 ```
 
 The game opens on its start screen: SOLO PRACTICE, DUEL VS GHOST, DUEL VS BOT (see
-"Local duel" below) and TRICK PARK (see "Trick Park" below). Solo practice is the test course, a short timed run made of grey
+"Local duel" below), TRICK PARK (see "Trick Park" below) and CHASE (see "Chase" below). Solo practice is the test course, a short timed run made of grey
 blocks: a start
 platform and its start line, a straight to gather speed with a bridge in its middle, a
 series of short jumps, a
@@ -310,6 +310,34 @@ left, two blue-grey walls 4 m apart face each other, for wall jumps; to the righ
 long blue-grey wall to run along. No timer, no target, no opponent: the flow, its
 display and its sounds are there. R or Y brings the runner back to the start point,
 Escape or Start back to the start screen.
+
+Chase: two players on one machine, in a split screen, a prototype of the cat and mouse
+format. Player 1 plays on the left, on the keyboard and the mouse only; player 2 on the
+right, on the gamepad only (the first one connected). Choose CHASE on the start screen:
+without a gamepad, the screen says CONNECT A GAMEPAD FOR PLAYER 2 and the chase starts
+as soon as one is connected. The arena is a 20 m by 20 m square closed by high walls
+that cannot be run along, full of obstacles: four light low walls (0.9 to 1.2 m, thin,
+to jump over or climb, and to vault once the vault exists), grey blocks of 1.5 to 2 m to
+climb, two blue-grey walls 3 m apart to run along and to jump between, two low beams to
+slide under (their tops, and the tops of the walls, can be climbed too), and two
+platforms 4.2 m high in opposite corners, out of reach of a jump and a mantle from the
+floor: each is reached only from the grey block of about 2 m against it. One player is the
+cat, in red, the other the mouse, in blue; player 1 is the cat of the first round of the
+first match, and each REMATCH gives that first round to the other player. A countdown
+(3, 2, 1, GO) holds both at their start points, 14 m apart and face to face; then the cat has 20 s to touch the mouse (the two
+bodies touching is enough). Caught, the cat wins the round; still free after 20 s, the
+mouse wins it. The roles swap at every round, and the first to win 3 rounds wins the
+match. Each view shows its player's role (CAT or MOUSE) and the time left at the top,
+its flow at the bottom (the flow, the tricks and their speed bonus work as everywhere,
+and the gauge starts from zero at every round), and, when the other player is out of
+sight, an arrow at the edge of the view pointing the way to it. Between two rounds, the
+winner of the round (CAT WINS or MOUSE WINS) and the score show over the countdown of
+the next one; at the end, PLAYER 1 WINS or PLAYER 2 WINS, with REMATCH and MENU, taken
+by either player. There is no weapon in the chase: aiming, shooting, the return to a
+checkpoint and the restart do nothing. A fall out of the arena brings a player back to
+its start point, and the time goes on. Escape or Start goes back to the start screen.
+The time of a round, the rounds to win, the start distance and the two colours are in
+the tuning file (group Chase).
 
 ## Roadmap
 

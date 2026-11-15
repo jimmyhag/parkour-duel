@@ -1,6 +1,12 @@
 # Le franchissement : passer par-dessus un obstacle sans casser sa course
 
-**Statut : 🟢 Implémenté**
+**Statut : 🟡 Prêt pour le dev**
+
+Amendée le 2026-11-15 après l'inspection : un muret collé à un grand mur se franchissait
+(la sonde voyait le dos du grand mur comme de la place) ; en diagonale, pas de
+franchissement au-delà de 29° ; un coureur lent était projeté à 7 m/s ; un muret au bord
+d'un vide se franchissait dans le vide ; une boucle « franchir, s'arrêter » rapportait
+des munitions. Décisions 9 à 13, scénarios marqués « amendement ».
 
 Session du 2026-11-14, avec Jimmy (« oui pour tout »). Jimmy veut partir vers le format
 « chat et souris » (une poursuite dans une arène d'obstacles), avec « beaucoup d'aspects
@@ -37,6 +43,11 @@ les tests sans les fichiers.
 | 5 | L'animation | `Vault One Hand` par défaut ; `Vault Two Hands` quand l'obstacle est plus profond que `vault_two_hands_depth` (**0,8 m**). La partie du clip qui passe par-dessus est calée sur la durée du franchissement, sans dépasser le plafond de vitesse de lecture. | Deux gestes réalistes selon l'obstacle. |
 | 6 | Les mains sur l'obstacle | Pendant le franchissement, la ou les mains d'appui se posent **sur le dessus réel** de l'obstacle (placement par IK, `SkeletonIK3D` ou `TwoBoneIK3D` selon ce que Godot 4.7 propose), au moment où le clip pose la main ; le corps suit la hauteur réelle de l'obstacle. Le mantle utilise `Ledge Pull Up` à la place de `Sprint To Wall Climb`, avec les mains posées sur le rebord. | Les animations « plus réalistes » demandées par Jimmy. |
 | 7 | Les fichiers | `just mixamo` copie aussi les trois nouveaux clips ; le README les liste avec leur nom Mixamo et leurs réglages. | Même circuit que les autres. |
+| 9 | La place derrière, vraiment | **Amendement.** La place se vérifie sur tout le chemin : au-dessus du dessus de l'obstacle, de sa face jusqu'au point où le coureur se pose, puis debout à ce point ; un mur derrière le muret, à n'importe quelle distance de ce chemin, empêche le franchissement. | Mesuré : un muret à 0,3 m d'un grand mur se franchissait et le coureur restait coincé dessus. |
+| 10 | En diagonale | **Amendement.** Le franchissement marche pour une approche jusqu'à 45° de la normale de la face (la diagonale du clavier) ; la profondeur et la place se mesurent perpendiculairement à la face. | Mesuré : rien au-delà de 29°. |
+| 11 | Pas de gain de vitesse | **Amendement.** Pendant le franchissement, la vitesse horizontale ne dépasse jamais la vitesse d'entrée ; si dégager l'obstacle en `vault_duration` demande plus, il n'y a pas de franchissement. | Mesuré : 4,2 m/s à l'entrée, 7,2 m/s pendant. |
+| 12 | Un sol derrière | **Amendement.** Il faut un sol derrière l'obstacle, au plus `vault_max_drop` (**1,5 m**) sous le sol de départ ; sinon pas de franchissement. | Un muret au bord d'un vide ne doit pas jeter le coureur dans le vide. |
+| 13 | Le pilote | **Amendement** (remplace la ligne correspondante de « Hors périmètre ») : le pilote, et donc le bot, ne sautent pas devant un obstacle qu'ils franchiront ; la règle se calcule depuis le réglage. | Le scénario 7 le demande. |
 | 8 | Les réglages | Toutes les valeurs nouvelles vivent dans la ressource de réglage (groupe « Vault ») ; F4 les recharge. | Règle d'`AGENTS.md`. |
 
 ## Scénarios
@@ -65,6 +76,36 @@ Fonctionnalité: Le franchissement
   Scénario: Pas de franchissement sans place derrière
     Soit un muret franchissable avec un mur juste derrière
     Quand le coureur court vers lui en poussant
+    Alors il ne franchit pas
+
+  Scénario: Un muret collé à un grand mur ne se franchit pas, dans la vraie physique
+    # amendement
+    Soit un muret de 1 m avec un grand mur 0,3 m derrière, puis 1 m derrière
+    Quand le coureur court vers lui en poussant, à sa vitesse de pointe
+    Alors il ne franchit pas et ne monte pas sur le muret
+
+  Scénario: Le franchissement marche en diagonale
+    # amendement
+    Soit un coureur qui court vers un muret franchissable à 45° de sa face
+    Quand il pousse vers lui
+    Alors il franchit
+
+  Scénario: Le franchissement ne fait pas gagner de vitesse
+    # amendement
+    Soit un coureur qui franchit à sa vitesse minimale un obstacle haut et profond
+    Quand on suit sa vitesse horizontale
+    Alors elle ne dépasse jamais sa vitesse d'entrée, et elle sort à 90 % de celle-ci
+
+  Scénario: Pas de franchissement au bord d'un vide
+    # amendement
+    Soit un muret franchissable au bord d'un vide
+    Quand le coureur court vers lui en poussant
+    Alors il ne franchit pas
+
+  Scénario: Pas de franchissement sans être debout ni sans pousser vers l'obstacle
+    # amendement
+    Soit un coureur en glissade, puis en l'air, puis au sol sans pousser vers le muret
+    Quand il arrive à portée
     Alors il ne franchit pas
 
   Scénario: Le franchissement va jusqu'au bout
@@ -113,8 +154,7 @@ l'obstacle (quelques centimètres au plus) et la rapporte ; Jimmy juge le rendu.
 ## Hors périmètre
 
 - D'autres franchissements (kong, lazy, passage dessous) : après avoir joué celui-ci.
-- Le pilote et le bot qui choisissent de franchir : le pilote franchit parce que le
-  mouvement est automatique.
+- ~~Le pilote et le bot qui choisissent de franchir~~ : remplacé par la décision 13.
 
 ## Concepts travaillés
 

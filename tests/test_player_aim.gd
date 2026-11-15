@@ -8,8 +8,13 @@ const PLAYER_SCENE: PackedScene = preload("res://game/player/player.tscn")
 const WORLD_LAYER: int = 1
 const TARGETS_LAYER: int = 3
 const FEW_STEPS: int = 5
-## Enough frames for the camera to go over the shoulder.
+## Enough fixed steps for the runner to stand, or to aim, before the camera is watched.
 const SETTLE_FRAMES: int = 12
+## The camera moves at every frame shown, whatever the fixed steps do: it is settled once
+## two frames in a row leave its place and its field of view as they were; it must settle
+## within this many frames.
+const CAMERA_FRAMES: int = 600
+const STILL_FRAMES: int = 2
 const TOLERANCE: float = 0.001
 ## A target straight ahead of a runner at the origin, its face this far, and its
 ## identity.
@@ -91,10 +96,12 @@ func test_aiming_puts_the_camera_over_the_shoulder() -> void:
 	var camera: Camera3D = player.camera_rig.get_node("Camera3D") as Camera3D
 	var normal_fov: float = camera.fov
 	await wait_physics_frames(SETTLE_FRAMES)
+	await _wait_for_the_camera(camera)
 	assert_almost_eq(camera.global_position.x, 0.0, TOLERANCE, "behind the back")
 
 	player.intent_source = ScriptedIntentSource.new().aim(Vector3.ZERO, 1000)
 	await wait_physics_frames(SETTLE_FRAMES)
+	await _wait_for_the_camera(camera)
 
 	var tuning: MovementTuning = player.tuning
 	assert_almost_eq(camera.fov, tuning.aim_camera_fov, TOLERANCE, "a narrower field")
@@ -104,6 +111,7 @@ func test_aiming_puts_the_camera_over_the_shoulder() -> void:
 
 	player.intent_source = IntentSource.new()
 	await wait_physics_frames(SETTLE_FRAMES)
+	await _wait_for_the_camera(camera)
 	assert_almost_eq(camera.fov, normal_fov, TOLERANCE, "back to the usual field")
 	assert_almost_eq(camera.global_position.x, 0.0, TOLERANCE, "and behind the back")
 
@@ -121,6 +129,9 @@ func test_the_runner_observes_what_is_under_the_reticle() -> void:
 
 	player.intent_source = ScriptedIntentSource.new().aim(Vector3.ZERO, 1000)
 	await wait_physics_frames(SETTLE_FRAMES)
+	await _wait_for_the_camera(player.camera_rig.camera())
+	# The runner observes the reticle at its fixed steps: one more, the camera settled.
+	await wait_physics_frames(FEW_STEPS)
 	assert_eq(player.aim_facts.target, TARGET_ID, "aiming at a target: its identity")
 	var distance: float = player.aim_facts.distance
 	var offset: float = player.tuning.aim_camera_offset
@@ -136,6 +147,24 @@ func test_the_runner_observes_what_is_under_the_reticle() -> void:
 	player.intent_source = IntentSource.new()
 	await wait_physics_frames(FEW_STEPS)
 	assert_eq(player.aim_facts.target, SabotageTarget.NO_TARGET, "no longer aiming: nothing")
+
+
+## Waits, frame by frame, for the camera to settle: its place and its field of view the
+## same for STILL_FRAMES frames in a row, within CAMERA_FRAMES frames.
+func _wait_for_the_camera(camera: Camera3D) -> void:
+	var fov: float = camera.fov
+	var place: Vector3 = camera.global_position
+	var still: int = 0
+	for frame: int in CAMERA_FRAMES:
+		await get_tree().process_frame
+		var same: bool = is_equal_approx(camera.fov, fov)
+		same = same and camera.global_position.is_equal_approx(place)
+		still = still + 1 if same else 0
+		if still >= STILL_FRAMES:
+			return
+		fov = camera.fov
+		place = camera.global_position
+	fail_test("the camera did not settle within %d frames" % CAMERA_FRAMES)
 
 
 func _add_player() -> Player:

@@ -1,8 +1,9 @@
 class_name RoundClock
 extends RefCounted
-## The clock of a round of a duel, in fixed steps: the countdown (3, 2, 1, each for the
-## time of the tuning), GO, then the time limit of the race. It only counts: the start at
-## GO and the time limit are dated messages (RoundMessage) that the duel gives the round.
+## The clock of a round of a duel or of a chase, in fixed steps: the countdown (3, 2, 1,
+## each for the time of the tuning), GO, then the time limit of the race. It only counts:
+## the start at GO and the time limit are dated messages (RoundMessage, ChaseMessage) that
+## the duel or the chase gives its state.
 
 enum Event { NONE, GO, TIME_UP }
 
@@ -19,9 +20,12 @@ var _number_steps: int
 var _limit_steps: int
 
 
-func _init(tuning: MovementTuning, steps_per_second: int) -> void:
+## A clock whose race lasts `time_limit` s from GO, or the time limit of a duel's round
+## when it is negative.
+func _init(tuning: MovementTuning, steps_per_second: int, time_limit: float = -1.0) -> void:
 	_number_steps = maxi(roundi(tuning.round_countdown_number_time * steps_per_second), 1)
-	_limit_steps = roundi(tuning.round_time_limit * steps_per_second)
+	var limit: float = tuning.round_time_limit if time_limit < 0.0 else time_limit
+	_limit_steps = roundi(limit * steps_per_second)
 
 
 ## One fixed step: what happens at it.

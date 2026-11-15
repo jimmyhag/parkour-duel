@@ -102,6 +102,43 @@ func test_the_trick_park_is_chosen_on_the_start_screen() -> void:
 	assert_true(start.visible, "Start: back on the start screen")
 
 
+func test_the_mode_is_chosen_on_the_start_screen() -> void:
+	var main: Main = await _add_main()
+	var start: StartScreen = main.get_node("StartScreen") as StartScreen
+	start.has_the_gamepad = func() -> bool: return true
+
+	# The keyboard: down three times (the ghost is greyed: skipped), then jump.
+	for press: int in 3:
+		await _press(_key(KEY_DOWN))
+	assert_eq(start.selected(), StartScreen.Choice.CHASE, "the chase, the last choice")
+	await _press(_key(KEY_SPACE))
+
+	assert_true(main.mode is Chase, "the chase starts")
+	assert_false(start.visible, "the start screen is gone")
+	var chase: Chase = main.mode as Chase
+	if chase == null:
+		return
+	assert_eq(chase.players.size(), 2, "two players")
+	var views: Array[Node] = chase.find_children("*", "PlayerView", true, false)
+	assert_eq(views.size(), 2, "a split screen: one view per player")
+	if views.size() != 2:
+		return
+	var left: PlayerView = views[0] as PlayerView
+	var right: PlayerView = views[1] as PlayerView
+	assert_almost_eq(left.size.x, right.size.x, 1.0, "two views of the same width")
+	assert_lt(left.global_position.x, right.global_position.x, "side by side")
+	for view: PlayerView in [left, right] as Array[PlayerView]:
+		var viewport: Viewport = view.camera.get_viewport()
+		assert_true(view.camera.current, "each view has its camera")
+		assert_ne(viewport, main.get_viewport(), "in a viewport of its own")
+		assert_eq(viewport.find_world_3d(), main.get_viewport().find_world_3d(), "on one world")
+	assert_null(main.get_viewport().get_camera_3d(), "the window itself shows no camera")
+	assert_same(left.followed, chase.players[Chase.PLAYER_ONE].camera_rig.camera(), "player 1 left")
+	assert_same(right.followed, chase.players[Chase.PLAYER_TWO].camera_rig.camera(), "2 right")
+	await _press(_key(KEY_ESCAPE))
+	assert_true(start.visible, "Escape: back on the start screen")
+
+
 func test_the_main_scene_is_the_start_screen() -> void:
 	var main_scene: String = ProjectSettings.get_setting(MAIN_SCENE_SETTING)
 	var root: Node = (load(main_scene) as PackedScene).instantiate()
