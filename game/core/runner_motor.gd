@@ -8,7 +8,8 @@ extends RefCounted
 ## recipe drawn starts as the trick button is released, in the air, on the ground with a
 ## full jump that carries it, or along a wall (or just off it) with a full wall jump, and a
 ## landing poses it only with the slide pressed just before the ground. A runner that aims is
-## slower on the ground, sliding and rolling included, and starts no trick. It uses
+## slower on the ground, sliding and rolling included, and starts no trick. The cat of a
+## chase touches and dives (Tag): it does not know whether it caught anything. It uses
 ## nothing but its arguments, the tuning and the speed bonus the flow gives it: no input,
 ## no clock, no scene.
 
@@ -22,6 +23,8 @@ enum State {
 	MANTLING,
 	WALL_RUNNING,
 	VAULTING,
+	DIVING,
+	DOWN,
 }
 
 ## How the runner got into the air it is in: what the trick of the context depends on.
@@ -57,6 +60,11 @@ var steps_since_landing: int = LONG_AGO
 var trick_ready: bool = false
 ## The vault under way, or the last one; null before the first. Only the motor changes it.
 var vault: Vault = null
+## The runner is the cat of a chase: it may touch and dive. Only its level changes it.
+var can_tag: bool = false
+## The gesture of the cat under way, or the last one; null before the first, and once the
+## runner was put somewhere. Only the motor changes it.
+var tag: Tag = null
 
 var _step_seconds: float = 0.0
 ## The runner aims at this step.
@@ -97,11 +105,8 @@ var _refused_wall: int = RunnerFacts.NO_WALL
 var _wall_run_steps: int = 0
 ## Steps since the runner left its wall: 0 while it runs along it.
 var _steps_off_the_wall: int = LONG_AGO
-## The mantle under way: the altitude of the top of its ledge, the horizontal direction
-## onto it, and the steps spent.
-var _ledge_top: float = 0.0
-var _onto_the_ledge: Vector3 = Vector3.ZERO
-var _mantle_steps: int = 0
+## The mantle under way, or the last one.
+var _mantle: Mantle = null
 ## The trick of the jump under way, finished or not: what the next landing pays, or what
 ## a crash loses; null when there is none. One trick per jump.
 var _trick: AirTrick = null
@@ -132,16 +137,19 @@ func step(intent: MoveIntent, facts: RunnerFacts, delta: float) -> Vector3:
 	_turn_the_trick()
 	_observe_floor(facts)
 	_end_the_vault(facts)
-	if state != State.MANTLING and state != State.VAULTING:
+	_follow_the_tag(intent, facts)
+	if not _is_led():
 		_choose_floor_state(intent, facts)
 		_choose_air_state(intent, facts)
 		if _can_vault(intent, facts):
 			_start_vault(facts)
 	if state == State.MANTLING:
-		_mantle(facts, delta)
+		_play_the_mantle(facts, delta)
 	elif state == State.VAULTING:
 		velocity = vault.step(facts, delta)
 		_cap_horizontal_speed()
+	elif state == State.DIVING or state == State.DOWN:
+		velocity = tag.step(facts, delta)
 	else:
 		_move(intent, facts, delta)
 	_start_a_trick(intent)
@@ -175,10 +183,9 @@ func reset() -> void:
 	_refused_wall = RunnerFacts.NO_WALL
 	_wall_run_steps = 0
 	_steps_off_the_wall = LONG_AGO
-	_ledge_top = 0.0
-	_onto_the_ledge = Vector3.ZERO
-	_mantle_steps = 0
+	_mantle = null
 	vault = null
+	tag = null
 	_trick = null
 	_take_off = TakeOff.FALL
 	_drawing = false
@@ -250,7 +257,7 @@ func landing_time_left() -> float:
 func mantle_time_left() -> float:
 	if state != State.MANTLING:
 		return 0.0
-	return maxi(_mantle_duration_steps() - _mantle_steps, 0) * _step_seconds
+	return _mantle.steps_left() * _step_seconds
 
 
 ## Seconds left of the wall run under way.
@@ -290,7 +297,7 @@ func _can_start_a_trick() -> bool:
 		return false
 	if _is_in_the_air():
 		return true
-	if state == State.ROLLING or state == State.MANTLING or state == State.VAULTING:
+	if state == State.ROLLING or _is_led():
 		return false
 	return _may_jump(_can_stand)
 
@@ -309,11 +316,11 @@ func wall_run_normal() -> Vector3:
 	return _away_from_the_wall
 
 
-## A press of the jump or of the slide is remembered, except during a mantle or a vault,
-## which ignore them. During a trick, a press of the jump does nothing: it is never
-## remembered. The drawing of the trick is noted.
+## A press of the jump or of the slide is remembered, except during a mantle, a vault, a
+## dive or the time down after it, which ignore them. During a trick, a press of the jump
+## does nothing: it is never remembered. The drawing of the trick is noted.
 func _remember_requests(intent: MoveIntent) -> void:
-	var heeded: bool = state != State.MANTLING and state != State.VAULTING
+	var heeded: bool = not _is_led()
 	_drawing = intent.trick_held
 	_drawn = intent.trick_recipe if intent.trick_held else null
 	if intent.jump_pressed and heeded and not is_in_a_trick():
@@ -330,9 +337,9 @@ func _remember_requests(intent: MoveIntent) -> void:
 func _observe_floor(facts: RunnerFacts) -> void:
 	var was_low: bool = is_low()
 	steps_since_landing = mini(steps_since_landing + 1, LONG_AGO)
-	if state == State.MANTLING or state == State.VAULTING:
-		# A mantle and a vault are a contact with the ground: what follows them starts
-		# from there.
+	if _is_led():
+		# A mantle, a vault and a dive are a contact with the ground: what follows them
+		# starts from there.
 		_touch_the_ground(facts)
 		return
 	# A jump that just started may still be reported on the floor: it has left it.
@@ -440,15 +447,8 @@ func _start_slide() -> void:
 	if steps_since_landing > window or _steps_since_slide_press > window:
 		_announce(RunnerEvent.Kind.SLIDE)
 		return
-	var horizontal: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
-	var speed: float = horizontal.length()
-	var gained: float = minf(
-		speed + tuning.perfect_slide_speed_gain, top_speed() + tuning.perfect_slide_speed_gain
-	)
-	if gained > speed:
-		horizontal = horizontal.normalized() * gained
-		velocity.x = horizontal.x
-		velocity.z = horizontal.z
+	# The absolute cap holds once the slide has slowed it down by one step (see _move).
+	_gain_speed(tuning.perfect_slide_speed_gain, INF)
 	_announce(RunnerEvent.Kind.PERFECT_SLIDE)
 
 
@@ -470,53 +470,31 @@ func _choose_air_state(intent: MoveIntent, facts: RunnerFacts) -> void:
 		return
 	if _can_mantle(intent, facts):
 		_start_mantle(facts)
-	elif _can_run_along(intent, facts):
+	elif WallRun.starts(facts, velocity, intent.direction, _refused_wall, tuning):
 		_start_wall_run(facts)
 
 
-## A ledge in front, its top within the heights a mantle climbs and free to stand on,
-## and the runner pushes towards it.
+## A ledge in front that a mantle climbs (Mantle.fits), and the runner pushes towards it.
 func _can_mantle(intent: MoveIntent, facts: RunnerFacts) -> bool:
-	if facts.ledge_normal.is_zero_approx() or not facts.ledge_clear:
-		return false
-	if facts.ledge_height < tuning.mantle_min_height:
-		return false
-	if facts.ledge_height > tuning.mantle_max_height:
+	if not Mantle.fits(facts, tuning):
 		return false
 	return _pushes_into(intent.direction, _horizontal_unit(facts.ledge_normal))
 
 
 func _start_mantle(facts: RunnerFacts) -> void:
 	state = State.MANTLING
-	_mantle_steps = 0
-	_ledge_top = facts.altitude + facts.ledge_height
-	_onto_the_ledge = -_horizontal_unit(facts.ledge_normal)
+	_mantle = Mantle.new(facts, tuning, _window_steps(tuning.mantle_duration))
 	_jump_spent = true
 	_pay_the_trick(false, false)
 	_announce(RunnerEvent.Kind.MANTLE)
 
 
-## The runner rises along the face of its ledge up to its top, while it pushes onto it
-## at the exit speed; the last stretch of the mantle carries it one body width forward,
-## over the top, pressing it onto the top with the weight of one step, so that it stands
-## there. When the mantle is over the runner stands on the ledge, or falls if it did not
-## get there.
-func _mantle(facts: RunnerFacts, delta: float) -> void:
-	_mantle_steps += 1
-	var steps: int = _mantle_duration_steps()
-	var crossing_steps: int = 0
-	if tuning.mantle_exit_speed > 0.0:
-		var crossing: float = 2.0 * tuning.capsule_radius / tuning.mantle_exit_speed
-		crossing_steps = roundi(crossing / delta)
-	var rising_steps: int = maxi(steps - crossing_steps, 1)
-	velocity = _onto_the_ledge * tuning.mantle_exit_speed
-	if _mantle_steps <= rising_steps:
-		var steps_left: int = rising_steps - _mantle_steps + 1
-		velocity.y = (_ledge_top - facts.altitude) / (steps_left * delta)
-	else:
-		velocity.y = -tuning.fall_gravity * delta
+## The mantle goes on (Mantle); when it is over the runner stands on the ledge, or falls if
+## it did not get there.
+func _play_the_mantle(facts: RunnerFacts, delta: float) -> void:
+	velocity = _mantle.step(facts, delta)
 	_cap_horizontal_speed()
-	if _mantle_steps >= steps:
+	if _mantle.is_over():
 		state = State.GROUNDED if facts.on_floor else State.FALLING
 		_take_off = TakeOff.FALL
 
@@ -549,38 +527,6 @@ func _end_the_vault(facts: RunnerFacts) -> void:
 	velocity = vault.exit_velocity()
 
 
-## A wall beside the runner that can be run along, not refused, high enough above the
-## ground, at a speed along it enough to start (what goes towards the wall does not
-## count: too steep an approach gives no wall run, and leaves the wall free), and the
-## runner pushes, anywhere but away from the wall. The speed along the wall is what
-## tells a wall run from a mantle on a face pushed into.
-func _can_run_along(intent: MoveIntent, facts: RunnerFacts) -> bool:
-	if facts.wall_id == RunnerFacts.NO_WALL or facts.wall_id == _refused_wall:
-		return false
-	if not _is_runnable(facts):
-		return false
-	if facts.ground_clearance < tuning.wall_run_min_height:
-		return false
-	var away: Vector3 = _horizontal_unit(facts.wall_normal)
-	if _along(velocity, away).length() < tuning.wall_run_start_speed:
-		return false
-	# Any push but one away from the wall: along it, towards it or straight into it.
-	var wish: Vector3 = Vector3(intent.direction.x, 0.0, intent.direction.z)
-	return not wish.is_zero_approx() and not _pushes_away(intent.direction, away)
-
-
-## The wall is close enough, near enough to vertical and tall enough.
-func _is_runnable(facts: RunnerFacts) -> bool:
-	if facts.wall_normal.is_zero_approx():
-		return false
-	if facts.wall_distance > tuning.wall_run_distance:
-		return false
-	if facts.wall_height < tuning.wall_run_min_wall_height:
-		return false
-	var tilt: float = absf(facts.wall_normal.normalized().y)
-	return tilt <= sin(deg_to_rad(tuning.wall_run_max_tilt))
-
-
 func _start_wall_run(facts: RunnerFacts) -> void:
 	state = State.WALL_RUNNING
 	_wall_run_steps = 1
@@ -597,7 +543,7 @@ func _start_wall_run(facts: RunnerFacts) -> void:
 func _stays_on_the_wall(intent: MoveIntent, facts: RunnerFacts) -> bool:
 	if _wall_run_steps > _window_steps(tuning.wall_run_duration):
 		return false
-	if facts.wall_id != _wall_id or not _is_runnable(facts):
+	if facts.wall_id != _wall_id or not WallRun.runnable(facts, tuning):
 		return false
 	_away_from_the_wall = _horizontal_unit(facts.wall_normal)
 	if _along(velocity, _away_from_the_wall).length() < tuning.wall_run_stop_speed:
@@ -743,10 +689,14 @@ func _steer(direction: Vector3, delta: float) -> void:
 	velocity.z = horizontal.z
 
 
-## Nothing takes the horizontal speed above its absolute cap.
+## Nothing takes the horizontal speed above its absolute cap, nor above the cap of a touch
+## under way or of the time it costs (Tag).
 func _cap_horizontal_speed() -> void:
 	var horizontal: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
-	horizontal = horizontal.limit_length(tuning.max_horizontal_speed)
+	var cap: float = tuning.max_horizontal_speed
+	if tag != null:
+		cap = minf(cap, tag.speed_cap(top_speed()))
+	horizontal = horizontal.limit_length(cap)
 	velocity.x = horizontal.x
 	velocity.z = horizontal.z
 
@@ -756,6 +706,11 @@ func _cap_horizontal_speed() -> void:
 func _can_wall_jump() -> bool:
 	if _steps_since_jump_request > _window_steps(tuning.jump_buffer_time):
 		return false
+	return _may_wall_jump()
+
+
+## Along a wall, or shortly after the runner left it.
+func _may_wall_jump() -> bool:
 	if state == State.WALL_RUNNING:
 		return true
 	return (
@@ -771,11 +726,7 @@ func _can_trick_wall_jump(intent: MoveIntent) -> bool:
 		return false
 	if intent.aim_held or _trick != null:
 		return false
-	if state == State.WALL_RUNNING:
-		return true
-	return (
-		state == State.FALLING and _steps_off_the_wall <= _window_steps(tuning.wall_jump_grace_time)
-	)
+	return _may_wall_jump()
 
 
 ## Away from the wall and upwards, keeping the speed along the wall; the cap holds from
@@ -890,6 +841,35 @@ func _horizontal_unit(vector: Vector3) -> Vector3:
 	return Vector3(vector.x, 0.0, vector.z).normalized()
 
 
+## The motor plays its own move, whatever the intent: a mantle, a vault, a dive, or the time
+## down after it.
+func _is_led() -> bool:
+	return state in [State.MANTLING, State.VAULTING, State.DIVING, State.DOWN]
+
+
+## The gesture of the cat (Tag): one under way goes on, and its end ends the dive or the time
+## down; otherwise, for the cat, a touch asked for starts anywhere but in a mantle, a vault,
+## a roll or a slide, and a dive asked for on its feet, fast enough.
+func _follow_the_tag(intent: MoveIntent, facts: RunnerFacts) -> void:
+	if tag != null and not tag.is_over():
+		tag.advance(facts)
+		if state == State.DIVING and tag.phase == Tag.Phase.DOWN:
+			state = State.DOWN
+		elif state == State.DOWN and tag.is_over():
+			state = State.GROUNDED if facts.on_floor else State.FALLING
+			_take_off = TakeOff.FALL
+		return
+	if not can_tag:
+		return
+	var busy: bool = _is_led() or state == State.ROLLING or state == State.SLIDING
+	if intent.touch_pressed and not busy:
+		tag = Tag.touch(tuning, _step_seconds, steps)
+	elif intent.dive_pressed and is_on_foot() and real_speed() >= tuning.tag_dive_min_speed:
+		tag = Tag.dive(facts, tuning, _step_seconds, steps)
+		state = State.DIVING
+		_jump_spent = true
+
+
 ## The trick under way goes on by one step: the body turned during the step before.
 func _turn_the_trick() -> void:
 	if is_in_a_trick():
@@ -897,9 +877,8 @@ func _turn_the_trick() -> void:
 
 
 ## The trick of the jump is paid: announced, dated by this step. A perfect landing makes
-## it worth more, and the horizontal speed gains the tuned speed the way it goes, but
-## never beyond the top speed of the moment plus that gain, so that perfect landings in a
-## row do not add up; a runner already faster keeps its speed. The absolute cap holds too.
+## it worth more, and the horizontal speed gains the tuned speed (_gain_speed), so that
+## perfect landings in a row do not add up.
 ## Paid without the landing that poses it (`posed` false: a wall run or a mantle), it is
 ## worth less.
 func _pay_the_trick(perfect: bool, posed: bool) -> void:
@@ -908,16 +887,21 @@ func _pay_the_trick(perfect: bool, posed: bool) -> void:
 	_trick.unposed = not posed
 	if perfect:
 		_trick.perfect = true
-		var horizontal: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
-		var speed: float = horizontal.length()
-		var gain: float = tuning.trick_perfect_speed_gain
-		var gained: float = minf(speed + gain, top_speed() + gain)
-		if gained > speed:
-			horizontal = horizontal.normalized() * minf(gained, tuning.max_horizontal_speed)
-			velocity.x = horizontal.x
-			velocity.z = horizontal.z
+		_gain_speed(tuning.trick_perfect_speed_gain, tuning.max_horizontal_speed)
 	events.append(RunnerEvent.new(RunnerEvent.Kind.TRICK, steps, _trick))
 	_trick = null
+
+
+## The horizontal speed gains `gain` the way it goes, but never beyond the top speed of the
+## moment plus that gain, nor beyond `cap`: a runner already faster keeps its speed.
+func _gain_speed(gain: float, cap: float) -> void:
+	var horizontal: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
+	var speed: float = horizontal.length()
+	var gained: float = minf(speed + gain, top_speed() + gain)
+	if gained > speed:
+		horizontal = horizontal.normalized() * minf(gained, cap)
+		velocity.x = horizontal.x
+		velocity.z = horizontal.z
 
 
 ## The ground touched with the trick not over, or not posed: a hard landing whatever the
@@ -979,11 +963,6 @@ func _landing_duration_steps() -> int:
 	if state == State.ROLLING:
 		return _window_steps(tuning.roll_duration)
 	return _window_steps(tuning.hard_landing_duration)
-
-
-## How long a mantle lasts, in fixed steps: at least one.
-func _mantle_duration_steps() -> int:
-	return maxi(_window_steps(tuning.mantle_duration), 1)
 
 
 ## A duration of the tuning, in fixed steps (rounded to the nearest step).

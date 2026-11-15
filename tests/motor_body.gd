@@ -210,6 +210,20 @@ static func fixed_tuning() -> MovementTuning:
 	tuning.chase_round_time = 20.0
 	tuning.chase_rounds_to_win = 3
 	tuning.chase_start_distance = 10.0
+	tuning.tag_touch_time = 0.25
+	tuning.tag_touch_speed_ratio = 0.85
+	tuning.tag_touch_reach = 1.0
+	tuning.tag_touch_cone = 60.0
+	tuning.tag_touch_recovery = 0.35
+	tuning.tag_touch_recovery_speed_ratio = 0.6
+	tuning.tag_dive_min_speed = 3.0
+	tuning.tag_dive_push = 2.0
+	tuning.tag_dive_time = 0.4
+	tuning.tag_dive_height = 0.3
+	tuning.tag_dive_reach = 1.6
+	tuning.tag_dive_cone = 40.0
+	tuning.tag_dive_stopped_share = 0.5
+	tuning.tag_dive_recovery = 0.9
 	tuning.chase_cat_colour = Color(0.9, 0.1, 0.1)
 	tuning.chase_mouse_colour = Color(0.1, 0.4, 1.0)
 	tuning.chase_bot_decision_time = [0.5, 0.25, 0.1]
@@ -218,6 +232,8 @@ static func fixed_tuning() -> MovementTuning:
 	tuning.chase_bot_push = [0.85, 1.0, 1.0]
 	tuning.chase_bot_tricks = [false, true, true]
 	tuning.chase_bot_landing_press = [0.0, 0.18, 0.05]
+	tuning.chase_bot_dives = [false, true, true]
+	tuning.chase_bot_tag_delay = [0.15, 0.05, 0.0]
 	tuning.chase_bot_danger_radius = 4.0
 	tuning.chase_bot_stuck_time = 0.6
 	return tuning

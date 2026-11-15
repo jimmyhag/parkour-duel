@@ -32,3 +32,7 @@ var shoot_pressed: bool = false
 var respawn_requested: bool = false
 ## Restarting the course was asked at this step.
 var restart_requested: bool = false
+## The touch of the cat of a chase was pressed at this step (Tag).
+var touch_pressed: bool = false
+## The dive of the cat of a chase was pressed at this step (Tag).
+var dive_pressed: bool = false

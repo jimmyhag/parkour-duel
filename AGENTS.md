@@ -146,8 +146,10 @@ When one appears (the network transport, then Steam), these rules apply:
 
 ```
 game/               the game, one folder per layer (table above)
-  core/             runner motor with its aerial tricks and its vaults (and how a
-                    push goes against a surface), the drawing of a trick and
+  core/             runner motor with its aerial tricks, its vaults and its mantles (and
+                    how a push goes against a surface, and whether a wall may be run
+                    along), the touch and the dive of the cat of a chase and the
+                    reach in which they catch, the drawing of a trick and
                     the recipe it reads, intents, the facts the player observes, race
                     state, the flow state and the motor's dated messages, the weapon,
                     the state machines of the sabotageable targets and their dated
@@ -167,14 +169,17 @@ game/               the game, one folder per layer (table above)
                     stride from the measure of their feet, its body rolled along a wall
                     and laid against it from the measure of the bones of its run, its
                     hands put by inverse kinematics on what it vaults or climbs and its
-                    body at the real height of a vault; the capsule otherwise), camera rig
-                    (over the shoulder while aiming, still while a trick is
+                    body at the real height of a vault, its upper body reaching out for a
+                    touch and its hand on the runner it reaches; the capsule otherwise,
+                    lying forward in a dive), the clips made from the Mixamo files,
+                    camera rig (over the shoulder while aiming, still while a trick is
                     drawn), intents read from the inputs (the mouse or the right stick
                     draw the trick; in a split screen, of one device only, with the
                     actions made for it), and what the body observes around it (floor,
                     walls, ledges, obstacles ahead) and under the reticle; the pilot,
                     the bot's intents, the bot of the chase (its path over the
-                    navigation of the arena and its links, its trick), and the ghost
+                    navigation of the arena and its links, its trick, its touches and
+                    dives), and the ghost
   world/            checkpoints, race lines, the four sabotageable target blocks, and
                     the grid shader of the blocks of the chase arena (a line every
                     metre, laid in the world, over the colour of its kind of obstacle)
@@ -183,10 +188,11 @@ game/               the game, one folder per layer (table above)
                     countdown, the start screen (and the level of the bot of the chase)
                     and the result screens, and for the chase the view
                     of each player of the split screen, its role, time and indicator,
-                    and the screen between two rounds
+                    the screen between two rounds, and the sounds of a catch and of a
+                    miss
   levels/           the lane of the course, the solo course (test_course.tscn), the
                     duel (two lanes), the Trick Park (trick_park.tscn), the chase (its
-                    arena of 32 m with its loops round its obstacles and their
+                    arena of 24 m with its loops round its obstacles and their
                     shortcuts, its navigation, its links and its flee points, its split
                     screen, and in full screen against the bot, chase.tscn), and
                     main.tscn, the main scene: the start screen and the mode it starts

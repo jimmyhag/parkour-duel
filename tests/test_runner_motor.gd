@@ -223,8 +223,14 @@ func test_the_same_intents_give_the_same_result() -> void:
 	var tuning: MovementTuning = _tuning()
 	var first: RunnerMotor = RunnerMotor.new(tuning)
 	var second: RunnerMotor = RunnerMotor.new(tuning)
+	# The cat of a chase: its touches and dives too (docs/specs/chase-tag.md).
+	first.can_tag = true
+	second.can_tag = true
 	var random: RandomNumberGenerator = RandomNumberGenerator.new()
 	random.seed = 20261112
+	# The gestures drawn apart, the rest of the sequence as it was.
+	var gestures: RandomNumberGenerator = RandomNumberGenerator.new()
+	gestures.seed = 20261115
 
 	var differences: int = 0
 	var states_seen: Dictionary[RunnerMotor.State, bool] = {}
@@ -237,6 +243,8 @@ func test_the_same_intents_give_the_same_result() -> void:
 		intent.jump_held = random.randf() < 0.5
 		intent.slide_pressed = random.randf() < 0.05
 		intent.slide_held = intent.slide_pressed or random.randf() < 0.5
+		intent.touch_pressed = gestures.randf() < 0.02
+		intent.dive_pressed = gestures.randf() < 0.02
 		if random.randf() < 0.03:
 			on_floor = not on_floor
 		var facts: RunnerFacts = RunnerFacts.new()
@@ -334,6 +342,16 @@ func _tuning() -> MovementTuning:
 	tuning.wall_jump_grace_time = 0.10
 	tuning.capsule_height = 1.8
 	tuning.capsule_radius = 0.35
+	tuning.tag_touch_time = 0.25
+	tuning.tag_touch_speed_ratio = 0.85
+	tuning.tag_touch_recovery = 0.35
+	tuning.tag_touch_recovery_speed_ratio = 0.6
+	tuning.tag_dive_min_speed = 3.0
+	tuning.tag_dive_push = 2.0
+	tuning.tag_dive_time = 0.4
+	tuning.tag_dive_height = 0.3
+	tuning.tag_dive_stopped_share = 0.5
+	tuning.tag_dive_recovery = 0.9
 	return tuning
 
 

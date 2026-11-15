@@ -41,6 +41,11 @@ const DOWNLOADED: Dictionary[String, String] = {
 	"Fast Run.fbx": "",
 	"Two Cycle Sprint.fbx": "",
 	"Running Quickly.fbx": "",
+	"Reaching Out.fbx": "reaching_out.fbx",
+	"Run To Dive.fbx": "run_to_dive.fbx",
+	"Getting Up.fbx": "getting_up.fbx",
+	"Falling Flat Impact.fbx": "",
+	"Jogging Stumble.fbx": "",
 }
 ## The clips of docs/specs/motion-weight.md, downloaded without the character, and the name
 ## each one takes once copied; and the runs measured for it and not retained: none of them
@@ -64,6 +69,14 @@ const LOCOMOTION: Dictionary[String, String] = {
 	"Walking.fbx": "walking.fbx",
 	"Sprint.fbx": "sprint.fbx",
 }
+## The clips of the catch (docs/specs/chase-tag.md), downloaded without the character, and
+## the name each one takes once copied; and the candidates measured for it and not retained.
+const CATCH_CLIPS: Dictionary[String, String] = {
+	"Reaching Out.fbx": "reaching_out.fbx",
+	"Run To Dive.fbx": "run_to_dive.fbx",
+	"Getting Up.fbx": "getting_up.fbx",
+}
+const CATCH_NOT_RETAINED: Array[String] = ["Falling Flat Impact.fbx", "Jogging Stumble.fbx"]
 ## The pistol pack, the clips it holds, and the name of the one the game uses. Its
 ## character is not the one downloaded: it must not replace it.
 const PACK: String = "Pistol_Handgun Locomotion Pack.zip"
@@ -220,6 +233,34 @@ func test_the_copy_puts_away_the_retained_clips() -> void:
 	code = _copy(_absolute(DOWNLOADS), output)
 	assert_ne(code, 0, "without the clips of the motion weight, the copy fails")
 	for download: String in MOTION_WEIGHT_CLIPS:
+		assert_string_contains(str(output), download, false)
+	assert_false(DirAccess.dir_exists_absolute(COPY), "nothing is copied")
+
+
+func test_the_copy_puts_away_the_clips_of_the_catch() -> void:
+	_make_the_downloads()
+
+	var output: Array = []
+	var code: int = _copy(_absolute(DOWNLOADS), output)
+	assert_eq(code, 0, "the copy command succeeds: %s" % [output])
+
+	for download: String in CATCH_CLIPS:
+		var copied: String = COPY.path_join(CATCH_CLIPS[download])
+		assert_true(FileAccess.file_exists(copied), "%s is copied" % download)
+		assert_eq(FileAccess.get_file_as_string(copied), download, "%s holds it" % copied)
+		assert_true(FileAccess.file_exists(copied + ".import"), "%s has its settings" % copied)
+	for download: String in CATCH_NOT_RETAINED:
+		var named: String = download.to_lower().replace(" ", "_")
+		assert_false(FileAccess.file_exists(COPY.path_join(named)), "%s is not copied" % download)
+
+	# Without them, nothing is copied: the character needs every clip.
+	_remove_folder(COPY)
+	for download: String in CATCH_CLIPS:
+		DirAccess.remove_absolute(DOWNLOADS.path_join(download))
+	output.clear()
+	code = _copy(_absolute(DOWNLOADS), output)
+	assert_ne(code, 0, "without the clips of the catch, the copy fails")
+	for download: String in CATCH_CLIPS:
 		assert_string_contains(str(output), download, false)
 	assert_false(DirAccess.dir_exists_absolute(COPY), "nothing is copied")
 

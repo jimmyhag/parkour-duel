@@ -4,15 +4,19 @@ extends Node3D
 ## Player 1, on the left, plays on the keyboard and the mouse only; player 2, on the right,
 ## on the gamepad (device 0) only (InputDevice). One is the cat, the other the mouse; the
 ## match (ChaseState, game/core) only learns what happens from dated messages: the start
-## of a round at GO, the contact of the two bodies, which this level observes from their
-## capsules, and the time up of the clock of the round (RoundClock). Before every round
+## of a round at GO, the catch of the mouse by a gesture of the cat (Tag,
+## docs/specs/chase-tag.md), which this level observes from their capsules while the gesture
+## reaches, the cat facing the way it runs (the way its camera looks when it stands), and
+## the time up of the clock of the round (RoundClock). The bodies touching alone catch
+## nothing; only the cat may touch and dive. Before every round
 ## the players stand at their start points, the distance of the tuning apart on either
 ## side of the centre of the arena, face to face, held through the countdown; they wear
 ## the colour of their role. A fall out of the arena brings a player back to its start
 ## point, the time going on. The flow of each player counts its moves and gives its speed
 ## bonus to its motor; there is no weapon, no aim and no target (ChaseIntentSource). Between
 ## two rounds a screen shows the winner of the round and the score over the countdown;
-## at the end of the match, the result, with the rematch and the way back to the menu.
+## at the end of the match, the result, with the rematch and the way back to the menu. A
+## catch and a miss each play their sound (ChaseSounds).
 ## Against the bot (docs/specs/chase-bot.md), player 2 is a bot of the level chosen
 ## (ChaseBotIntentSource, game/player) and player 1 plays alone, in full screen, on the
 ## keyboard and the mouse or on the gamepad. A bot follows the navigation of the arena,
@@ -20,7 +24,7 @@ extends Node3D
 ## arena declares and flees to its flee points; it is told its role before every round.
 ## Expected children: Arena (a NavigationRegion3D, with Centre, its marker, Links and
 ## FleePoints), Screens/Views/PlayerOne and Screens/Views/PlayerTwo (PlayerView),
-## Screens/CountdownDisplay, Screens/RoundScreen and Screens/ResultScreen.
+## Screens/CountdownDisplay, Screens/RoundScreen, Screens/ResultScreen and ChaseSounds.
 
 ## A player chose MENU on the result screen: back to the start screen.
 signal menu_requested
@@ -68,6 +72,7 @@ var _inputs: Array[InputIntentSource] = []
 @onready var _countdown: CountdownDisplay = $Screens/CountdownDisplay as CountdownDisplay
 @onready var _round_screen: ChaseRoundScreen = $Screens/RoundScreen as ChaseRoundScreen
 @onready var _result: ResultScreen = $Screens/ResultScreen as ResultScreen
+@onready var _sounds: ChaseSounds = $ChaseSounds as ChaseSounds
 
 
 func _ready() -> void:
@@ -94,6 +99,9 @@ func _ready() -> void:
 		view.flow_hud.shows_ammo = false
 		view.trick_pad.motor = runner.motor
 		view.trick_pad.gesture = _inputs[player].drawing
+	for player: int in ChaseState.PLAYERS:
+		players[player].tag_target = players[1 - player]
+		_sounds.motors.append(players[player].motor)
 	_result.rematch_chosen.connect(rematch)
 	_result.menu_chosen.connect(_on_menu_chosen)
 	rematch()
@@ -110,12 +118,13 @@ func rematch() -> void:
 		_views[player].hud.chase = chase
 		_views[player].flow_hud.flow = chase.flows[player]
 	_round_screen.chase = chase
+	_sounds.chase = chase
 	_result.hide_result()
 	_begin_the_countdown()
 
 
-## One fixed step of the match: the contact of the two bodies while a round is on, or the
-## step of the clock (GO, the time up); then what the new phase asks for.
+## One fixed step of the match: the catch of the mouse while a round is on, or the step of
+## the clock (GO, the time up); then what the new phase asks for.
 func _physics_process(_delta: float) -> void:
 	match_steps += 1
 	var before: ChaseState.Phase = chase.phase
@@ -162,9 +171,14 @@ func _bake_the_navigation() -> void:
 func _play_the_step() -> void:
 	if chase.phase == ChaseState.Phase.MATCH_OVER:
 		return
-	if chase.phase == ChaseState.Phase.RUNNING and touch(players[PLAYER_ONE], players[PLAYER_TWO]):
-		chase.receive(ChaseMessage.contact(match_steps))
-		# A contact once the time is up wins nothing: the clock still says it is up.
+	if (
+		chase.phase == ChaseState.Phase.RUNNING
+		and catches(players[chase.cat], players[chase.mouse()])
+	):
+		chase.receive(
+			ChaseMessage.catch(match_steps, chase.cat, players[chase.cat].motor.tag.gesture)
+		)
+		# A catch once the time is up wins nothing: the clock still says it is up.
 		if chase.phase != ChaseState.Phase.RUNNING:
 			return
 	match clock.tick():
@@ -184,29 +198,14 @@ func _follow_the_phase() -> void:
 			_end_the_match()
 
 
-## Whether the capsules of two bodies touch: the least distance between their axes is no
-## more than their radii together. Each body has one capsule, upright.
-static func touch(first: CollisionObject3D, second: CollisionObject3D) -> bool:
-	var axis_one: PackedVector3Array = _axis_of(first)
-	var axis_two: PackedVector3Array = _axis_of(second)
-	var apart: Vector2 = Vector2(axis_two[0].x - axis_one[0].x, axis_two[0].z - axis_one[0].z)
-	var gap: float = maxf(axis_one[0].y - axis_two[1].y, axis_two[0].y - axis_one[1].y)
-	var distance: float = Vector2(apart.length(), maxf(gap, 0.0)).length()
-	return distance <= _radius_of(first) + _radius_of(second)
-
-
-## The lowest and the highest points of the axis of the capsule of `body`, in the world.
-static func _axis_of(body: CollisionObject3D) -> PackedVector3Array:
-	var owner_id: int = body.get_shape_owners()[0]
-	var capsule: CapsuleShape3D = body.shape_owner_get_shape(owner_id, 0) as CapsuleShape3D
-	var centre: Vector3 = (body.global_transform * body.shape_owner_get_transform(owner_id)).origin
-	var half: float = capsule.height / 2.0 - capsule.radius
-	return PackedVector3Array([centre + Vector3.DOWN * half, centre + Vector3.UP * half])
-
-
-static func _radius_of(body: CollisionObject3D) -> float:
-	var owner_id: int = body.get_shape_owners()[0]
-	return (body.shape_owner_get_shape(owner_id, 0) as CapsuleShape3D).radius
+## Whether the cat `cat` catches the mouse `mouse` at the step they just played: a gesture
+## of the cat reaches, and the mouse is within its reach and its cone (Tag.catches), the cat
+## facing as a gesture does (Player.tag_facing).
+static func catches(cat: Player, mouse: Player) -> bool:
+	var radii: float = Player.radius_of(cat) + Player.radius_of(mouse)
+	return Tag.catches(
+		cat.motor, Player.axis_of(cat), Player.axis_of(mouse), radii, cat.tag_facing()
+	)
 
 
 func _add_player(player: int) -> Player:
@@ -224,7 +223,8 @@ func _add_player(player: int) -> Player:
 
 
 ## A countdown before a round: a new clock, the players held at their start points, face
-## to face, in the colours of their roles in the coming round.
+## to face, in the colours of their roles in the coming round; the cat may tag, the mouse
+## may not.
 func _begin_the_countdown() -> void:
 	var tuning: MovementTuning = players[PLAYER_ONE].tuning
 	clock = RoundClock.new(tuning, steps_per_second, tuning.chase_round_time)
@@ -235,6 +235,7 @@ func _begin_the_countdown() -> void:
 		runner.teleport(spawns[player])
 		var cat: bool = chase.role(player) == ChaseState.Role.CAT
 		runner.paint(tuning.chase_cat_colour if cat else tuning.chase_mouse_colour)
+		runner.motor.can_tag = cat
 		if bots.has(player):
 			bots[player].play(chase.role(player))
 	_hold_the_players(true)

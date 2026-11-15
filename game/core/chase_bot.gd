@@ -12,8 +12,9 @@ extends RefCounted
 ## the cat has about the same), the farthest, to run away the longest. It keeps its point
 ## until the cat comes within the danger radius of the tuning, then runs to another one
 ## (not the one it ran to before), or until it is there. Its level sets how often it
-## decides, how far it anticipates, which links it takes, how far it pushes, and its
-## tricks. It sees no scene: only what it is given, and the tuning.
+## decides, how far it anticipates, which links it takes, how far it pushes, its tricks,
+## and, as the cat, whether it dives and how soon it reaches for the mouse. It sees no
+## scene: only what it is given, and the tuning.
 
 enum Level { EASY, NORMAL, HARD }
 
@@ -105,6 +106,16 @@ func push() -> float:
 ## Whether the bot does a simple trick as it goes down from a block or a platform.
 func tricks() -> bool:
 	return tuning.chase_bot_tricks[level]
+
+
+## Whether the bot, as the cat, dives (it always touches, docs/specs/chase-tag.md).
+func dives() -> bool:
+	return tuning.chase_bot_dives[level]
+
+
+## How long after the mouse comes within the reach of a gesture the cat starts it, in s.
+func tag_delay() -> float:
+	return tuning.chase_bot_tag_delay[level]
 
 
 ## How long before touching the ground the bot presses the slide that poses its trick, in

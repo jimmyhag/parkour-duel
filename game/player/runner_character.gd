@@ -17,8 +17,11 @@ extends Node3D
 ## wall it runs, and the runner rolls its visible body against the wall as its run allows
 ## (WallRunPose). In a vault and a mantle, its hands are put on the real top
 ## (HandPlant) by inverse kinematics (TwoBoneIK3D) while the clip plants them; in a vault,
-## its body follows the real height of the obstacle (docs/specs/vault.md). Presentation
-## only: nothing the runner observes depends on it.
+## its body follows the real height of the obstacle (docs/specs/vault.md). The touch of the
+## cat of a chase holds the upper body in the pose of Reaching Out, and its right hand goes
+## by inverse kinematics onto the body of the runner it reaches for, once within the reach of
+## its arm; the dive and the getting up after one missed have their clips
+## (docs/specs/chase-tag.md). Presentation only: nothing the runner observes depends on it.
 
 ## The character, the only file whose mesh the game uses.
 const MODEL: String = "res://assets/mixamo/ch08_nonpbr.fbx"
@@ -41,14 +44,22 @@ const CLIP_FILES: Dictionary[RunnerAnimation.Clip, String] = {
 	RunnerAnimation.Clip.VAULT_ONE_HAND: "res://assets/mixamo/vault_one_hand.fbx",
 	RunnerAnimation.Clip.VAULT_TWO_HANDS: "res://assets/mixamo/vault_two_hands.fbx",
 	RunnerAnimation.Clip.TUCK: "res://assets/mixamo/backflip.fbx",
+	RunnerAnimation.Clip.DIVE: "res://assets/mixamo/run_to_dive.fbx",
+	RunnerAnimation.Clip.GETTING_UP: "res://assets/mixamo/getting_up.fbx",
 }
 const PISTOL_IDLE: String = "res://assets/mixamo/pistol_idle.fbx"
+## The touch of the cat: Reaching Out, held at the pose where its arm is stretched out the
+## most, in s of its file (measured: the hand 0.45 m in front of the shoulder, at its height).
+const REACHING_OUT: String = "res://assets/mixamo/reaching_out.fbx"
+const REACH_POSE_TIME: float = 3.0
 ## The part of each clip that is played, from its start to its end, in s (an end of 0: to
 ## the end of the file), measured on the clips (docs/specs/motion-weight.md, decision 3): one
 ## cycle of Jogging; the jumps from the take-off to the approach of the ground; the roll from
 ## the hands down to the body up; the hoist of Ledge Pull Up; the vaults from the take-off to
-## the run resumed; the landings from the contact through the crouch. Each part lasts its
-## state at a pace from 1 to the fastest the tuning allows.
+## the run resumed; the landings from the contact through the crouch; the dive from its
+## spring to the body thrown flat; the getting up from the knees to standing
+## (docs/specs/chase-tag.md). Each part lasts its state at a pace from 1 to the fastest the
+## tuning allows.
 const CUTS: Dictionary[RunnerAnimation.Clip, Vector2] = {
 	RunnerAnimation.Clip.JOGGING: Vector2(0.0, 0.8556),
 	RunnerAnimation.Clip.JUMP: Vector2(0.05, 0.62),
@@ -61,6 +72,8 @@ const CUTS: Dictionary[RunnerAnimation.Clip, Vector2] = {
 	RunnerAnimation.Clip.LEDGE_PULL_UP: Vector2(1.65, 2.5),
 	RunnerAnimation.Clip.VAULT_ONE_HAND: Vector2(0.27, 0.97),
 	RunnerAnimation.Clip.VAULT_TWO_HANDS: Vector2(0.2, 0.92),
+	RunnerAnimation.Clip.DIVE: Vector2(0.45, 0.95),
+	RunnerAnimation.Clip.GETTING_UP: Vector2(4.4, 5.5),
 }
 ## The gestures that last a fixed time; past its part, each one goes on in its file for as
 ## long, in s, while it blends out, instead of stopping dead as the next state comes.
@@ -72,6 +85,8 @@ const FOLLOWED_THROUGH: Array[RunnerAnimation.Clip] = [
 	RunnerAnimation.Clip.LEDGE_PULL_UP,
 	RunnerAnimation.Clip.VAULT_ONE_HAND,
 	RunnerAnimation.Clip.VAULT_TWO_HANDS,
+	RunnerAnimation.Clip.DIVE,
+	RunnerAnimation.Clip.GETTING_UP,
 ]
 const FOLLOW_THROUGH: float = 0.25
 ## The hands, and of each one the upper arm and the forearm it hangs from, with the axis of
@@ -106,6 +121,8 @@ const BOTH_HANDS: Array[RunnerAnimation.Clip] = [
 ## s of the clip; how far above the top the wrist of a hand lying on it is, in m; and how
 ## far out of the bend of the arm the point the elbow points to is, in m.
 const PLANT_RAMP: float = 0.15
+## How long the touch takes to reach out the arm, and to bring it back, in s.
+const TOUCH_BLEND_TIME: float = 0.08
 const WRIST_HEIGHT: float = 0.03
 const POLE_DISTANCE: float = 0.3
 ## The clips that loop; the others hold their last pose.
@@ -169,15 +186,17 @@ const FACING: Basis = Basis(Vector3.UP, PI)
 const FRAMES_PER_SECOND: float = 30.0
 const LIBRARY: StringName = &"runner"
 const AIM: String = "pistol_idle"
+const TOUCH: String = "reaching_out"
 ## The nodes of the animation tree, and their parameters: the locomotion (Idle blended with
 ## the clips that stride, at a phase and a number of strides a second), each other clip
 ## (started again, at its pace), the blend of them all (one node per state after the
-## first, how much it shows over those before it), and the aim.
+## first, how much it shows over those before it), the aim, and the touch.
 const LOCOMOTION_NODE: StringName = &"locomotion"
 const MOVING_NODE: StringName = &"moving"
 const RESUME_NODE: StringName = &"resume"
 const STRIDE_NODE: StringName = &"stride"
 const AIM_NODE: StringName = &"aim"
+const TOUCH_NODE: StringName = &"touch"
 const PACE: String = "parameters/%s_pace/scale"
 const START: String = "parameters/%s_start/seek_request"
 const MIX: String = "parameters/%s_mix/blend_amount"
@@ -187,6 +206,7 @@ const RESUME_REQUEST: StringName = &"parameters/resume/seek_request"
 const STRIDE_SCALE: StringName = &"parameters/stride/scale"
 const STRIDE_POSITION: String = "parameters/moving/%s/current_position"
 const AIM_AMOUNT: StringName = &"parameters/aim/blend_amount"
+const TOUCH_AMOUNT: StringName = &"parameters/touch/blend_amount"
 const CLIP_POSITION: String = "parameters/%s/current_position"
 ## The colour a tint adds over the character, as a share of it.
 const TINT_SHARE: float = 0.5
@@ -254,6 +274,14 @@ var _jump: JumpPose = JumpPose.new()
 var _aim: float = 0.0
 var _aim_wanted: float = 0.0
 var _aim_blend_time: float = 0.0
+## How much the upper body reaches out for the touch, and how much it should; the axis and
+## the radius of the capsule of the runner it reaches for (an empty axis: none), and whether
+## the target of the right hand was put at the frame before.
+var _touch: float = 0.0
+var _touch_wanted: float = 0.0
+var _touched_axis: PackedVector3Array = PackedVector3Array()
+var _touched_radius: float = 0.0
+var _touch_aimed: bool = false
 
 
 ## Before the arms reach for the top: lifts the body of a vault to the real height of its
@@ -275,8 +303,9 @@ class HandsOnTheTop:
 ## null when one of the files is not there, or when the character is not rigged as Ch08
 ## (see fits): the runner keeps its capsule.
 static func create(model: String, tuning: MovementTuning) -> RunnerCharacter:
-	if not ResourceLoader.exists(model) or not ResourceLoader.exists(PISTOL_IDLE):
-		return null
+	for file: String in [model, PISTOL_IDLE, REACHING_OUT]:
+		if not ResourceLoader.exists(file):
+			return null
 	for clip: RunnerAnimation.Clip in CLIP_FILES:
 		if not ResourceLoader.exists(CLIP_FILES[clip]):
 			return null
@@ -339,6 +368,14 @@ func play(animation: RunnerAnimation) -> void:
 			_follow_the_plant(animation.clip, fresh)
 	_aim_wanted = 1.0 if animation.aiming else 0.0
 	_aim_blend_time = animation.blend_time
+	_touch_wanted = 1.0 if animation.touching else 0.0
+
+
+## The touch reaches for the runner whose capsule has the axis `axis`, from its lowest point
+## to its highest, and the radius `radius`; an empty axis: for nobody.
+func reach_for(axis: PackedVector3Array, radius: float) -> void:
+	_touched_axis = axis
+	_touched_radius = radius
 
 
 ## Puts the hands on `plant` in the vault or the mantle that starts: the top the runner
@@ -414,6 +451,8 @@ func _process(delta: float) -> void:
 		_aim = move_toward(_aim, _aim_wanted, delta / _aim_blend_time)
 	_tree.set(AIM_AMOUNT, Crossfade.eased(_aim))
 	_hold.weight = Crossfade.eased(_aim)
+	_touch = move_toward(_touch, _touch_wanted, delta / TOUCH_BLEND_TIME)
+	_tree.set(TOUCH_AMOUNT, Crossfade.eased(_touch))
 
 
 ## The clip `clip`, which plants hands, is shown: from its start when it starts again
@@ -437,6 +476,7 @@ func _follow_the_plant(clip: RunnerAnimation.Clip, fresh: bool) -> void:
 func _put_the_hands_on_the_top() -> void:
 	for hand: String in _arms:
 		_arms[hand].influence = 0.0
+	_reach_for_the_touched()
 	if _plant == null:
 		return
 	var plant_state: StringName = _state_of(_plant_clip)
@@ -474,6 +514,41 @@ func _put_the_hands_on_the_top() -> void:
 		_reached[hand].global_position = reached
 		var out: Vector3 = (elbow - (shoulder + wrist) / 2.0).normalized()
 		_elbow_poles[hand].global_position = elbow + out * POLE_DISTANCE
+
+
+## While the upper body reaches out, as much as it does: the right hand reaches for the
+## point of the body touched nearest its shoulder (touch_point), once that point is within
+## the reach of its arm; its elbow keeps the bend of the pose. Measured where the body is
+## shown, between two fixed steps.
+func _reach_for_the_touched() -> void:
+	var share: float = Crossfade.eased(_touch)
+	if share <= 0.0 or _touched_axis.is_empty():
+		_touch_aimed = false
+		return
+	var seen: Transform3D = _skeleton.get_global_transform_interpolated()
+	var wrist: Vector3 = seen * _bone_pose(RIGHT_HAND).origin
+	var shoulder: Vector3 = seen * _bone_pose(UPPER_ARMS[RIGHT_HAND]).origin
+	var elbow: Vector3 = seen * _bone_pose(FOREARMS[RIGHT_HAND]).origin
+	var target: Vector3 = touch_point(shoulder, _touched_axis, _touched_radius)
+	if shoulder.distance_to(target) > shoulder.distance_to(elbow) + elbow.distance_to(wrist):
+		_touch_aimed = false
+		return
+	# The arm reaches for where its target was put at the frame before: not before it was.
+	_arms[RIGHT_HAND].influence = share if _touch_aimed else 0.0
+	_touch_aimed = true
+	_reached[RIGHT_HAND].global_position = target
+	var out: Vector3 = (elbow - (shoulder + wrist) / 2.0).normalized()
+	_elbow_poles[RIGHT_HAND].global_position = elbow + out * POLE_DISTANCE
+
+
+## The point of the surface of an upright capsule, of axis `axis` (its lowest point, then its
+## highest) and radius `radius`, nearest to `from`.
+static func touch_point(from: Vector3, axis: PackedVector3Array, radius: float) -> Vector3:
+	var on_the_axis: Vector3 = Geometry3D.get_closest_point_to_segment(from, axis[0], axis[1])
+	var out: Vector3 = from - on_the_axis
+	if out.is_zero_approx():
+		return on_the_axis
+	return on_the_axis + out.normalized() * minf(radius, out.length())
 
 
 ## Where the clip that plants hands is in its file, as the tree shows it: at its start while
@@ -606,7 +681,8 @@ func _meshes() -> Array[MeshInstance3D]:
 
 ## The tree that plays the clips: the locomotion and one state per other clip, each one
 ## started again when it comes from nothing and at its pace, blended one over the other as
-## much as each one shows; then the aim over the upper body (the spine and all it carries).
+## much as each one shows; then the aim over the upper body (the spine and all it carries),
+## and the touch over it.
 func _make_blend_tree() -> AnimationNodeBlendTree:
 	var blend_tree: AnimationNodeBlendTree = AnimationNodeBlendTree.new()
 	_add_the_locomotion(blend_tree)
@@ -629,18 +705,27 @@ func _make_blend_tree() -> AnimationNodeBlendTree:
 		blend_tree.connect_node(mix, 1, pace)
 		blended = mix
 		_states.append(StringName(name))
-	var aim_clip: AnimationNodeAnimation = AnimationNodeAnimation.new()
-	aim_clip.animation = "%s/%s" % [LIBRARY, AIM]
-	blend_tree.add_node(AIM, aim_clip)
-	var aim: AnimationNodeBlend2 = AnimationNodeBlend2.new()
-	aim.filter_enabled = true
-	for bone: int in _upper_body():
-		aim.set_filter_path(NodePath("%s:%s" % [SKELETON, _skeleton.get_bone_name(bone)]), true)
-	blend_tree.add_node(AIM_NODE, aim)
-	blend_tree.connect_node(AIM_NODE, 0, blended)
-	blend_tree.connect_node(AIM_NODE, 1, AIM)
-	blend_tree.connect_node(&"output", 0, AIM_NODE)
+	_add_the_upper_body(blend_tree, AIM_NODE, AIM, blended)
+	_add_the_upper_body(blend_tree, TOUCH_NODE, TOUCH, AIM_NODE)
+	blend_tree.connect_node(&"output", 0, TOUCH_NODE)
 	return blend_tree
+
+
+## The node `node` of `blend_tree` that blends the animation `clip` of the library over the
+## upper body (the spine and all it carries) of what the node `under` shows.
+func _add_the_upper_body(
+	blend_tree: AnimationNodeBlendTree, node: StringName, clip: String, under: StringName
+) -> void:
+	var pose: AnimationNodeAnimation = AnimationNodeAnimation.new()
+	pose.animation = "%s/%s" % [LIBRARY, clip]
+	blend_tree.add_node(clip, pose)
+	var blend: AnimationNodeBlend2 = AnimationNodeBlend2.new()
+	blend.filter_enabled = true
+	for bone: int in _upper_body():
+		blend.set_filter_path(NodePath("%s:%s" % [SKELETON, _skeleton.get_bone_name(bone)]), true)
+	blend_tree.add_node(node, blend)
+	blend_tree.connect_node(node, 0, under)
+	blend_tree.connect_node(node, 1, clip)
 
 
 ## The locomotion: Idle at its own pace, blended with the clips that stride, on one axis
@@ -772,8 +857,9 @@ static func _clip_name(clip: RunnerAnimation.Clip) -> String:
 	return name.to_lower()
 
 
-## Every clip, cut, in place, looped or not; the tuck pose; and the aim. The stride of the
-## clips that stride, and where the bones of the run go, measured from their bones.
+## Every clip, cut, in place, looped or not; the tuck pose; the aim; and the touch. The
+## stride of the clips that stride, and where the bones of the run go, measured from their
+## bones.
 static func _make_library(skeleton: Skeleton3D) -> AnimationLibrary:
 	var hips_rest: Vector3 = skeleton.get_bone_rest(skeleton.find_bone(HIPS)).origin
 	var library: AnimationLibrary = AnimationLibrary.new()
@@ -781,15 +867,15 @@ static func _make_library(skeleton: Skeleton3D) -> AnimationLibrary:
 	for clip: RunnerAnimation.Clip in WALL_RUN_CLIPS:
 		assert(clip in CLIP_FILES, "every clip of the run along a wall is made")
 	for clip: RunnerAnimation.Clip in CLIP_FILES:
-		var source: Animation = _take(CLIP_FILES[clip])
+		var source: Animation = MixamoClip.take(CLIP_FILES[clip])
 		var made: Animation
 		if clip == RunnerAnimation.Clip.TUCK:
-			made = _pose_at(source, _tightest_tuck(source), hips_rest)
+			made = MixamoClip.pose_at(source, MixamoClip.tightest_tuck(source), hips_rest)
 		else:
 			var cut: Vector2 = CUTS.get(clip, Vector2.ZERO)
 			if clip in FOLLOWED_THROUGH:
 				cut.y += FOLLOW_THROUGH
-			made = in_place(source, cut, clip in RAISED, hips_rest, clip in LOOPED)
+			made = MixamoClip.in_place(source, cut, clip in RAISED, hips_rest, clip in LOOPED)
 		if clip in STRIDES:
 			_measure_the_stride(clip, made, skeleton)
 		if clip in WALL_RUN_CLIPS:
@@ -797,8 +883,12 @@ static func _make_library(skeleton: Skeleton3D) -> AnimationLibrary:
 		if clip in PLANTS:
 			_plant_heights[clip] = _planted_height(clip, made, skeleton)
 		library.add_animation(_clip_name(clip), made)
-	var aim: Animation = in_place(_take(PISTOL_IDLE), Vector2.ZERO, false, hips_rest, true)
+	var aim: Animation = MixamoClip.in_place(
+		MixamoClip.take(PISTOL_IDLE), Vector2.ZERO, false, hips_rest, true
+	)
 	library.add_animation(AIM, aim)
+	var reaching: Animation = MixamoClip.take(REACHING_OUT)
+	library.add_animation(TOUCH, MixamoClip.pose_at(reaching, REACH_POSE_TIME, hips_rest))
 	return library
 
 
@@ -807,7 +897,9 @@ static func _make_library(skeleton: Skeleton3D) -> AnimationLibrary:
 static func _planted_height(
 	clip: RunnerAnimation.Clip, made: Animation, skeleton: Skeleton3D
 ) -> float:
-	var places: PackedVector3Array = bone_places(made, PLANTS[clip].x - CUTS[clip].x, skeleton)
+	var places: PackedVector3Array = MixamoClip.bone_places(
+		made, PLANTS[clip].x - CUTS[clip].x, skeleton
+	)
 	var height: float = 0.0
 	for hand: String in _planting_hands(clip):
 		height += places[skeleton.find_bone(hand)].y
@@ -820,7 +912,7 @@ static func _places_across(clip: Animation, skeleton: Skeleton3D) -> PackedVecto
 	var places: PackedVector2Array = []
 	for sample: int in STRIDE_SAMPLES:
 		var time: float = clip.length * sample / STRIDE_SAMPLES
-		for place: Vector3 in bone_places(clip, time, skeleton):
+		for place: Vector3 in MixamoClip.bone_places(clip, time, skeleton):
 			var shown: Vector3 = FACING * place
 			places.append(Vector2(shown.x, shown.y))
 	return places
@@ -838,7 +930,7 @@ static func _measure_the_stride(
 	var toes: PackedFloat32Array = []
 	var poses: PackedVector2Array = []
 	for sample: int in STRIDE_SAMPLES:
-		var places: PackedVector3Array = bone_places(
+		var places: PackedVector3Array = MixamoClip.bone_places(
 			made, made.length * sample / STRIDE_SAMPLES, skeleton
 		)
 		ankles.append(places[left].y)
@@ -853,138 +945,3 @@ static func _measure_the_stride(
 	for sample: int in STRIDE_SAMPLES:
 		cycle.append(poses[(first + sample) % STRIDE_SAMPLES])
 	_cycles[clip] = cycle
-
-
-## Where every bone of `skeleton` is, in its space, at `time` of `clip`: a bone that the
-## clip does not move stays as at rest.
-static func bone_places(clip: Animation, time: float, skeleton: Skeleton3D) -> PackedVector3Array:
-	var poses: Array[Transform3D] = []
-	for bone: int in skeleton.get_bone_count():
-		poses.append(skeleton.get_bone_rest(bone))
-	for track: int in clip.get_track_count():
-		var bone: int = skeleton.find_bone(clip.track_get_path(track).get_concatenated_subnames())
-		if bone < 0:
-			continue
-		if clip.track_get_type(track) == Animation.TYPE_ROTATION_3D:
-			poses[bone].basis = Basis(clip.rotation_track_interpolate(track, time))
-		elif clip.track_get_type(track) == Animation.TYPE_POSITION_3D:
-			poses[bone].origin = clip.position_track_interpolate(track, time)
-	var places: PackedVector3Array = []
-	places.resize(skeleton.get_bone_count())
-	var bones: Array[int] = []
-	bones.append_array(skeleton.get_parentless_bones())
-	var index: int = 0
-	while index < bones.size():
-		var bone: int = bones[index]
-		var parent: int = skeleton.get_bone_parent(bone)
-		if parent >= 0:
-			poses[bone] = poses[parent] * poses[bone]
-		places[bone] = poses[bone].origin
-		bones.append_array(skeleton.get_bone_children(bone))
-		index += 1
-	return places
-
-
-## The animation of a Mixamo file.
-static func _take(path: String) -> Animation:
-	var scene: PackedScene = load(path) as PackedScene
-	var root: Node = scene.instantiate()
-	var player: AnimationPlayer = root.get_node("AnimationPlayer") as AnimationPlayer
-	var take: Animation = player.get_animation(TAKE)
-	root.free()
-	return take
-
-
-## The part `cut` of `source` (from its start to its end, in s; an end of 0: to the end of
-## the file), sampled again, its hips kept over the feet at `rest`: their way forward and
-## aside removed (a clip `looped` keeps their sway forward and back), and their rise too
-## when `raised`. Its keys are followed on curves: a bone keeps its speed through a key
-## instead of turning sharply at it. A clip `looped` plays again from its start once at its
-## end.
-static func in_place(
-	source: Animation, cut: Vector2, raised: bool, rest: Vector3, looped: bool
-) -> Animation:
-	var start: float = cut.x
-	var end: float = source.length if cut.y <= 0.0 else minf(cut.y, source.length)
-	var made: Animation = Animation.new()
-	made.length = end - start
-	if looped:
-		made.loop_mode = Animation.LOOP_LINEAR
-	var hips: NodePath = NodePath("%s:%s" % [SKELETON, HIPS])
-	for track: int in source.get_track_count():
-		var type: Animation.TrackType = source.track_get_type(track)
-		var path: NodePath = source.track_get_path(track)
-		if type != Animation.TYPE_POSITION_3D and type != Animation.TYPE_ROTATION_3D:
-			continue
-		var copy: int = made.add_track(type)
-		made.track_set_path(copy, path)
-		made.track_set_interpolation_type(copy, Animation.INTERPOLATION_CUBIC)
-		var frames: int = ceili(made.length * FRAMES_PER_SECOND - 0.001)
-		# A loop has no key at its end: its first key follows its last one, and a key there,
-		# the same pose again, would stall its bones on the curve as it loops.
-		var keys: int = frames if looped else frames + 1
-		# A loop keeps the sway of its hips forward and back about their place at rest, its
-		# way forward over a whole cycle removed: its planted foot goes back as steadily as the
-		# file has it still, the left one as the right one.
-		var forward: float = 0.0
-		var middle: float = 0.0
-		if path == hips and type == Animation.TYPE_POSITION_3D and looped:
-			var first: float = source.position_track_interpolate(track, start).z
-			forward = (source.position_track_interpolate(track, end).z - first) / made.length
-			for frame: int in keys:
-				var at: float = start + frame / FRAMES_PER_SECOND
-				middle += source.position_track_interpolate(track, at).z - forward * (at - start)
-			middle /= keys
-		for frame: int in keys:
-			var time: float = minf(start + frame / FRAMES_PER_SECOND, end)
-			if type == Animation.TYPE_ROTATION_3D:
-				var turn: Quaternion = source.rotation_track_interpolate(track, time)
-				made.rotation_track_insert_key(copy, time - start, turn)
-				continue
-			var place: Vector3 = source.position_track_interpolate(track, time)
-			if path == hips:
-				var sway: float = 0.0
-				if looped:
-					sway = place.z - forward * (time - start) - middle
-				place = Vector3(rest.x, rest.y if raised else place.y, rest.z + sway)
-			made.position_track_insert_key(copy, time - start, place)
-	return made
-
-
-## When the knee of `source` bends the most: the tightest tuck of a flip.
-static func _tightest_tuck(source: Animation) -> float:
-	var knee: int = source.find_track(
-		NodePath("%s:%s" % [SKELETON, KNEE]), Animation.TYPE_ROTATION_3D
-	)
-	var tightest: float = 0.0
-	var most: float = -1.0
-	var frames: int = floori(source.length * FRAMES_PER_SECOND)
-	for frame: int in frames + 1:
-		var time: float = frame / FRAMES_PER_SECOND
-		var bend: float = source.rotation_track_interpolate(knee, time).get_angle()
-		if bend > most:
-			most = bend
-			tightest = time
-	return tightest
-
-
-## The pose of `source` at `time`, held: every bone as it is then, but the hips upright
-## and over the feet, so that the turn of the flip is left to the body that carries it.
-static func _pose_at(source: Animation, time: float, rest: Vector3) -> Animation:
-	var made: Animation = Animation.new()
-	made.length = 1.0 / FRAMES_PER_SECOND
-	var hips: NodePath = NodePath("%s:%s" % [SKELETON, HIPS])
-	for track: int in source.get_track_count():
-		var type: Animation.TrackType = source.track_get_type(track)
-		var path: NodePath = source.track_get_path(track)
-		if type != Animation.TYPE_POSITION_3D and type != Animation.TYPE_ROTATION_3D:
-			continue
-		var copy: int = made.add_track(type)
-		made.track_set_path(copy, path)
-		if type == Animation.TYPE_POSITION_3D:
-			var place: Vector3 = source.position_track_interpolate(track, time)
-			made.position_track_insert_key(copy, 0.0, rest if path == hips else place)
-		else:
-			var turn: Quaternion = source.rotation_track_interpolate(track, time)
-			made.rotation_track_insert_key(copy, 0.0, Quaternion.IDENTITY if path == hips else turn)
-	return made

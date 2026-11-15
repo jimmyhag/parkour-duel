@@ -169,7 +169,7 @@ func test_a_loop_passes_its_seam_without_slowing_down() -> void:
 	# measured against straight lines between its keys (no key repeated at its end that
 	# would stall them there).
 	var loops: Dictionary[String, Animation] = {}
-	loops["a made-up loop"] = RunnerCharacter.in_place(
+	loops["a made-up loop"] = MixamoClip.in_place(
 		_made_up_loop(), Vector2.ZERO, false, Vector3.ZERO, true
 	)
 	var character: RunnerCharacter = RunnerCharacter.create(

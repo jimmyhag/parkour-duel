@@ -2,18 +2,19 @@ class_name RunnerAnimation
 extends RefCounted
 ## The animation the runner's body shows, chosen from the state of its motor at the step
 ## it just played: which clip, at what playback speed or in how long, on which side the
-## wall it runs along is, whether the upper body holds the aim, and how long the blend into
-## it lasts. On its feet, the clip is the locomotion: a blend of Idle, Walking, Jogging,
-## Running and Sprint on its horizontal speed (docs/specs/locomotion-blend.md,
-## docs/specs/motion-weight.md); along a wall, the run of that blend, Running or Sprint by
-## the speed along it, the whole body rolled, its feet towards the wall
-## (docs/specs/animation-polish.md). In the air, one jump whose pose follows the vertical
-## speed, until a long fall. No clip plays faster than the tuning allows. Choosing it is
-## logic; playing it is presentation (game/player), with or without the clips: the phase of
-## the stride, and how the rolled body lies against the wall, depend on the clips, and are
-## chosen there. The clips are the Mixamo ones of docs/specs/character-animations.md,
-## docs/specs/vault.md and docs/specs/motion-weight.md, plus the tuck pose taken out of
-## Backflip.
+## wall it runs along is, whether the upper body holds the aim or reaches out (the touch of
+## the cat of a chase), and how long the blend into it lasts. On its feet, the clip is the
+## locomotion: a blend of Idle, Walking, Jogging, Running and Sprint on its horizontal speed
+## (docs/specs/locomotion-blend.md, docs/specs/motion-weight.md); along a wall, the run of
+## that blend, Running or Sprint by the speed along it, the whole body rolled, its feet
+## towards the wall (docs/specs/animation-polish.md). In the air, one jump whose pose
+## follows the vertical speed, until a long fall. No clip plays faster than the tuning
+## allows. Choosing it is logic; playing it is presentation (game/player), with or without
+## the clips: the phase of the stride, and how the rolled body lies against the wall, depend
+## on the clips, and are chosen there. The clips are the Mixamo ones of
+## docs/specs/character-animations.md, docs/specs/vault.md, docs/specs/motion-weight.md and
+## docs/specs/chase-tag.md (the dive of the cat, and its getting up after one missed), plus
+## the tuck pose taken out of Backflip.
 
 enum Clip {
 	IDLE,
@@ -33,6 +34,8 @@ enum Clip {
 	VAULT_ONE_HAND,
 	VAULT_TWO_HANDS,
 	TUCK,
+	DIVE,
+	GETTING_UP,
 }
 
 ## The side of the runner, the way it moves, where a wall is.
@@ -65,6 +68,9 @@ var duration: float = 0.0
 var wall_side: WallSide = WallSide.NONE
 ## The upper body holds the aim (Pistol Idle), whatever the legs do.
 var aiming: bool = false
+## The upper body reaches out, the arm stretched (Reaching Out), whatever the legs do: the
+## touch of the cat of a chase, while it reaches (docs/specs/chase-tag.md).
+var touching: bool = false
 ## How long the blend from the clip before into this one lasts, in s.
 var blend_time: float = 0.0
 ## On its feet or along a wall (the clip IDLE or RUNNING), the weight of each clip of the
@@ -94,6 +100,12 @@ static func of(
 	var tuning: MovementTuning = motor.tuning
 	var animation: RunnerAnimation = RunnerAnimation.new()
 	animation.aiming = motor.is_aiming()
+	var gesture: Tag = motor.tag
+	animation.touching = (
+		gesture != null
+		and gesture.gesture == Tag.Gesture.TOUCH
+		and gesture.phase == Tag.Phase.REACHING
+	)
 	match motor.state:
 		RunnerMotor.State.GROUNDED:
 			var landing_steps: int = roundi(tuning.animation_landing_time / step_seconds)
@@ -125,6 +137,12 @@ static func of(
 			animation.duration = tuning.vault_duration
 		RunnerMotor.State.WALL_RUNNING:
 			animation._run_along_the_wall(motor, before, step_seconds, tuning)
+		RunnerMotor.State.DIVING:
+			animation.clip = Clip.DIVE
+			animation.duration = tuning.tag_dive_time
+		RunnerMotor.State.DOWN:
+			animation.clip = Clip.GETTING_UP
+			animation.duration = tuning.tag_dive_recovery
 	if motor.is_in_a_trick():
 		animation.clip = Clip.TUCK
 		animation.locomotion = []

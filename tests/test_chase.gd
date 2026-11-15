@@ -1,7 +1,7 @@
 extends GutTest
 ## The chase (game/core): a match of rounds between player 0 and player 1, one the cat and
 ## the other the mouse, fed by dated messages only (ChaseMessage): the start of a round at
-## GO, the contact of the cat with the mouse, and the end of the time of a round. The
+## GO, the catch of the mouse by a gesture of the cat, and the end of the time of a round. The
 ## tuning is the fixed one of MotorBody.
 
 const STEPS_PER_SECOND: int = 60
@@ -32,9 +32,9 @@ func test_the_cat_that_touches_the_mouse_wins_the_round() -> void:
 	assert_eq(chase.role(PLAYER_ONE), CAT)
 	assert_eq(chase.role(PLAYER_TWO), MOUSE)
 
-	chase.receive(ChaseMessage.contact(100 + ROUND_STEPS - 1))
+	chase.receive(ChaseMessage.catch(100 + ROUND_STEPS - 1, chase.cat, Tag.Gesture.TOUCH))
 
-	assert_eq(chase.phase, ROUND_OVER, "the contact ends the round")
+	assert_eq(chase.phase, ROUND_OVER, "the catch ends the round")
 	assert_eq(chase.round_winner, PLAYER_ONE, "the cat wins it")
 	assert_eq(chase.round_winner_role, CAT, "as the cat")
 	assert_eq(chase.score, [1, 0] as Array[int], "a round for player 1")
@@ -45,10 +45,10 @@ func test_the_cat_that_touches_the_mouse_wins_the_round() -> void:
 
 	var too_late: ChaseState = _chase()
 	too_late.receive(ChaseMessage.start(0))
-	too_late.receive(ChaseMessage.contact(ROUND_STEPS))
-	assert_eq(too_late.phase, RUNNING, "a contact once the time is up counts for nothing")
+	too_late.receive(ChaseMessage.catch(ROUND_STEPS, too_late.cat, Tag.Gesture.TOUCH))
+	assert_eq(too_late.phase, RUNNING, "a catch once the time is up counts for nothing")
 	var not_started: ChaseState = _chase()
-	not_started.receive(ChaseMessage.contact(10))
+	not_started.receive(ChaseMessage.catch(10, not_started.cat, Tag.Gesture.TOUCH))
 	assert_eq(not_started.phase, ChaseState.Phase.COUNTDOWN, "nor one during the countdown")
 
 
@@ -64,14 +64,14 @@ func test_the_mouse_that_lasts_the_time_wins_the_round() -> void:
 	assert_eq(chase.round_winner, PLAYER_TWO, "the mouse wins it")
 	assert_eq(chase.round_winner_role, MOUSE, "as the mouse")
 	assert_eq(chase.score, [0, 1] as Array[int], "a round for player 2")
-	chase.receive(ChaseMessage.contact(180 + ROUND_STEPS))
-	assert_eq(chase.score, [0, 1] as Array[int], "a contact after the end counts for nothing")
+	chase.receive(ChaseMessage.catch(180 + ROUND_STEPS, chase.cat, Tag.Gesture.TOUCH))
+	assert_eq(chase.score, [0, 1] as Array[int], "a catch after the end counts for nothing")
 
 
 func test_the_roles_swap_every_round() -> void:
 	var chase: ChaseState = _chase()
 	chase.receive(ChaseMessage.start(0))
-	chase.receive(ChaseMessage.contact(300))
+	chase.receive(ChaseMessage.catch(300, chase.cat, Tag.Gesture.TOUCH))
 	assert_eq(chase.role(PLAYER_ONE), MOUSE, "between two rounds: the role of the coming one")
 	assert_eq(chase.role(PLAYER_TWO), CAT)
 
@@ -117,7 +117,7 @@ func test_the_flow_starts_from_zero_every_round() -> void:
 		var flow: FlowState = chase.flows[player]
 		flow.gauge = flow.max_gauge() / 2.0
 		flow.style_score = 900
-	chase.receive(ChaseMessage.contact(400))
+	chase.receive(ChaseMessage.catch(400, chase.cat, Tag.Gesture.TOUCH))
 	assert_gt(chase.flows[PLAYER_ONE].gauge, 0.0, "the gauge is kept to the end of the round")
 
 	chase.receive(ChaseMessage.start(600))
@@ -144,6 +144,26 @@ func test_the_intents_of_the_chase_have_no_aim_shot_return_or_restart() -> void:
 	assert_false(intent.restart_requested, "no restart")
 
 
+func test_the_shot_and_the_aim_of_the_chase_are_the_touch_and_the_dive() -> void:
+	# docs/specs/chase-tag.md, decision 2: the touch on the button of the shot, the dive on
+	# the button of the aim, pressed.
+	var asked: ScriptedIntentSource = ScriptedIntentSource.new()
+	asked.aim(Vector3.FORWARD, 1, 0).aim(Vector3.FORWARD, 2).hold(Vector3.FORWARD, false, 1)
+	asked.aim(Vector3.FORWARD, 1)
+	var source: ChaseIntentSource = ChaseIntentSource.new(asked)
+	var touches: Array[bool] = []
+	var dives: Array[bool] = []
+	for step: int in 5:
+		var intent: MoveIntent = source.next_intent()
+		touches.append(intent.touch_pressed)
+		dives.append(intent.dive_pressed)
+		assert_false(intent.aim_held or intent.shoot_pressed, "neither aim nor shot")
+	assert_eq(touches, [true, false, false, false, false] as Array[bool], "the shot: a touch")
+	assert_eq(
+		dives, [true, false, false, false, true] as Array[bool], "each press of the aim: a dive"
+	)
+
+
 func _chase() -> ChaseState:
 	return ChaseState.new(_tuning, STEPS_PER_SECOND)
 
@@ -154,7 +174,7 @@ func _play_a_round(chase: ChaseState, step: int, caught: bool) -> int:
 	var go: int = step + STEPS_PER_SECOND
 	chase.receive(ChaseMessage.start(go))
 	if caught:
-		chase.receive(ChaseMessage.contact(go + 300))
+		chase.receive(ChaseMessage.catch(go + 300, chase.cat, Tag.Gesture.TOUCH))
 		return go + 300
 	chase.receive(ChaseMessage.time_up(go + ROUND_STEPS))
 	return go + ROUND_STEPS
