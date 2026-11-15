@@ -21,7 +21,11 @@ extends Node3D
 ## cat of a chase holds the upper body in the pose of Reaching Out, and its right hand goes
 ## by inverse kinematics onto the body of the runner it reaches for, once within the reach of
 ## its arm; the dive and the getting up after one missed have their clips
-## (docs/specs/chase-tag.md). Presentation only: nothing the runner observes depends on it.
+## (docs/specs/chase-tag.md): the dive to the hands on the ground, then, after lying there,
+## the getting up from the push of the hands, made of two parts of its file; a touch missed
+## stumbles, and the mouse caught stumbles or falls flat; how low its hips are tells the
+## camera how low the body is (docs/specs/chase-tag-polish.md). Presentation only: nothing
+## the runner observes depends on it.
 
 ## The character, the only file whose mesh the game uses.
 const MODEL: String = "res://assets/mixamo/ch08_nonpbr.fbx"
@@ -46,6 +50,8 @@ const CLIP_FILES: Dictionary[RunnerAnimation.Clip, String] = {
 	RunnerAnimation.Clip.TUCK: "res://assets/mixamo/backflip.fbx",
 	RunnerAnimation.Clip.DIVE: "res://assets/mixamo/run_to_dive.fbx",
 	RunnerAnimation.Clip.GETTING_UP: "res://assets/mixamo/getting_up.fbx",
+	RunnerAnimation.Clip.STUMBLE: "res://assets/mixamo/jogging_stumble.fbx",
+	RunnerAnimation.Clip.FALL_FLAT: "res://assets/mixamo/falling_flat_impact.fbx",
 }
 const PISTOL_IDLE: String = "res://assets/mixamo/pistol_idle.fbx"
 ## The touch of the cat: Reaching Out, held at the pose where its arm is stretched out the
@@ -57,9 +63,12 @@ const REACH_POSE_TIME: float = 3.0
 ## cycle of Jogging; the jumps from the take-off to the approach of the ground; the roll from
 ## the hands down to the body up; the hoist of Ledge Pull Up; the vaults from the take-off to
 ## the run resumed; the landings from the contact through the crouch; the dive from its
-## spring to the body thrown flat; the getting up from the knees to standing
-## (docs/specs/chase-tag.md). Each part lasts its state at a pace from 1 to the fastest the
-## tuning allows.
+## spring to its hands on the ground; the getting up from the body lying, its hands under
+## its shoulders, through their whole push up to all fours (then SECOND_CUTS); the stumble
+## from the trip to the lurch forward; the fall flat from the body flat in the air to lying
+## (docs/specs/chase-tag.md, docs/specs/chase-tag-polish.md, measured on the bones). Each
+## part lasts its state at a pace from 1 to the fastest the tuning allows for its clip
+## (RunnerAnimation.fastest_pace).
 const CUTS: Dictionary[RunnerAnimation.Clip, Vector2] = {
 	RunnerAnimation.Clip.JOGGING: Vector2(0.0, 0.8556),
 	RunnerAnimation.Clip.JUMP: Vector2(0.05, 0.62),
@@ -72,9 +81,20 @@ const CUTS: Dictionary[RunnerAnimation.Clip, Vector2] = {
 	RunnerAnimation.Clip.LEDGE_PULL_UP: Vector2(1.65, 2.5),
 	RunnerAnimation.Clip.VAULT_ONE_HAND: Vector2(0.27, 0.97),
 	RunnerAnimation.Clip.VAULT_TWO_HANDS: Vector2(0.2, 0.92),
-	RunnerAnimation.Clip.DIVE: Vector2(0.45, 0.95),
-	RunnerAnimation.Clip.GETTING_UP: Vector2(4.4, 5.5),
+	RunnerAnimation.Clip.DIVE: Vector2(0.45, 0.88),
+	RunnerAnimation.Clip.GETTING_UP: Vector2(2.13, 3.4),
+	RunnerAnimation.Clip.STUMBLE: Vector2(0.2, 0.62),
+	RunnerAnimation.Clip.FALL_FLAT: Vector2(0.2, 0.7),
 }
+## The clips of two parts of their file (MixamoClip.chained): after CUTS, SECOND_CUTS, the
+## bones going from one pose to the other in BRIDGE s; cut out only between poses whose hips
+## and hands are within MOST_APART (docs/specs/chase-tag-polish.md, amended decision 1;
+## Getting Up on all fours at 3.4 s and 4.033 s, 0.095 m apart), then up to the time down.
+const SECOND_CUTS: Dictionary[RunnerAnimation.Clip, Vector2] = {
+	RunnerAnimation.Clip.GETTING_UP: Vector2(4.033, 5.39),
+}
+const BRIDGE: float = 2.0 / FRAMES_PER_SECOND
+const MOST_APART: float = 0.1
 ## The gestures that last a fixed time; past its part, each one goes on in its file for as
 ## long, in s, while it blends out, instead of stopping dead as the next state comes.
 const FOLLOWED_THROUGH: Array[RunnerAnimation.Clip] = [
@@ -85,8 +105,8 @@ const FOLLOWED_THROUGH: Array[RunnerAnimation.Clip] = [
 	RunnerAnimation.Clip.LEDGE_PULL_UP,
 	RunnerAnimation.Clip.VAULT_ONE_HAND,
 	RunnerAnimation.Clip.VAULT_TWO_HANDS,
-	RunnerAnimation.Clip.DIVE,
 	RunnerAnimation.Clip.GETTING_UP,
+	RunnerAnimation.Clip.STUMBLE,
 ]
 const FOLLOW_THROUGH: float = 0.25
 ## The hands, and of each one the upper arm and the forearm it hangs from, with the axis of
@@ -229,6 +249,9 @@ static var _run_places: Array[PackedVector2Array] = []
 ## planted wrists as it plants them, in the space of the skeleton, before it is put to its
 ## size: the height of the top it shows.
 static var _plant_heights: Dictionary[RunnerAnimation.Clip, float] = {}
+## The height of the hips lying on the ground as the getting up starts (the clip of two
+## parts), in the space of the skeleton, measured as it is made.
+static var _lying_hips: float = 0.0
 
 var _model: Node3D
 var _skeleton: Skeleton3D
@@ -359,10 +382,10 @@ func play(animation: RunnerAnimation) -> void:
 	else:
 		var length: float = _library.get_animation(state).length
 		if animation.clip in FOLLOWED_THROUGH:
-			length = CUTS[animation.clip].y - CUTS[animation.clip].x
+			length = played_length(animation.clip)
 		var pace: float = animation.speed
 		if animation.duration > 0.0:
-			pace = RunnerAnimation.fitted_pace(length, animation.duration, _tuning)
+			pace = RunnerAnimation.fitted_pace(length, animation.duration, _tuning, animation.clip)
 		_tree.set(PACE % state, pace)
 		if animation.clip in PLANTS:
 			_follow_the_plant(animation.clip, fresh)
@@ -399,6 +422,25 @@ func placed_against_the_wall(
 		var index: int = RunnerAnimation.LOCOMOTION.find(clip)
 		weights.append(locomotion[index] if index < locomotion.size() else 0.0)
 	return _wall_run.placed(roll, wall_distance, weights, _tuning)
+
+
+## How low the body shown is, from 0 (its hips at their height at rest) to 1 (as low as
+## lying on the ground before it gets up): what the camera follows on the ground.
+func lowered() -> float:
+	var hips: int = _skeleton.find_bone(HIPS)
+	var standing: float = _skeleton.get_bone_rest(hips).origin.y
+	var height: float = _skeleton.get_bone_global_pose(hips).origin.y
+	return clampf((standing - height) / maxf(standing - _lying_hips, 0.01), 0.0, 1.0)
+
+
+## How long the part of `clip` played for its move lasts, in s of its file: its part (CUTS),
+## and, for a clip of two parts, the bridge and its second part.
+static func played_length(clip: RunnerAnimation.Clip) -> float:
+	var cut: Vector2 = CUTS[clip]
+	var length: float = cut.y - cut.x
+	if clip in SECOND_CUTS:
+		length += BRIDGE + SECOND_CUTS[clip].y - SECOND_CUTS[clip].x
+	return length
 
 
 ## Where the clip `clip` of the locomotion is in its cycle, in the tree: from 0 at the
@@ -861,7 +903,8 @@ static func _clip_name(clip: RunnerAnimation.Clip) -> String:
 ## stride of the clips that stride, and where the bones of the run go, measured from their
 ## bones.
 static func _make_library(skeleton: Skeleton3D) -> AnimationLibrary:
-	var hips_rest: Vector3 = skeleton.get_bone_rest(skeleton.find_bone(HIPS)).origin
+	var hips: int = skeleton.find_bone(HIPS)
+	var hips_rest: Vector3 = skeleton.get_bone_rest(hips).origin
 	var library: AnimationLibrary = AnimationLibrary.new()
 	_run_places = []
 	for clip: RunnerAnimation.Clip in WALL_RUN_CLIPS:
@@ -873,9 +916,18 @@ static func _make_library(skeleton: Skeleton3D) -> AnimationLibrary:
 			made = MixamoClip.pose_at(source, MixamoClip.tightest_tuck(source), hips_rest)
 		else:
 			var cut: Vector2 = CUTS.get(clip, Vector2.ZERO)
+			var then: Vector2 = SECOND_CUTS.get(clip, Vector2.ZERO)
 			if clip in FOLLOWED_THROUGH:
-				cut.y += FOLLOW_THROUGH
+				if clip in SECOND_CUTS:
+					then.y += FOLLOW_THROUGH
+				else:
+					cut.y += FOLLOW_THROUGH
 			made = MixamoClip.in_place(source, cut, clip in RAISED, hips_rest, clip in LOOPED)
+			if clip in SECOND_CUTS:
+				var raised: bool = clip in RAISED
+				var part: Animation = MixamoClip.in_place(source, then, raised, hips_rest, false)
+				made = MixamoClip.chained(made, part, BRIDGE)
+				_lying_hips = MixamoClip.bone_places(made, 0.0, skeleton)[hips].y
 		if clip in STRIDES:
 			_measure_the_stride(clip, made, skeleton)
 		if clip in WALL_RUN_CLIPS:

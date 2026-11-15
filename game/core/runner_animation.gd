@@ -12,9 +12,11 @@ extends RefCounted
 ## allows. Choosing it is logic; playing it is presentation (game/player), with or without
 ## the clips: the phase of the stride, and how the rolled body lies against the wall, depend
 ## on the clips, and are chosen there. The clips are the Mixamo ones of
-## docs/specs/character-animations.md, docs/specs/vault.md, docs/specs/motion-weight.md and
-## docs/specs/chase-tag.md (the dive of the cat, and its getting up after one missed), plus
-## the tuck pose taken out of Backflip.
+## docs/specs/character-animations.md, docs/specs/vault.md, docs/specs/motion-weight.md,
+## docs/specs/chase-tag.md (the dive of the cat, and its getting up after one missed) and
+## docs/specs/chase-tag-polish.md (the stumble of a touch missed, the lying down before the
+## getting up, the reaction of the mouse caught), plus the tuck pose taken out of Backflip.
+## It also says how low the body is, for the camera that goes down with it.
 
 enum Clip {
 	IDLE,
@@ -36,6 +38,8 @@ enum Clip {
 	TUCK,
 	DIVE,
 	GETTING_UP,
+	STUMBLE,
+	FALL_FLAT,
 }
 
 ## The side of the runner, the way it moves, where a wall is.
@@ -81,6 +85,9 @@ var locomotion: PackedFloat32Array = []
 var locomotion_position: Vector2 = Vector2.ZERO
 ## In a jump (JUMPS), where the runner is in it, from 0 to 1 (see jump_position_of).
 var jump_position: float = 0.0
+## How low the body is, from 0 on its feet to 1 lying on the ground: going down through a
+## dive, lying, then back up as it gets up.
+var lowered: float = 0.0
 
 
 ## The animation of the runner whose motor is `motor`, at the step it just played, its
@@ -90,7 +97,9 @@ var jump_position: float = 0.0
 ## the landing (landing_clip); along a wall, the run, as fast as the runner goes along it;
 ## in the air, the jump posed by the vertical speed (_fly), Falling Idle in a long fall, the
 ## tuck pose while a trick is under way; in a vault, the gesture its obstacle asks for
-## (vault_clip); each other state its clip. The locomotion follows the speed from the
+## (vault_clip); after a touch missed, on its feet, the stumble; in a dive, the dive, then
+## lying down and the getting up (_get_up); each other state its clip. The locomotion
+## follows the speed from the
 ## locomotion before, no faster than the tuning allows (docs/specs/animation-polish.md,
 ## decision 9). A new clip blends in as the table of the tuning says for the pair; a crash
 ## without a blend.
@@ -109,7 +118,10 @@ static func of(
 	match motor.state:
 		RunnerMotor.State.GROUNDED:
 			var landing_steps: int = roundi(tuning.animation_landing_time / step_seconds)
-			if motor.steps_since_landing < landing_steps:
+			if _stumbles(gesture):
+				animation.clip = Clip.STUMBLE
+				animation.duration = tuning.tag_touch_recovery
+			elif motor.steps_since_landing < landing_steps:
 				animation.clip = landing_clip(motor.real_speed(), tuning)
 				if motor.steps_since_landing > 0 and before != null and before.clip in LANDINGS:
 					animation.clip = before.clip
@@ -140,9 +152,11 @@ static func of(
 		RunnerMotor.State.DIVING:
 			animation.clip = Clip.DIVE
 			animation.duration = tuning.tag_dive_time
+			animation.lowered = 1.0
+			if gesture != null and tuning.tag_dive_time > 0.0:
+				animation.lowered = minf(gesture.steps * step_seconds / tuning.tag_dive_time, 1.0)
 		RunnerMotor.State.DOWN:
-			animation.clip = Clip.GETTING_UP
-			animation.duration = tuning.tag_dive_recovery
+			animation._get_up(gesture, step_seconds, tuning)
 	if motor.is_in_a_trick():
 		animation.clip = Clip.TUCK
 		animation.locomotion = []
@@ -152,6 +166,31 @@ static func of(
 	for event: RunnerEvent in motor.events:
 		if event.kind == RunnerEvent.Kind.CRASH:
 			animation.blend_time = 0.0
+	return animation
+
+
+## The animation of a runner caught by the gesture `gesture` of the cat of a chase `elapsed`
+## s ago, whose motor is `motor`, its fixed steps lasting `step_seconds`, after `before` (null:
+## none) (docs/specs/chase-tag-polish.md, decision 3): a touch makes it stumble, as a touch
+## missed does, for as long, then it shows its motor again (of); a dive makes it fall flat on
+## the ground, at the pace of the clip, and lie there.
+static func caught(
+	gesture: Tag.Gesture,
+	elapsed: float,
+	motor: RunnerMotor,
+	step_seconds: float,
+	before: RunnerAnimation = null
+) -> RunnerAnimation:
+	var tuning: MovementTuning = motor.tuning
+	if gesture == Tag.Gesture.TOUCH and elapsed >= tuning.tag_touch_recovery:
+		return of(motor, step_seconds, before)
+	var animation: RunnerAnimation = RunnerAnimation.new()
+	animation.clip = Clip.FALL_FLAT
+	if gesture == Tag.Gesture.TOUCH:
+		animation.clip = Clip.STUMBLE
+		animation.duration = tuning.tag_touch_recovery
+	var from: Clip = animation.clip if before == null else before.clip
+	animation.blend_time = blend_time_between(from, animation.clip, tuning)
 	return animation
 
 
@@ -331,12 +370,22 @@ static func blend_time_between(from: Clip, to: Clip, tuning: MovementTuning) -> 
 
 
 ## How fast a clip `length` s long plays to last `duration` s (its own pace without a
-## duration), never faster than the tuning allows: a clip too long for its move plays its
-## first part only.
-static func fitted_pace(length: float, duration: float, tuning: MovementTuning) -> float:
+## duration), never faster than the tuning allows for `clip` (fastest_pace): a clip too long
+## for its move plays its first part only.
+static func fitted_pace(
+	length: float, duration: float, tuning: MovementTuning, clip: Clip = Clip.IDLE
+) -> float:
 	if duration <= 0.0:
 		return 1.0
-	return minf(length / duration, tuning.animation_max_pace)
+	return minf(length / duration, fastest_pace(clip, tuning))
+
+
+## The fastest `clip` may play, as a share of its own pace: the cap of the tuning, but for the
+## getting up after a dive missed, which has its own (docs/specs/chase-tag-polish.md).
+static func fastest_pace(clip: Clip, tuning: MovementTuning) -> float:
+	if clip == Clip.GETTING_UP:
+		return tuning.tag_getup_max_pace
+	return tuning.animation_max_pace
 
 
 ## The roll of the body about the way it runs, in radians (positive: its head to its left),
@@ -372,6 +421,35 @@ func _fly(motor: RunnerMotor, before: RunnerAnimation, step: float, tuning: Move
 		return
 	clip = jump_clip(motor.real_speed(), tuning)
 	jump_position = wanted
+
+
+## The time down after a dive missed, `gesture` (null: none known, as if it got up already),
+## in fixed steps of `step` s: first lying, the getting up held at its first pose (lying on
+## the ground, the hands under the shoulders) for tag_down_lying; then the getting up, in the
+## rest of the time down, the body going back up as it goes.
+func _get_up(gesture: Tag, step: float, tuning: MovementTuning) -> void:
+	clip = Clip.GETTING_UP
+	var getting_up: float = tuning.tag_dive_recovery - tuning.tag_down_lying
+	duration = getting_up
+	lowered = 1.0
+	if gesture == null:
+		return
+	var lying_steps: int = roundi(tuning.tag_down_lying / step)
+	if gesture.steps <= lying_steps:
+		duration = 0.0
+		speed = 0.0
+		return
+	if getting_up > 0.0:
+		lowered = clampf(1.0 - (gesture.steps - lying_steps) * step / getting_up, 0.0, 1.0)
+
+
+## A touch of the cat missed, `gesture` (null: none), costs its recovery: its body stumbles.
+static func _stumbles(gesture: Tag) -> bool:
+	return (
+		gesture != null
+		and gesture.gesture == Tag.Gesture.TOUCH
+		and gesture.phase == Tag.Phase.RECOVERING
+	)
 
 
 ## What `before` showed, as it showed it (see still_on_its_feet).

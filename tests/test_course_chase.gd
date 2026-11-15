@@ -46,6 +46,10 @@ const RUN_STEPS: int = 90
 const DIVE_RUN_UP: float = 6.0
 const DIVE_FROM_THE_WALL: float = 1.0
 const DIVE_STEPS: int = 240
+## How far from the body of the mouse the cat dives at it, in m: within the reach of a dive.
+const DIVE_GAP: float = 0.5
+## How much lower than standing the camera of a cat on the ground looks from, at least, in m.
+const LOWERED: float = 0.2
 ## How far within the reach of a touch a catch is played, in m.
 const IN_REACH_MARGIN: float = 0.1
 ## The share of its top speed a runner has at least as it vaults at it.
@@ -204,7 +208,10 @@ func test_the_catch_of_a_touch_is_observed_not_the_contact() -> void:
 	assert_eq(chase.chase.round_winner_role, ChaseState.Role.CAT, "won by the cat")
 	# The touch is played at the next step, and seen reaching at the one after.
 	assert_eq(chase.chase.end_step, touched_at + 2, "a catch message, dated")
-	# The screens follow the match at every frame shown.
+	# The screen between two rounds waits for the pause after a catch
+	# (docs/specs/chase-tag-polish.md, decision 3), then follows the match at every frame shown.
+	while chase.catch_pause > 0:
+		await get_tree().physics_frame
 	await get_tree().process_frame
 	await get_tree().process_frame
 	var screen: ChaseRoundScreen = chase.get_node("Screens/RoundScreen") as ChaseRoundScreen
@@ -214,6 +221,56 @@ func test_the_catch_of_a_touch_is_observed_not_the_contact() -> void:
 		["CAUGHT!", "CAT WINS", "PLAYER 1   1 - 0   PLAYER 2"],
 		"caught: the winner, the score"
 	)
+
+
+func test_the_touched_mouse_reacts() -> void:
+	# docs/specs/chase-tag-polish.md, decision 3 as amended: the round is over at the very
+	# step of the catch; the mouse stumbles after a touch, for the time a touch missed costs,
+	# and falls flat after a dive; CAUGHT! and the result of the match wait for the tuned
+	# pause, so that its reaction is seen.
+	var chase: Chase = _add_chase()
+	var screen: ChaseRoundScreen = chase.get_node("Screens/RoundScreen") as ChaseRoundScreen
+	var tuning: MovementTuning = chase.players[ONE].tuning
+	var pause: int = roundi(tuning.chase_catch_pause * STEPS_PER_SECOND)
+	assert_gt(pause, 0, "a pause")
+	await _wait_for_go(chase)
+	var mouse: Player = chase.players[chase.chase.mouse()]
+	await _catch(chase, Vector3(-6.0, 0.0, 6.0))
+	var cat: Player = chase.players[chase.chase.cat]
+	var heights: Array[float] = []
+	var shown: Array[RunnerAnimation.Clip] = await _the_reaction(chase, cat, mouse, screen, heights)
+	assert_eq(shown[0], RunnerAnimation.Clip.STUMBLE, "a touch: the mouse stumbles at once")
+	var stumbling: int = shown.find_custom(func(clip: int) -> bool: return clip != shown[0])
+	var recovery: int = roundi(tuning.tag_touch_recovery * STEPS_PER_SECOND)
+	assert_eq(stumbling, recovery, "for the time a touch missed costs")
+
+	# The next round, the last one: the cat runs at the mouse standing near a wall, and
+	# dives; its catch ends the match, whose result waits for the pause too.
+	await _wait_for_go(chase)
+	chase.chase.score[chase.chase.cat] = tuning.chase_rounds_to_win - 1
+	cat = chase.players[chase.chase.cat]
+	mouse = chase.players[chase.chase.mouse()]
+	var arena: Node3D = chase.get_node("Arena") as Node3D
+	var face: float = _inside_of(_boxes(arena, "Enclosure", "the enclosure")).end.x
+	var radius: float = tuning.capsule_radius
+	var mouse_at: float = face - radius - DIVE_FROM_THE_WALL
+	mouse.teleport(Transform3D(Basis.looking_at(Vector3.RIGHT), Vector3(mouse_at, 0.0, 0.0)))
+	mouse.intent_source = ScriptedIntentSource.new()
+	cat.teleport(
+		Transform3D(Basis.looking_at(Vector3.RIGHT), Vector3(face - DIVE_RUN_UP, 0.0, 0.0))
+	)
+	cat.intent_source = DiveAt.new(cat, mouse_at - 2.0 * radius - DIVE_GAP)
+	for step: int in DIVE_STEPS:
+		await get_tree().physics_frame
+		if chase.chase.phase != ChaseState.Phase.RUNNING:
+			break
+	assert_eq(cat.motor.tag.gesture, Tag.Gesture.DIVE, "the cat dived")
+	heights.clear()
+	shown = await _the_reaction(chase, cat, mouse, screen, heights)
+	for clip: RunnerAnimation.Clip in shown:
+		assert_eq(clip, RunnerAnimation.Clip.FALL_FLAT, "a dive: the mouse falls flat, and lies")
+	var lowest: float = heights.min()
+	assert_lt(lowest, tuning.camera_look_height - LOWERED, "the camera of the cat goes down")
 
 
 func test_the_two_players_start_face_to_face() -> void:
@@ -408,6 +465,39 @@ func _catch(chase: Chase, at: Vector3) -> void:
 		await get_tree().physics_frame
 		if chase.chase.phase != ChaseState.Phase.RUNNING:
 			return
+
+
+## The round of `chase` has just been won by a catch of its mouse `mouse` by its cat `cat`: at
+## each step of the pause after it, the clip the body of the mouse shows, the screen between
+## two rounds hidden (and in `heights`, how high above its feet the camera of the cat is);
+## then that screen shows CAUGHT!.
+func _the_reaction(
+	chase: Chase, cat: Player, mouse: Player, screen: ChaseRoundScreen, heights: Array[float]
+) -> Array[RunnerAnimation.Clip]:
+	var pause: int = roundi(cat.tuning.chase_catch_pause * STEPS_PER_SECOND)
+	var result: ResultScreen = chase.get_node("Screens/ResultScreen") as ResultScreen
+	var over: bool = chase.chase.phase == ChaseState.Phase.MATCH_OVER
+	assert_true(over or chase.chase.phase == ChaseState.Phase.ROUND_OVER, "the round is over")
+	assert_eq(chase.chase.round_winner_role, ChaseState.Role.CAT, "won by the cat")
+	var caught_at: int = chase.chase.end_step
+	assert_eq(chase.match_steps, caught_at, "at the very step of the catch")
+	var shown: Array[RunnerAnimation.Clip] = []
+	while chase.match_steps < caught_at + pause:
+		shown.append(mouse.animation.clip)
+		heights.append(cat.camera_rig.global_position.y - cat.global_position.y)
+		screen.refresh()
+		var step: int = chase.match_steps - caught_at
+		assert_false(screen.visible, "step %d of the pause: not yet" % step)
+		assert_false(result.visible, "step %d of the pause: no result yet" % step)
+		await get_tree().physics_frame
+	screen.refresh()
+	if over:
+		assert_true(result.visible, "the result of the match after the pause")
+	else:
+		assert_true(screen.visible, "the screen between two rounds after the pause")
+		assert_eq(screen.lines()[0], "CAUGHT!", "CAUGHT!")
+	assert_eq(chase.chase.end_step, caught_at, "the round still over at the step of the catch")
+	return shown
 
 
 ## How far apart the axes of two runners are, their bodies a margin within the reach of a

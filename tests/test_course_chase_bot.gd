@@ -286,6 +286,18 @@ func test_the_cat_and_the_mouse_are_even_at_the_same_level() -> void:
 	assert_between(played.cat_wins[0], EVEN_CAT_LEAST, EVEN_CAT_MOST, "the cat wins 1 to 5")
 
 
+func test_the_polish_keeps_the_balance() -> void:
+	# docs/specs/chase-tag-polish.md, decision 5: with the new times (lying down, the getting
+	# up, the pause after a catch), the NORMAL cat still wins 1 to 5 of its 6 rounds against
+	# the NORMAL mouse.
+	var tuning: MovementTuning = load("res://game/core/movement_tuning.tres") as MovementTuning
+	assert_gt(tuning.tag_down_lying, 0.0, "the new times")
+	var played: ChaseBotRounds = await _played_rounds()
+	assert_eq(played.rounds[0], ROUNDS, "6 rounds of NORMAL against NORMAL")
+	assert_gt(played.touches[NORMAL] + played.dives[NORMAL], 0, "the cat made its gestures")
+	assert_between(played.cat_wins[0], EVEN_CAT_LEAST, EVEN_CAT_MOST, "the cat wins 1 to 5")
+
+
 func test_each_link_of_the_arena_is_run_through() -> void:
 	var chase: Chase = await _add_still_chase()
 	var links: Node = chase.get_node("Arena/Links")

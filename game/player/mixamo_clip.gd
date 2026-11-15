@@ -1,7 +1,8 @@
 class_name MixamoClip
 extends RefCounted
 ## The clips of the Mixamo files as the character (RunnerCharacter) plays them: read from a
-## file, cut and kept in place, or held at one pose; and where the bones of a clip go.
+## file, cut and kept in place, two such parts one after the other, or held at one pose; and
+## where the bones of a clip go.
 
 
 ## Where every bone of `skeleton` is, in its space, at `time` of `clip`: a bone that the
@@ -97,6 +98,48 @@ static func in_place(
 					sway = place.z - forward * (time - start) - middle
 				place = Vector3(rest.x, rest.y if raised else place.y, rest.z + sway)
 			made.position_track_insert_key(copy, time - start, place)
+	return made
+
+
+## `first`, then `second`, two clips made in place (in_place), one after the other, sampled
+## again: between them, for `bridge` s, every bone of `first` goes from where `first` leaves
+## it to where `second` takes it, eased in and out (docs/specs/chase-tag-polish.md). A bone
+## that `second` does not move stays where `first` leaves it.
+static func chained(first: Animation, second: Animation, bridge: float) -> Animation:
+	var made: Animation = Animation.new()
+	var then: float = first.length + bridge
+	made.length = then + second.length
+	var keys: int = ceili(made.length * RunnerCharacter.FRAMES_PER_SECOND - 0.001) + 1
+	for track: int in first.get_track_count():
+		var type: Animation.TrackType = first.track_get_type(track)
+		if type != Animation.TYPE_POSITION_3D and type != Animation.TYPE_ROTATION_3D:
+			continue
+		var path: NodePath = first.track_get_path(track)
+		var next: int = second.find_track(path, type)
+		var copy: int = made.add_track(type)
+		made.track_set_path(copy, path)
+		made.track_set_interpolation_type(copy, Animation.INTERPOLATION_CUBIC)
+		for frame: int in keys:
+			var time: float = minf(frame / RunnerCharacter.FRAMES_PER_SECOND, made.length)
+			var before: float = minf(time, first.length)
+			var after: float = maxf(time - then, 0.0)
+			var share: float = 0.0
+			if time >= then:
+				share = 1.0
+			elif time > first.length:
+				share = smoothstep(first.length, then, time)
+			if type == Animation.TYPE_ROTATION_3D:
+				var from: Quaternion = first.rotation_track_interpolate(track, before)
+				var to: Quaternion = from
+				if next >= 0:
+					to = second.rotation_track_interpolate(next, after)
+				made.rotation_track_insert_key(copy, time, from.slerp(to, share))
+			else:
+				var at: Vector3 = first.position_track_interpolate(track, before)
+				var going: Vector3 = at
+				if next >= 0:
+					going = second.position_track_interpolate(next, after)
+				made.position_track_insert_key(copy, time, at.lerp(going, share))
 	return made
 
 
