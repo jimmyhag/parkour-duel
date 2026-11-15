@@ -1,6 +1,6 @@
 # Ce qui touche à l'écran attrape : la portée des gestes prise sur le corps
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-15, après avoir joué l'attrape polie (`docs/specs/chase-tag-polish.md`).
 Jimmy : « les hitbox sont bizarres. Quand tu touches, ça a l'air de pas trop marcher.
@@ -101,6 +101,25 @@ Avec les fichiers, le développeur rapporte :
 - chaque mesure d'équilibre sur 42 manches, avec le levier essayé ;
 - les valeurs retenues ;
 - le temps de `just check`.
+
+## Amendements
+
+Après l'inspection, le 2026-11-15, par la session principale (choix délégué par Jimmy) :
+
+- **Décisions 2 et 3 : d'où part la portée.** Pour que le jeu et la main disent la même
+  chose à toutes les hauteurs (une souris qui glisse, une souris plus bas), une touche se
+  mesure depuis **l'épaule** du chat. Cette épaule est placée à `tag_touch_shoulder_height`
+  (1,45 m) de haut et à `tag_touch_shoulder_offset` (0,21 m) de son axe. Un plongeon se
+  mesure depuis la hauteur du bout des doigts, `tag_dive_fingertips_height` (0,79 m).
+  Ces trois valeurs sont mesurées sur les os, avec le même test à 3 cm près.
+- **Une nouvelle règle de jeu en découle : une glissade esquive la touche.** Le bras d'un
+  chat debout n'atteint pas une souris qui glisse avant que les corps ne se touchent.
+  Seul un plongeon l'attrape. C'est voulu : la souris a une parade, et le chat a une
+  raison de plonger.
+- **Décision 7 : les leviers retenus.** La manche dure 16 s. Le délai du bot chat avant un
+  geste est de 0,3 s en EASY, 0,2 s en NORMAL et 0 s en HARD. À 0,4 s, le chat EASY ne
+  touchait plus jamais. Les manches entre bots sont rendues **déterministes** : la
+  navigation se construit au pas, pas sur un fil à part.
 
 ## UI & Layout Contract
 

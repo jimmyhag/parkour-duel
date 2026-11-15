@@ -313,25 +313,35 @@ extends Resource
 
 @export_group("Tag")
 ## The touch of the cat (Tag): how long it reaches out, in s, the share of its top speed it
-## runs at meanwhile, how far from the surface of its capsule it reaches, in m, and how wide
-## its cone is in front of it, from side to side, in degrees.
+## runs at meanwhile, how far from the surface of its capsule it reaches, in m (the arm
+## stretched, measured once on the bones of the character: docs/specs/chase-tag-reach.md),
+## and how wide its cone is in front of it, from side to side, in degrees.
 @export var tag_touch_time: float = 0.0
 @export var tag_touch_speed_ratio: float = 0.0
 @export var tag_touch_reach: float = 0.0
 @export var tag_touch_cone: float = 0.0
+## Where the arm of a touch reaches out from: the shoulder, how high above the feet, and how
+## far from the axis of the capsule, turned towards the mouse, in m (measured once on the
+## bones, as tag_touch_reach: TagReach).
+@export var tag_touch_shoulder_height: float = 0.0
+@export var tag_touch_shoulder_offset: float = 0.0
 ## A touch that caught nothing: how long it costs, in s, and the share of its top speed the
 ## cat runs at most meanwhile.
 @export var tag_touch_recovery: float = 0.0
 @export var tag_touch_recovery_speed_ratio: float = 0.0
 ## The dive of the cat: the least speed it asks for, in m/s, how much faster than its run it
 ## goes, in m/s, how long it lasts, in s, how high it goes at most, in m, how far it reaches
-## from the surface of the cat's capsule, in m, and how wide its cone is, in degrees.
+## from the surface of the cat's capsule, in m (its fingertips in the dive, measured once on
+## the bones of the character), and how wide its cone is, in degrees.
 @export var tag_dive_min_speed: float = 0.0
 @export var tag_dive_push: float = 0.0
 @export var tag_dive_time: float = 0.0
 @export var tag_dive_height: float = 0.0
 @export var tag_dive_reach: float = 0.0
 @export var tag_dive_cone: float = 0.0
+## How high above the feet the fingertips of a dive are when they are the farthest out, in m
+## (measured once on the bones, as tag_dive_reach: TagReach).
+@export var tag_dive_fingertips_height: float = 0.0
 ## Under this share of the speed of its dive, along its way, the diving cat has met a wall
 ## and stops.
 @export var tag_dive_stopped_share: float = 0.0

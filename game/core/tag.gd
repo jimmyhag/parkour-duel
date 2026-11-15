@@ -6,9 +6,10 @@ extends RefCounted
 ## dive throws the runner forward, low, faster than it ran, for its time, nothing stopping
 ## it but a wall (it falls once it has left the ground it dived from); then the runner lies
 ## down for its recovery, still, and gets up. The motor plays it and never knows whether it
-## caught anything: the level observes, while the gesture reaches (reaches), whether the
-## mouse is within its reach (from body to body) and its cone, and tells the chase so in a
-## dated message. What it does not catch is a miss, and costs its recovery.
+## caught anything: the level observes, while the gesture reaches (catches), whether the
+## mouse came within its reach and its cone during the step, and tells the chase so in a dated
+## message. What it does not catch is a miss, and costs its recovery. The reaches are those of
+## the body, measured on its bones (TagReach, docs/specs/chase-tag-reach.md).
 
 enum Gesture { TOUCH, DIVE }
 ## Reaching out: the window in which it catches. Then the recovery of a touch missed, the
@@ -69,55 +70,28 @@ static func dive(
 	return made
 
 
-## Whether the mouse, whose capsule has its axis from `mouse_axis[0]` (its lowest point) to
-## `mouse_axis[1]` (its highest), is within `reach` of the capsule of the cat, whose axis is
-## `cat_axis` (the same): the least distance between their axes, less `radii`, the radii of
-## the two capsules together, is no more than `reach`; and within the cone of `cone` degrees
-## (from side to side) about `facing`, along the ground. Both capsules upright.
-static func reaches(
-	cat_axis: PackedVector3Array,
-	mouse_axis: PackedVector3Array,
-	radii: float,
-	facing: Vector3,
-	reach: float,
-	cone: float
-) -> bool:
-	var apart: Vector2 = Vector2(mouse_axis[0].x - cat_axis[0].x, mouse_axis[0].z - cat_axis[0].z)
-	var gap: float = maxf(cat_axis[0].y - mouse_axis[1].y, mouse_axis[0].y - cat_axis[1].y)
-	var distance: float = Vector2(apart.length(), maxf(gap, 0.0)).length()
-	if distance - radii > reach:
-		return false
-	var ahead: Vector2 = Vector2(facing.x, facing.z)
-	if apart.is_zero_approx() or ahead.is_zero_approx():
-		return true
-	return absf(ahead.angle_to(apart)) <= deg_to_rad(cone) / 2.0
-
-
-## Whether the cat whose motor is `motor` catches the mouse at the step it just played: a
-## gesture of its reaches, and the mouse is within its reach and its cone (reaches). The
-## capsules as for reaches; `facing` is where the cat faces.
+## Whether the cat whose motor is `motor` catches the mouse during the step it just played: a
+## gesture of its reaches, and the mouse, its capsule of radius `mouse_radius`, came within
+## the reach of the gesture and its cone at one instant of the step (TagReach.reaches_during):
+## the axis of the capsule of the cat from `cat_axes[0]` as the step started to `cat_axes[1]`,
+## the axis of the mouse from `mouse_axes[0]` to `mouse_axes[1]`; `facing` is where the cat
+## faces.
 static func catches(
 	motor: RunnerMotor,
-	cat_axis: PackedVector3Array,
-	mouse_axis: PackedVector3Array,
-	radii: float,
+	cat_axes: Array[PackedVector3Array],
+	mouse_axes: Array[PackedVector3Array],
+	mouse_radius: float,
 	facing: Vector3
 ) -> bool:
 	var gesture_of: Tag = motor.tag
 	if gesture_of == null or gesture_of.phase != Phase.REACHING:
 		return false
-	return reaches(cat_axis, mouse_axis, radii, facing, gesture_of.reach(), gesture_of.cone())
+	return gesture_of.span().reaches_during(cat_axes, mouse_axes, mouse_radius, facing)
 
 
-## How far the gesture reaches, from the capsule of the cat to the capsule of the mouse, in
-## m.
-func reach() -> float:
-	return _tuning.tag_touch_reach if gesture == Gesture.TOUCH else _tuning.tag_dive_reach
-
-
-## How wide its cone is, from side to side, in degrees.
-func cone() -> float:
-	return _tuning.tag_touch_cone if gesture == Gesture.TOUCH else _tuning.tag_dive_cone
+## How far the gesture reaches, and from where on the body (TagReach).
+func span() -> TagReach:
+	return TagReach.touch(_tuning) if gesture == Gesture.TOUCH else TagReach.dive(_tuning)
 
 
 ## One more fixed step of the gesture, the runner having observed `facts`: its phase ends

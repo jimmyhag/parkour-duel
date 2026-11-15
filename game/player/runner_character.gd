@@ -18,10 +18,13 @@ extends Node3D
 ## (WallRunPose). In a vault and a mantle, its hands are put on the real top
 ## (HandPlant) by inverse kinematics (TwoBoneIK3D) while the clip plants them; in a vault,
 ## its body follows the real height of the obstacle (docs/specs/vault.md). The touch of the
-## cat of a chase holds the upper body in the pose of Reaching Out, and its right hand goes
-## by inverse kinematics onto the body of the runner it reaches for, once within the reach of
-## its arm; the dive and the getting up after one missed have their clips
-## (docs/specs/chase-tag.md): the dive to the hands on the ground, then, after lying there,
+## cat of a chase holds the upper body in the pose of Reaching Out, turned towards the runner
+## it reaches for within the cone of the touch, and the hand on its side stretches towards it
+## by inverse kinematics, no farther than the reach of the touch, and lands on its body only
+## once the catch is observed (TouchHand, docs/specs/chase-tag-reach.md), which also measures
+## on its bones the reach of the arm and of the dive; the dive and the getting up after one
+## missed have their clips (docs/specs/chase-tag.md): the dive to the hands on the ground,
+## then, after lying there,
 ## the getting up from the push of the hands, made of two parts of its file; a touch missed
 ## stumbles, and the mouse caught stumbles or falls flat; how low its hips are tells the
 ## camera how low the body is (docs/specs/chase-tag-polish.md). Presentation only: nothing
@@ -126,6 +129,11 @@ const ELBOWS_OUT: Dictionary[String, SkeletonModifier3D.SecondaryDirection] = {
 	LEFT_HAND: SkeletonModifier3D.SECONDARY_DIRECTION_PLUS_X,
 	RIGHT_HAND: SkeletonModifier3D.SECONDARY_DIRECTION_MINUS_X,
 }
+## The tip of the middle finger of each hand: where the reach of the arm ends.
+const FINGERTIPS: Dictionary[String, String] = {
+	LEFT_HAND: "mixamorig7_LeftHandMiddle4",
+	RIGHT_HAND: "mixamorig7_RightHandMiddle4",
+}
 ## The part of the clips of a vault and of a mantle where they plant hands on the top, in s
 ## of their files, and those that plant both hands there (the others, the left one).
 const PLANTS: Dictionary[RunnerAnimation.Clip, Vector2] = {
@@ -199,6 +207,8 @@ const RIG: Array[String] = [
 	LEFT_TOE,
 	LEFT_HAND,
 	RIGHT_HAND,
+	FINGERTIPS[LEFT_HAND],
+	FINGERTIPS[RIGHT_HAND],
 ]
 ## The turn that makes the model, which faces +Z, face -Z as the runner does.
 const FACING: Basis = Basis(Vector3.UP, PI)
@@ -297,14 +307,10 @@ var _jump: JumpPose = JumpPose.new()
 var _aim: float = 0.0
 var _aim_wanted: float = 0.0
 var _aim_blend_time: float = 0.0
-## How much the upper body reaches out for the touch, and how much it should; the axis and
-## the radius of the capsule of the runner it reaches for (an empty axis: none), and whether
-## the target of the right hand was put at the frame before.
+## How much the upper body reaches out for the touch, and how much it should; and its hand.
 var _touch: float = 0.0
 var _touch_wanted: float = 0.0
-var _touched_axis: PackedVector3Array = PackedVector3Array()
-var _touched_radius: float = 0.0
-var _touch_aimed: bool = false
+var _touch_hand: TouchHand
 
 
 ## Before the arms reach for the top: lifts the body of a vault to the real height of its
@@ -395,10 +401,16 @@ func play(animation: RunnerAnimation) -> void:
 
 
 ## The touch reaches for the runner whose capsule has the axis `axis`, from its lowest point
-## to its highest, and the radius `radius`; an empty axis: for nobody.
-func reach_for(axis: PackedVector3Array, radius: float) -> void:
-	_touched_axis = axis
-	_touched_radius = radius
+## to its highest, and the radius `radius`, and `caught` it, as the level observed, the cat
+## facing `facing` as the game says; an empty axis: for nobody (TouchHand).
+func reach_for(axis: PackedVector3Array, radius: float, caught: bool, facing: Vector3) -> void:
+	_touch_hand.reach_for(axis, radius, caught, facing)
+
+
+## Of each value of the tuning measured once on the bones of the character, at its size, its
+## measure, in m (TouchHand.measured, docs/specs/chase-tag-reach.md).
+func measured_reaches() -> Dictionary[StringName, float]:
+	return _touch_hand.measured(_scale, _model.transform)
 
 
 ## Puts the hands on `plant` in the vault or the mantle that starts: the top the runner
@@ -518,7 +530,11 @@ func _follow_the_plant(clip: RunnerAnimation.Clip, fresh: bool) -> void:
 func _put_the_hands_on_the_top() -> void:
 	for hand: String in _arms:
 		_arms[hand].influence = 0.0
-	_reach_for_the_touched()
+	_touch_hand.reach(
+		Crossfade.eased(_touch),
+		_skeleton.get_global_transform_interpolated(),
+		get_global_transform_interpolated()
+	)
 	if _plant == null:
 		return
 	var plant_state: StringName = _state_of(_plant_clip)
@@ -556,41 +572,6 @@ func _put_the_hands_on_the_top() -> void:
 		_reached[hand].global_position = reached
 		var out: Vector3 = (elbow - (shoulder + wrist) / 2.0).normalized()
 		_elbow_poles[hand].global_position = elbow + out * POLE_DISTANCE
-
-
-## While the upper body reaches out, as much as it does: the right hand reaches for the
-## point of the body touched nearest its shoulder (touch_point), once that point is within
-## the reach of its arm; its elbow keeps the bend of the pose. Measured where the body is
-## shown, between two fixed steps.
-func _reach_for_the_touched() -> void:
-	var share: float = Crossfade.eased(_touch)
-	if share <= 0.0 or _touched_axis.is_empty():
-		_touch_aimed = false
-		return
-	var seen: Transform3D = _skeleton.get_global_transform_interpolated()
-	var wrist: Vector3 = seen * _bone_pose(RIGHT_HAND).origin
-	var shoulder: Vector3 = seen * _bone_pose(UPPER_ARMS[RIGHT_HAND]).origin
-	var elbow: Vector3 = seen * _bone_pose(FOREARMS[RIGHT_HAND]).origin
-	var target: Vector3 = touch_point(shoulder, _touched_axis, _touched_radius)
-	if shoulder.distance_to(target) > shoulder.distance_to(elbow) + elbow.distance_to(wrist):
-		_touch_aimed = false
-		return
-	# The arm reaches for where its target was put at the frame before: not before it was.
-	_arms[RIGHT_HAND].influence = share if _touch_aimed else 0.0
-	_touch_aimed = true
-	_reached[RIGHT_HAND].global_position = target
-	var out: Vector3 = (elbow - (shoulder + wrist) / 2.0).normalized()
-	_elbow_poles[RIGHT_HAND].global_position = elbow + out * POLE_DISTANCE
-
-
-## The point of the surface of an upright capsule, of axis `axis` (its lowest point, then its
-## highest) and radius `radius`, nearest to `from`.
-static func touch_point(from: Vector3, axis: PackedVector3Array, radius: float) -> Vector3:
-	var on_the_axis: Vector3 = Geometry3D.get_closest_point_to_segment(from, axis[0], axis[1])
-	var out: Vector3 = from - on_the_axis
-	if out.is_zero_approx():
-		return on_the_axis
-	return on_the_axis + out.normalized() * minf(radius, out.length())
 
 
 ## Where the clip that plants hands is in its file, as the tree shows it: at its start while
@@ -685,6 +666,7 @@ func _build(model: Node3D, height: float) -> void:
 	_skeleton.add_child(HandsOnTheTop.new(self))
 	for hand: String in UPPER_ARMS:
 		_add_the_arm(hand)
+	_touch_hand = TouchHand.new(_skeleton, _tuning, _arms, _reached, _elbow_poles)
 
 
 ## The inverse kinematics of the arm of `hand`, off until a clip plants it, and the nodes, in
@@ -900,8 +882,8 @@ static func _clip_name(clip: RunnerAnimation.Clip) -> String:
 
 
 ## Every clip, cut, in place, looped or not; the tuck pose; the aim; and the touch. The
-## stride of the clips that stride, and where the bones of the run go, measured from their
-## bones.
+## stride of the clips that stride, where the bones of the run go, and the reach of the touch
+## and of the dive, measured from their bones.
 static func _make_library(skeleton: Skeleton3D) -> AnimationLibrary:
 	var hips: int = skeleton.find_bone(HIPS)
 	var hips_rest: Vector3 = skeleton.get_bone_rest(hips).origin
@@ -934,13 +916,17 @@ static func _make_library(skeleton: Skeleton3D) -> AnimationLibrary:
 			_run_places.append(_places_across(made, skeleton))
 		if clip in PLANTS:
 			_plant_heights[clip] = _planted_height(clip, made, skeleton)
+		if clip == RunnerAnimation.Clip.DIVE:
+			TouchHand.measure_the_dive(made, skeleton)
 		library.add_animation(_clip_name(clip), made)
 	var aim: Animation = MixamoClip.in_place(
 		MixamoClip.take(PISTOL_IDLE), Vector2.ZERO, false, hips_rest, true
 	)
 	library.add_animation(AIM, aim)
 	var reaching: Animation = MixamoClip.take(REACHING_OUT)
-	library.add_animation(TOUCH, MixamoClip.pose_at(reaching, REACH_POSE_TIME, hips_rest))
+	var touch: Animation = MixamoClip.pose_at(reaching, REACH_POSE_TIME, hips_rest)
+	library.add_animation(TOUCH, touch)
+	TouchHand.measure_the_arm(touch, skeleton)
 	return library
 
 

@@ -11,7 +11,8 @@ extends CharacterBody3D
 ## what is under the reticle
 ## (AimFacts), or on the line from its head that its intent gives (the bot's aim), and
 ## puts the camera over its shoulder. While a touch of the cat reaches, the character's hand
-## reaches for the runner it may catch (tag_target); in a dive and down after it, the capsule
+## reaches for the runner it may catch (tag_target), and lands on it only once the level
+## observed the catch (catch_the_target); in a dive and down after it, the capsule
 ## one sees lies forward, and the camera goes down with the body. Caught by the cat of a
 ## chase, its body reacts until it is put back at a start point (react_to_the_catch). Held (a
 ## countdown), it follows no intent. It decides nothing about the movement, the shot or the
@@ -74,6 +75,11 @@ var _character: RunnerCharacter = null
 var _caught: bool = false
 var _caught_by: Tag.Gesture = Tag.Gesture.TOUCH
 var _caught_steps: int = 0
+## Its touch caught tag_target: the hand of its character lands on it.
+var _caught_the_target: bool = false
+## The axis of its capsule as its last step started (axis_of): where the level measures, with
+## where it is now, how near the two runners came during the step.
+var _axis_at_the_step_start: PackedVector3Array = PackedVector3Array()
 
 @onready var camera_rig: CameraRig = $CameraRig as CameraRig
 @onready var _collider: CollisionShape3D = $CollisionShape3D as CollisionShape3D
@@ -95,6 +101,7 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	_axis_at_the_step_start = axis_of(self)
 	var intent: MoveIntent = MoveIntent.new() if held else intent_source.next_intent()
 	var facts: RunnerFacts = _observe(intent)
 	velocity = motor.step(intent, facts, delta)
@@ -155,6 +162,21 @@ func react_to_the_catch(gesture: Tag.Gesture) -> void:
 	_caught = true
 	_caught_by = gesture
 	_caught_steps = 0
+
+
+## The touch of this cat caught tag_target, as the level observed: from the next frame on,
+## the hand of its character lands on it, until it is put somewhere (teleport).
+func catch_the_target() -> void:
+	_caught_the_target = true
+
+
+## The axes of the capsule of this runner as its last step started and as it ended: from its
+## lowest point to its highest, in the world (axis_of). Put somewhere since, it did not move.
+func axes_of_the_step() -> Array[PackedVector3Array]:
+	var now: PackedVector3Array = axis_of(self)
+	if _axis_at_the_step_start.is_empty():
+		return [now, now]
+	return [_axis_at_the_step_start, now]
 
 
 ## Shows the world through this runner's camera, or not: a duel shows the player's only,
@@ -234,12 +256,14 @@ func teleport(spawn: Transform3D) -> void:
 	velocity = Vector3.ZERO
 	motor.reset()
 	_caught = false
+	_caught_the_target = false
 	_fit_capsule()
 	_yaw = yaw
 	_lean = 0.0
 	_pose()
 	camera_rig.face(yaw)
 	reset_physics_interpolation()
+	_axis_at_the_step_start = axis_of(self)
 
 
 ## What the motor needs to know about the body and the world around it. Nothing of it
@@ -609,13 +633,15 @@ func _set_capsule_height(height: float) -> void:
 	_visor.position.y = height * VISOR_HEIGHT_RATIO
 
 
-## While the touch reaches, the hand of the character reaches for the runner of tag_target:
-## presentation only.
+## While the touch reaches, the hand of the character reaches for the runner of tag_target,
+## and lands on it only once the level observed the catch (catch_the_target): presentation
+## only.
 func _reach_for_the_target() -> void:
 	if tag_target == null or not animation.touching:
-		_character.reach_for(PackedVector3Array(), 0.0)
+		_character.reach_for(PackedVector3Array(), 0.0, false, Vector3.ZERO)
 		return
-	_character.reach_for(axis_of(tag_target), radius_of(tag_target))
+	var axis: PackedVector3Array = axis_of(tag_target)
+	_character.reach_for(axis, radius_of(tag_target), _caught_the_target, tag_facing())
 
 
 ## The visible body turns, at its pace, towards where it should look this step; with

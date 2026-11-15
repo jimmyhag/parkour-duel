@@ -195,10 +195,9 @@ func _tag(intent: MoveIntent) -> void:
 	var tuning: MovementTuning = _runner.tuning
 	var cat: PackedVector3Array = Player.axis_of(_runner)
 	var mouse: PackedVector3Array = Player.axis_of(_other)
-	var radii: float = Player.radius_of(_runner) + Player.radius_of(_other)
+	var radius: float = Player.radius_of(_other)
 	var facing: Vector3 = _runner.tag_facing()
-	var touch: float = tuning.tag_touch_reach
-	var in_touch_reach: bool = Tag.reaches(cat, mouse, radii, facing, touch, tuning.tag_touch_cone)
+	var in_touch_reach: bool = TagReach.touch(tuning).reaches(cat, mouse, radius, facing)
 	var in_dive_reach: bool = not in_touch_reach and mind.dives() and _dive_catches()
 	_steps_in_touch_reach = _steps_in_touch_reach + 1 if in_touch_reach else 0
 	_steps_in_dive_reach = _steps_in_dive_reach + 1 if in_dive_reach else 0
@@ -226,12 +225,12 @@ func _dive_catches() -> bool:
 	var flight: Vector3 = Vector3(_other.velocity.x, 0.0, _other.velocity.z)
 	var cat: PackedVector3Array = Player.axis_of(_runner)
 	var mouse: PackedVector3Array = Player.axis_of(_other)
-	var radii: float = Player.radius_of(_runner) + Player.radius_of(_other)
+	var radius: float = Player.radius_of(_other)
+	var reach: TagReach = TagReach.dive(tuning)
 	for index: int in roundi(tuning.tag_dive_time / step) + 1:
 		var ahead: Vector3 = (flight - dive) * step * index
 		var moved: PackedVector3Array = [mouse[0] + ahead, mouse[1] + ahead]
-		var reach: float = tuning.tag_dive_reach
-		if not Tag.reaches(cat, moved, radii, run.normalized(), reach, tuning.tag_dive_cone):
+		if not reach.reaches(cat, moved, radius, run.normalized()):
 			return false
 	return true
 
