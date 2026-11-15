@@ -47,6 +47,8 @@ const LOCOMOTION: Array[Clip] = [Clip.IDLE, Clip.WALKING, Clip.JOGGING, Clip.RUN
 ## The clips of a jump, posed by where the runner is in it (jump_position_of): from a run, and
 ## standing.
 const JUMPS: Array[Clip] = [Clip.RUNNING_JUMP, Clip.JUMP]
+## The clips of a simple landing, chosen as it touches down and kept until it ends.
+const LANDINGS: Array[Clip] = [Clip.LANDING, Clip.LAND_TO_RUN]
 ## Where the top of a jump is, between its take-off (0) and the approach of the ground (1).
 const TOP_OF_THE_JUMP: float = 0.5
 ## In the table of blend times: any clip, and what parts a pair.
@@ -97,11 +99,16 @@ static func of(
 			var landing_steps: int = roundi(tuning.animation_landing_time / step_seconds)
 			if motor.steps_since_landing < landing_steps:
 				animation.clip = landing_clip(motor.real_speed(), tuning)
+				if motor.steps_since_landing > 0 and before != null and before.clip in LANDINGS:
+					animation.clip = before.clip
 				animation.duration = tuning.animation_landing_time
 			else:
 				animation._walk(motor.real_speed(), before, step_seconds, tuning)
 		RunnerMotor.State.RISING, RunnerMotor.State.FALLING:
-			animation._fly(motor, before, step_seconds, tuning)
+			if still_on_its_feet(motor, before):
+				animation._hold(before)
+			else:
+				animation._fly(motor, before, step_seconds, tuning)
 		RunnerMotor.State.HARD_LANDING:
 			animation.clip = Clip.HARD_LANDING
 			animation.duration = tuning.hard_landing_duration
@@ -138,6 +145,19 @@ static func vault_clip(vault: Vault, tuning: MovementTuning) -> Clip:
 	return Clip.VAULT_ONE_HAND
 
 
+## Whether a runner whose motor is `motor`, shown as `before` (null: none) the step before,
+## still shows what it showed on its feet or along a wall: it has just stepped off them
+## without a jump, and may still jump as from them (the coyote time, or the grace of a wall
+## jump). A jump taken then starts from the take-off, not from the fall it would otherwise
+## show (docs/specs/motion-weight.md, decision 6).
+static func still_on_its_feet(motor: RunnerMotor, before: RunnerAnimation) -> bool:
+	if motor.state != RunnerMotor.State.FALLING or before == null:
+		return false
+	if before.clip not in LOCOMOTION and before.clip not in LANDINGS:
+		return false
+	return motor.coyote_time_left() > 0.0 or motor.wall_jump_time_left() > 0.0
+
+
 ## The clip of a simple landing at the horizontal speed `speed`: Land To Run faster than a
 ## walk, Landing otherwise (docs/specs/motion-weight.md, decision 7).
 static func landing_clip(speed: float, tuning: MovementTuning) -> Clip:
@@ -164,15 +184,15 @@ static func jump_position_of(vertical_speed: float, tuning: MovementTuning) -> f
 
 
 ## Where a jump is `step` s after it was at `before`, on its way to `wanted`: no faster than
-## twice the pace of a full jump in its faster half, so that a jump released early (its
-## rise cut short) moves the pose on without a jump.
+## animation_jump_catch_up times the pace of a full jump in its faster half, so that a jump
+## released early (its rise cut short) moves the pose on without a jump.
 static func jump_position_moved(
 	before: float, wanted: float, step: float, tuning: MovementTuning
 ) -> float:
 	var rise: float = _take_off_speed(tuning) / tuning.rise_gravity
 	var fall: float = _landing_speed(tuning) / tuning.fall_gravity
 	var fastest: float = maxf(TOP_OF_THE_JUMP / rise, (1.0 - TOP_OF_THE_JUMP) / fall)
-	return move_toward(before, wanted, 2.0 * fastest * step)
+	return move_toward(before, wanted, tuning.animation_jump_catch_up * fastest * step)
 
 
 ## Whether a runner falling at the vertical speed `vertical_speed` (m/s, up), in fixed steps
@@ -334,6 +354,17 @@ func _fly(motor: RunnerMotor, before: RunnerAnimation, step: float, tuning: Move
 		return
 	clip = jump_clip(motor.real_speed(), tuning)
 	jump_position = wanted
+
+
+## What `before` showed, as it showed it (see still_on_its_feet).
+func _hold(before: RunnerAnimation) -> void:
+	clip = before.clip
+	speed = before.speed
+	duration = before.duration
+	wall_side = before.wall_side
+	locomotion = before.locomotion.duplicate()
+	locomotion_position = before.locomotion_position
+	jump_position = before.jump_position
 
 
 ## The locomotion of a runner on its feet at the horizontal speed `ground_speed`, after

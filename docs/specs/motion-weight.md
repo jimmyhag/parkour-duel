@@ -126,8 +126,20 @@ rouvrir chacun après avoir joué.
 - **Seuils** : « en mouvement » veut dire plus vite que la marche ; une longue chute,
   plus vite qu'un saut complet n'atterrit, plus un pas de gravité ; la position dans le
   saut avance au plus à deux fois l'allure d'un saut.
-- **Arène du Chase** : le passage bas Nord recule d'un mètre (z −7,5 à −8,5), pour que
-  le franchissement du muret Nord ne se pose pas dessous.
+- **Arène du Chase** : le passage bas Nord recule et s'amincit (centre de z −7,5 à
+  −8,2, profondeur de 2 à 1,4 m), pour que le franchissement du muret Nord ne se pose pas
+  dessous et qu'il reste 1,1 m derrière lui pour se relever.
+- **Le rattrapage du saut** : un saut relâché tôt ramène sa pose à la place que donne sa
+  vitesse verticale à au plus `animation_jump_catch_up` (**2**) fois l'allure d'un saut
+  complet, environ 0,12 s : la seule lecture au-dessus du plafond, pour ne pas laisser la
+  pose en retard sur le corps.
+- **Juste après avoir quitté le sol ou un mur sans sauter** (temps de coyote, grâce du
+  wall-jump), le corps garde ce qu'il montrait : un saut pris alors part de l'appel, pas
+  de la chute.
+- **La réception garde son geste** : Land To Run ou Landing est choisi au contact et
+  gardé jusqu'à la fin de la réception.
+- **Le suivi de 0,25 s** est une donnée des clips, avec les parties gardées, dans
+  `runner_character.gd` ; pas un réglage du jeu.
 - **`just check` met de 90 à 97 s** avec les fichiers Mixamo sur la machine de Jimmy, au
   bord ou au-dessus de la limite de 90 s ; il dépassait déjà avant cette passe. À traiter
   dans sa propre demande.

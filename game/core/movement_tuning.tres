@@ -173,6 +173,7 @@ animation_sprint_speed = 5.65
 animation_run_alone_pace = 1.2
 animation_still_speed = 0.5
 animation_landing_time = 0.4
+animation_jump_catch_up = 2.0
 animation_max_pace = 1.25
 animation_start_stop_time = 0.18
 wall_run_body_roll = 35.0

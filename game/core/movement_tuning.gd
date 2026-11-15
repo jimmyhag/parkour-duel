@@ -349,6 +349,10 @@ extends Resource
 ## How long Landing, or Land To Run, plays after a landing that is neither hard nor rolled,
 ## in s; shorter than a hard landing.
 @export var animation_landing_time: float = 0.0
+## In a jump, how many times the pace of a full jump its pose may move at, at the most, to
+## catch up with where the vertical speed puts it (a jump released early); faster than
+## animation_max_pace, the only clip that may (docs/specs/motion-weight.md).
+@export var animation_jump_catch_up: float = 0.0
 ## The fastest a clip plays, as a share of its own pace: the part of a clip kept for a move
 ## is chosen to fit it under this pace (a clip that would still have to play faster plays
 ## its first part only); the locomotion plays no faster, its feet then slipping on the
