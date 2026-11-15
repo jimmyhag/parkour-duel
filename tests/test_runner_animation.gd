@@ -58,8 +58,10 @@ func before_each() -> void:
 func test_every_state_of_the_runner_has_its_animation() -> void:
 	var expected: Dictionary[RunnerMotor.State, RunnerAnimation.Clip] = {
 		RunnerMotor.State.GROUNDED: RunnerAnimation.Clip.IDLE,
+		# In the air, standing: the jump of a standing body, posed by its vertical speed
+		# (docs/specs/motion-weight.md, decision 6).
 		RunnerMotor.State.RISING: RunnerAnimation.Clip.JUMP,
-		RunnerMotor.State.FALLING: RunnerAnimation.Clip.FALLING_IDLE,
+		RunnerMotor.State.FALLING: RunnerAnimation.Clip.JUMP,
 		RunnerMotor.State.HARD_LANDING: RunnerAnimation.Clip.HARD_LANDING,
 		RunnerMotor.State.ROLLING: RunnerAnimation.Clip.FALLING_TO_ROLL,
 		RunnerMotor.State.SLIDING: RunnerAnimation.Clip.RUNNING_SLIDE,
@@ -128,7 +130,9 @@ func test_an_abrupt_entry_is_made_without_a_blend() -> void:
 	_fall_until(falling, _push(FORWARD), RunnerMotor.State.HARD_LANDING)
 	var hard: RunnerAnimation = RunnerAnimation.of(falling.motor, STEP)
 	assert_eq(hard.clip, RunnerAnimation.Clip.HARD_LANDING, "a hard landing")
-	assert_eq(hard.blend_time, 0.0, "without a blend")
+	# A hard landing now blends as its table says (docs/specs/motion-weight.md, decision 8):
+	# only a crash comes at once.
+	assert_eq(hard.blend_time, _tuning.animation_blend_time, "with the blend of its table")
 
 	# A crash: a trick jumped from the run, landed without the press that poses it.
 	var tricking: MotorBody = _running_at(_tuning.top_speed)
@@ -206,7 +210,8 @@ func test_a_trick_takes_the_tuck_pose() -> void:
 	while body.motor.is_in_a_trick():
 		body.step(MoveIntent.new())
 	animation = RunnerAnimation.of(body.motor, MotorBody.STEP)
-	assert_eq(animation.clip, RunnerAnimation.Clip.FALLING_IDLE, "the trick over, the body unfolds")
+	# Into the jump of a run, posed by its vertical speed (docs/specs/motion-weight.md).
+	assert_eq(animation.clip, RunnerAnimation.Clip.RUNNING_JUMP, "the trick over, the body unfolds")
 	assert_eq(animation.blend_time, _tuning.animation_blend_time, "with a blend")
 
 
@@ -238,9 +243,12 @@ func test_a_simple_landing_plays_landing_briefly() -> void:
 		body.step(_push(FORWARD))
 		clips.append(RunnerAnimation.of(body.motor, MotorBody.STEP).clip)
 
-	assert_eq(clips[0], RunnerAnimation.Clip.LANDING, "Landing as it touches the ground")
+	# On the move, the landing that runs on (docs/specs/motion-weight.md, decision 7).
+	assert_eq(clips[0], RunnerAnimation.Clip.LAND_TO_RUN, "Land To Run as it touches the ground")
 	assert_eq(
-		clips[landing_steps - 1], RunnerAnimation.Clip.LANDING, "for the first steps on the ground"
+		clips[landing_steps - 1],
+		RunnerAnimation.Clip.LAND_TO_RUN,
+		"for the first steps on the ground"
 	)
 	assert_eq(clips[-1], RunnerAnimation.Clip.RUNNING, "then the run")
 	var landing: RunnerAnimation = _landed_still()
@@ -285,9 +293,9 @@ func test_in_a_wall_run_the_character_runs() -> void:
 	var between: float = (running_alone + _tuning.top_speed) / 2.0
 	var fast: float = _tuning.top_speed + 1.0
 	var cases: Array[Array] = [
-		[slow, [0.0, 0.0, 1.0, 0.0], "slow along the wall: Running"],
-		[between, [0.0, 0.0, 0.5, 0.5], "faster: Running and Sprint"],
-		[fast, [0.0, 0.0, 0.0, 1.0], "fast along the wall: Sprint"],
+		[slow, [0.0, 0.0, 0.0, 1.0, 0.0], "slow along the wall: Running"],
+		[between, [0.0, 0.0, 0.0, 0.5, 0.5], "faster: Running and Sprint"],
+		[fast, [0.0, 0.0, 0.0, 0.0, 1.0], "fast along the wall: Sprint"],
 	]
 	for case: Array in cases:
 		var speed: float = case[0]
@@ -319,10 +327,10 @@ func test_no_clip_is_played_too_fast() -> void:
 	for tuning: MovementTuning in [_tuning, game_tuning]:
 		var most: float = tuning.animation_max_pace
 		var named: String = "the game's tuning" if tuning == game_tuning else "the fixed tuning"
-		# 1.8 times its own pace, as amended with the blend space of the locomotion; the game's
-		# tuning may be tuned: it is held to its own limit.
+		# 1.25 times its own pace (docs/specs/motion-weight.md, decision 2); the game's tuning
+		# may be tuned: it is held to its own limit.
 		if tuning == _tuning:
-			assert_almost_eq(most, 1.8, 0.0001, named + ": at most 1.8 times its own pace")
+			assert_almost_eq(most, 1.25, 0.0001, named + ": at most 1.25 times its own pace")
 		# Each state of a fixed duration: its clip fitted to it, or its first part only.
 		var states: Dictionary[RunnerAnimation.Clip, float] = _fixed_durations(tuning)
 		for clip: RunnerAnimation.Clip in states:
@@ -348,6 +356,150 @@ func test_no_clip_is_played_too_fast() -> void:
 				)
 				assert_lte(along.speed, most + 0.0001, context + " along a wall: not too fast")
 			speed += SPEED_STEP
+
+
+func test_no_clip_is_played_at_more_than_1_25_times_its_speed() -> void:
+	# docs/specs/motion-weight.md, decision 2: the project's tuning, each state of a fixed
+	# duration, and every speed on the ground up to tier 3 of the flow.
+	var tuning: MovementTuning = load(TUNING) as MovementTuning
+	var most: float = 1.25
+	assert_almost_eq(tuning.animation_max_pace, most, 0.0001, "the cap of the project: 1.25")
+	var states: Dictionary[RunnerAnimation.Clip, float] = _fixed_durations(tuning)
+	for clip: RunnerAnimation.Clip in states:
+		var cut: Vector2 = RunnerCharacter.CUTS[clip]
+		var pace: float = RunnerAnimation.fitted_pace(cut.y - cut.x, states[clip], tuning)
+		var context: String = RunnerAnimation.Clip.keys()[clip]
+		assert_lte(pace, most + 0.0001, context + ": at most 1.25 times its own pace")
+	var bonuses: Array[float] = tuning.flow_tier_speed_bonus
+	var fastest: float = tuning.top_speed * (1.0 + bonuses[tuning.flow_tier_count - 1])
+	var speed: float = 0.0
+	while speed <= fastest + SPEED_STEP:
+		var running: RunnerAnimation = RunnerAnimation.of(_running_at(speed, tuning).motor, STEP)
+		var context: String = "%.1f m/s on the ground" % speed
+		assert_lte(running.speed, most + 0.0001, context + ": at most 1.25 times its own pace")
+		speed += SPEED_STEP
+
+
+func test_each_gesture_lasts_the_time_of_its_clip() -> void:
+	# docs/specs/motion-weight.md, decision 3: the mantle, the vaults, the roll and the
+	# landings of the project last as long as the part of their clip kept, played from 1.0 to
+	# the cap of the tuning.
+	var tuning: MovementTuning = load(TUNING) as MovementTuning
+	var states: Dictionary[RunnerAnimation.Clip, float] = _fixed_durations(tuning)
+	var gestures: Array[RunnerAnimation.Clip] = [
+		RunnerAnimation.Clip.LEDGE_PULL_UP,
+		RunnerAnimation.Clip.VAULT_ONE_HAND,
+		RunnerAnimation.Clip.VAULT_TWO_HANDS,
+		RunnerAnimation.Clip.FALLING_TO_ROLL,
+		RunnerAnimation.Clip.HARD_LANDING,
+		RunnerAnimation.Clip.LANDING,
+		RunnerAnimation.Clip.LAND_TO_RUN,
+	]
+	for clip: RunnerAnimation.Clip in gestures:
+		var context: String = RunnerAnimation.Clip.keys()[clip]
+		assert_has(states, clip, context + ": a state of a fixed duration")
+		var cut: Vector2 = RunnerCharacter.CUTS[clip]
+		var pace: float = (cut.y - cut.x) / states[clip]
+		gut.p(
+			(
+				"%s: %.2f s of clip in %.2f s, played at %.2f"
+				% [context, cut.y - cut.x, states[clip], pace]
+			)
+		)
+		assert_between(
+			pace, 1.0, tuning.animation_max_pace + 0.0001, context + ": its clip fits it"
+		)
+		var fitted: float = RunnerAnimation.fitted_pace(cut.y - cut.x, states[clip], tuning)
+		assert_almost_eq(fitted, pace, 0.0001, context + ": played whole")
+
+
+func test_the_air_pose_follows_the_vertical_speed() -> void:
+	# A full jump from the run: its position in the jump at every step in the air.
+	var body: MotorBody = _running_at(_tuning.top_speed)
+	var shown: RunnerAnimation = RunnerAnimation.of(body.motor, STEP)
+	var jump: MoveIntent = _push(FORWARD)
+	jump.jump_pressed = true
+	jump.jump_held = true
+	var held: MoveIntent = _push(FORWARD)
+	held.jump_held = true
+	body.step(jump)
+	var positions: Array[float] = []
+	var speeds: Array[float] = []
+	var steps: int = 0
+	while not body.motor.is_on_the_ground() and steps < MANY_STEPS:
+		shown = RunnerAnimation.of(body.motor, STEP, shown)
+		assert_eq(
+			shown.clip, RunnerAnimation.Clip.RUNNING_JUMP, "step %d: the running jump" % steps
+		)
+		positions.append(shown.jump_position)
+		speeds.append(body.motor.velocity.y)
+		body.step(held)
+		steps += 1
+	assert_gt(positions.size(), 10, "a jump")
+	# The pace of a full jump in each half: steady, gravity being steady.
+	var take_off: float = sqrt(2.0 * _tuning.rise_gravity * _tuning.jump_height)
+	var landing: float = sqrt(2.0 * _tuning.fall_gravity * _tuning.jump_height)
+	var top: float = RunnerAnimation.TOP_OF_THE_JUMP
+	var rising: float = top * _tuning.rise_gravity * STEP / take_off
+	var falling: float = (1.0 - top) * _tuning.fall_gravity * STEP / landing
+	assert_lt(positions[0], 2.0 * rising, "from the take-off")
+	for step: int in positions.size():
+		var context: String = "step %d, %.2f m/s up" % [step, speeds[step]]
+		if speeds[step] > 0.0:
+			assert_lte(positions[step], top, context + ": rising, up to the top")
+		else:
+			assert_gte(positions[step], top, context + ": falling, from the top")
+		if step > 0:
+			var change: float = positions[step] - positions[step - 1]
+			assert_gte(change, 0.0, context + ": always on")
+			assert_lte(change, maxf(rising, falling) + 0.0001, context + ": without a jump")
+	assert_gt(positions[-1], 1.0 - 2.0 * falling, "to the approach of the ground")
+	# Standing, the jump of a standing body.
+	var still: MotorBody = MotorBody.new(_tuning)
+	still.step(MoveIntent.new())
+	var up: MoveIntent = MoveIntent.new()
+	up.jump_pressed = true
+	up.jump_held = true
+	still.step(up)
+	var standing: RunnerAnimation = RunnerAnimation.of(still.motor, STEP)
+	assert_eq(standing.clip, RunnerAnimation.Clip.JUMP, "standing: the jump of a standing body")
+
+
+func test_a_long_fall_joins_the_falling_loop() -> void:
+	# Off a high ledge, without a jump: the descent of a jump, then the falling loop.
+	var body: MotorBody = MotorBody.new(_tuning, HIGH)
+	var shown: RunnerAnimation = RunnerAnimation.of(body.motor, STEP)
+	var landing: float = sqrt(2.0 * _tuning.fall_gravity * _tuning.jump_height)
+	var descent: float = landing / _tuning.fall_gravity
+	var clips: Array[RunnerAnimation.Clip] = []
+	var blends: Array[float] = []
+	for step: int in roundi(3.0 * descent / STEP):
+		body.step(MoveIntent.new())
+		shown = RunnerAnimation.of(body.motor, STEP, shown)
+		clips.append(shown.clip)
+		blends.append(shown.blend_time)
+	var steps_of_a_descent: int = floori(descent / STEP)
+	assert_eq(clips[0], RunnerAnimation.Clip.JUMP, "the descent of a jump at first")
+	assert_eq(clips[steps_of_a_descent - 1], RunnerAnimation.Clip.JUMP, "as long as a jump falls")
+	assert_eq(clips[-1], RunnerAnimation.Clip.FALLING_IDLE, "then the falling loop")
+	var joined: int = clips.find(RunnerAnimation.Clip.FALLING_IDLE)
+	assert_gte(joined, steps_of_a_descent, "once it falls longer than a jump")
+	for step: int in range(joined, clips.size()):
+		assert_eq(clips[step], RunnerAnimation.Clip.FALLING_IDLE, "step %d: for good" % step)
+	assert_gt(blends[joined], 0.0, "into which it blends")
+	assert_true(RunnerAnimation.is_a_long_fall(body.motor.velocity.y, STEP, _tuning), "a long fall")
+
+
+func test_a_landing_on_the_move_runs_on() -> void:
+	var moving: MotorBody = MotorBody.new(_tuning, SMALL_FALL)
+	moving.velocity = FORWARD * _tuning.top_speed
+	_fall_to_the_ground(moving, _push(FORWARD))
+	assert_eq(moving.motor.state, RunnerMotor.State.GROUNDED, "a simple landing")
+	var running_on: RunnerAnimation = RunnerAnimation.of(moving.motor, STEP)
+	assert_eq(running_on.clip, RunnerAnimation.Clip.LAND_TO_RUN, "on the move: Land To Run")
+	assert_eq(running_on.duration, _tuning.animation_landing_time, "for the time of a landing")
+	var still: RunnerAnimation = _landed_still()
+	assert_eq(still.clip, RunnerAnimation.Clip.LANDING, "standing still: Landing")
 
 
 func test_the_table_of_blend_times_names_real_clips() -> void:
@@ -441,6 +593,12 @@ func _fixed_durations(tuning: MovementTuning) -> Dictionary[RunnerAnimation.Clip
 	var landing: RunnerAnimation = _landed_still(tuning)
 	assert_eq(landing.clip, RunnerAnimation.Clip.LANDING, "a landing")
 	durations[RunnerAnimation.Clip.LANDING] = landing.duration
+	var moving: MotorBody = MotorBody.new(tuning, SMALL_FALL)
+	moving.velocity = FORWARD * tuning.top_speed
+	_fall_to_the_ground(moving, _push(FORWARD))
+	var running_on: RunnerAnimation = RunnerAnimation.of(moving.motor, STEP)
+	assert_eq(running_on.clip, RunnerAnimation.Clip.LAND_TO_RUN, "a landing on the move")
+	durations[RunnerAnimation.Clip.LAND_TO_RUN] = running_on.duration
 	return durations
 
 

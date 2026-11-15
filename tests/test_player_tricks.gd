@@ -20,7 +20,8 @@ const STROKE_STEPS: int = 6
 ## landing is posed.
 const ROLL_STEPS: int = 24
 const FLIGHT_STEPS: int = 60
-const SETTLE_STEPS: int = 30
+## Steps to stand again after a crash: longer than the hard landing of the project.
+const SETTLE_STEPS: int = 45
 ## Steps of a hand at rest that validate a reading (0.1 s), and a little more.
 const VALIDATE_STEPS: int = 8
 const POSE_HEIGHT: float = 0.6

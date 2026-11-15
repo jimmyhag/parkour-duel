@@ -323,19 +323,21 @@ extends Resource
 
 @export_group("Animation")
 ## How long the body takes to go from one animation to the next, in s, when the table of
-## blend times has nothing for the pair; a hard landing (or a crash) starts at once,
+## blend times has nothing for the pair, along an eased curve; a crash starts at once,
 ## whatever the table says.
 @export var animation_blend_time: float = 0.0
 ## The blend time of a pair of animations, in s, by "from>to": the clips in lower case, as
 ## RunnerAnimation names them ("running" for the whole locomotion: Idle, Walking, Running
 ## and Sprint), "*" for any clip. The pair itself first, then "*>to", then "from>*".
 @export var animation_blend_times: Dictionary[String, float] = {}
-## The horizontal speed of the stride of Walking, of Running and of Sprint, measured from
-## their clips, in m/s: how fast the foot on the ground goes back when the clip plays at its
-## own pace. The locomotion plays its clips so that the feet keep up with the ground.
-## Walking plays alone at its own speed; Running alone at its own speed times
-## animation_run_alone_pace; Sprint alone from the top speed, and beyond it.
+## The horizontal speed of the stride of Walking, of Jogging, of Running and of Sprint,
+## measured from their clips, in m/s: how fast the foot on the ground goes back when the
+## clip plays at its own pace. The locomotion plays its clips so that the feet keep up with
+## the ground. Walking and Jogging play alone at their own speed; Running alone at its own
+## speed times animation_run_alone_pace; Sprint alone from the top speed, and beyond it.
+## Faster than a walk, a jump is Running Jump and a simple landing Land To Run.
 @export var animation_walk_speed: float = 0.0
+@export var animation_jog_speed: float = 0.0
 @export var animation_run_speed: float = 0.0
 @export var animation_sprint_speed: float = 0.0
 ## How many times faster than its own pace Running plays where it is alone: its point in the
@@ -344,12 +346,13 @@ extends Resource
 ## Under this horizontal speed, a runner on its feet stands: Idle alone, in m/s; from it to
 ## the speed of Walking, Idle blends into Walking.
 @export var animation_still_speed: float = 0.0
-## How long Landing plays after a landing that is neither hard nor rolled, in s; shorter
-## than a hard landing.
+## How long Landing, or Land To Run, plays after a landing that is neither hard nor rolled,
+## in s; shorter than a hard landing.
 @export var animation_landing_time: float = 0.0
-## The fastest a clip plays, as a share of its own pace: a clip that would have to play
-## faster to fit its move plays its first part only; the locomotion plays no faster, its
-## feet then slipping on the ground.
+## The fastest a clip plays, as a share of its own pace: the part of a clip kept for a move
+## is chosen to fit it under this pace (a clip that would still have to play faster plays
+## its first part only); the locomotion plays no faster, its feet then slipping on the
+## ground.
 @export var animation_max_pace: float = 0.0
 ## On its feet, how long the body takes, at the least, to go from standing to moving or back
 ## (Idle blended with the walk), in s; the clips that stride go from Walking to Sprint or

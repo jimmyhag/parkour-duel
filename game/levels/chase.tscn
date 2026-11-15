@@ -281,7 +281,7 @@ shape = SubResource("Shape_3_0p6_2_low_passage")
 mesh = SubResource("Mesh_3_0p6_2_low_passage")
 
 [node name="North" type="StaticBody3D" parent="Arena/LowPassages"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.75, 1.5, -7.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.75, 1.5, -8.5)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Arena/LowPassages/North"]
 shape = SubResource("Shape_3_0p6_2_low_passage")

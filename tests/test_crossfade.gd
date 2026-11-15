@@ -42,9 +42,10 @@ func test_an_interrupted_blend_does_not_jump() -> void:
 				assert_between(weight, 0.0, 1.0, context + ": a weight from 0 to 1")
 				var was: float = before.get(named, 0.0)
 				var change: float = absf(weight - was)
-				assert_lte(
-					change, FRAME / blend + 0.0001, "%s: %s does not jump" % [context, named]
-				)
+				# Eased (docs/specs/motion-weight.md, decision 8): at most the steepest slope
+				# of its curve, in the middle of the blend.
+				var most: float = Crossfade.STEEPEST * FRAME / blend
+				assert_lte(change, most + 0.0001, "%s: %s does not jump" % [context, named])
 			assert_almost_eq(total, 1.0, 0.0001, context + ": the weights make a whole")
 	assert_almost_eq(fade.weight(&"running"), 1.0, 0.0001, "the last state, wholly in")
 	assert_almost_eq(fade.weight(&"landing"), 0.0, 0.0001, "the others, gone")
@@ -59,6 +60,43 @@ func test_an_interrupted_blend_does_not_jump() -> void:
 	fade.advance(FRAME)
 	assert_almost_eq(fade.weight(&"hard_landing"), 1.0, 0.0001, "a hard landing, at once")
 	assert_almost_eq(fade.weight(&"running"), 0.0, 0.0001, "nothing else shown")
+
+
+func test_the_blends_are_eased() -> void:
+	# docs/specs/motion-weight.md, decision 8: out of a slide into the run, with the game's
+	# table; the weight of the run, frame by frame at 144 images a second.
+	var tuning: MovementTuning = load("res://game/core/movement_tuning.tres") as MovementTuning
+	var pair: float = RunnerAnimation.blend_time_between(
+		RunnerAnimation.Clip.RUNNING_SLIDE, RunnerAnimation.Clip.RUNNING, tuning
+	)
+	var fade: Crossfade = Crossfade.new()
+	fade.go_to(&"running_slide", 0.0)
+	fade.advance(FRAME)
+	fade.go_to(&"locomotion", pair)
+	var weights: Array[float] = [0.0]
+	while fade.weight(&"locomotion") < 1.0 and weights.size() < 1000:
+		fade.advance(FRAME)
+		weights.append(fade.weight(&"locomotion"))
+		var total: float = fade.weight(&"locomotion") + fade.weight(&"running_slide")
+		assert_almost_eq(total, 1.0, 0.0001, "frame %d: a whole" % weights.size())
+	var frames: int = weights.size() - 1
+	var linear: float = FRAME / pair
+	gut.p(
+		(
+			"slide to run: %d frames for %.3f s; first and last change %.4f, %.4f"
+			% [frames, pair, weights[1] - weights[0], weights[-1] - weights[-2]]
+		)
+	)
+	assert_almost_eq(frames * FRAME, pair, FRAME, "it lasts the time of its pair")
+	assert_lt(weights[1] - weights[0], linear / 4.0, "it starts at a speed near nothing")
+	assert_lt(weights[-1] - weights[-2], linear / 4.0, "and arrives at one")
+	var middle: int = roundi(pair / 2.0 / FRAME)
+	assert_almost_eq(weights[middle], 0.5, linear, "half way, half of it")
+	for frame: int in range(1, weights.size()):
+		assert_gte(weights[frame], weights[frame - 1], "frame %d: it only comes" % frame)
+	assert_almost_eq(Crossfade.eased(0.0), 0.0, 0.0001, "the curve starts at 0")
+	assert_almost_eq(Crossfade.eased(0.5), 0.5, 0.0001, "is half at mid-way")
+	assert_almost_eq(Crossfade.eased(1.0), 1.0, 0.0001, "and ends at 1")
 
 
 func test_a_blend_asked_for_again_keeps_its_time() -> void:

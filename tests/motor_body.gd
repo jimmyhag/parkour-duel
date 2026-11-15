@@ -103,6 +103,7 @@ static func fixed_tuning() -> MovementTuning:
 	tuning.animation_blend_time = 0.1
 	tuning.animation_blend_times = {
 		"running>jump": 0.05,
+		"running>running_jump": 0.05,
 		"jump>falling_idle": 0.15,
 		"falling_idle>landing": 0.05,
 		"landing>running": 0.15,
@@ -112,12 +113,13 @@ static func fixed_tuning() -> MovementTuning:
 		"tuck>*": 0.12,
 	}
 	tuning.animation_walk_speed = 1.4
+	tuning.animation_jog_speed = 6.0
 	tuning.animation_run_speed = 6.0
 	tuning.animation_sprint_speed = 7.0
-	tuning.animation_run_alone_pace = 1.3
+	tuning.animation_run_alone_pace = 1.2
 	tuning.animation_still_speed = 0.5
 	tuning.animation_landing_time = 0.25
-	tuning.animation_max_pace = 1.8
+	tuning.animation_max_pace = 1.25
 	tuning.animation_start_stop_time = 0.18
 	tuning.wall_run_body_roll = 35.0
 	tuning.wall_run_roll_time = 0.15

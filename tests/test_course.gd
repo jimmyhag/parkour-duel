@@ -238,6 +238,31 @@ func test_the_sections_can_be_cleared_with_a_jump_height_changed_by_10_percent()
 	await _assert_every_section_is_cleared_with(variants)
 
 
+func test_the_course_stays_feasible_with_the_new_tuning() -> void:
+	# docs/specs/motion-weight.md, decisions 4 and 5: the top speed, the accelerations and
+	# the durations of the gestures of the project (each section is cleared with them by the
+	# tests above, and with the top speed changed by 10 %), then the accelerations, and the
+	# durations of the gestures, changed by 10 %.
+	var tuning: MovementTuning = load(TUNING) as MovementTuning
+	assert_almost_eq(tuning.top_speed, 8.2, 0.0001, "the top speed of the spec")
+	assert_almost_eq(tuning.ground_acceleration, 24.0, 0.0001, "its acceleration")
+	assert_almost_eq(tuning.ground_deceleration, 34.0, 0.0001, "its deceleration")
+	var variants: Array[MovementTuning] = []
+	for factor: float in VARIANT_FACTORS:
+		var pushed: MovementTuning = _copy_of_the_tuning("accelerations x %.1f" % factor)
+		pushed.ground_acceleration *= factor
+		pushed.ground_deceleration *= factor
+		variants.append(pushed)
+		var gestures: MovementTuning = _copy_of_the_tuning("gestures x %.1f" % factor)
+		gestures.mantle_duration *= factor
+		gestures.vault_duration *= factor
+		gestures.roll_duration *= factor
+		gestures.hard_landing_duration *= factor
+		variants.append(gestures)
+
+	await _assert_every_section_is_cleared_with(variants)
+
+
 func test_reloading_the_tuning_applies_the_new_values() -> void:
 	var tuning: MovementTuning = (load(TUNING) as MovementTuning).duplicate() as MovementTuning
 	assert_eq(ResourceSaver.save(tuning, TUNING_COPY), OK, "a tuning file the test may edit")

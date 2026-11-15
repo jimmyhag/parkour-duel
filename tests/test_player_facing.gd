@@ -400,7 +400,8 @@ func test_out_of_a_wall_run_the_runner_stays_upright() -> void:
 	ledge.add_block_ahead(_ledge_height(tuning), 4.0)
 	var over: ScriptedIntentSource = ScriptedIntentSource.new()
 	over.hold(FORWARD, false, 20).hold(FORWARD, true, 30).hold(FORWARD, false, 15)
-	over.slide(FORWARD, 45).hold(FORWARD, false, 20)
+	# Time to land beyond, after a mantle of the project (docs/specs/motion-weight.md).
+	over.slide(FORWARD, 45).hold(FORWARD, false, 40)
 	ledge.start(ledge.near_the_face(), over)
 	var steps: int = maxi(against.length(), over.length())
 

@@ -4,9 +4,9 @@
 
 [resource]
 script = ExtResource("1_tuning")
-top_speed = 9.0
-ground_acceleration = 30.0
-ground_deceleration = 45.0
+top_speed = 8.2
+ground_acceleration = 24.0
+ground_deceleration = 34.0
 air_acceleration = 14.0
 jump_height = 1.6
 rise_gravity = 32.0
@@ -22,15 +22,15 @@ slide_turn_speed = 1.0
 slide_capsule_height = 0.9
 roll_fall_height = 4.0
 roll_window = 0.2
-roll_duration = 0.5
+roll_duration = 0.75
 hard_landing_speed_ratio = 0.35
-hard_landing_duration = 0.35
+hard_landing_duration = 0.6
 momentum_deceleration = 6.0
 max_horizontal_speed = 22.0
 push_split_angle = 45.0
 mantle_min_height = 0.9
 mantle_max_height = 2.2
-mantle_duration = 0.35
+mantle_duration = 0.7
 mantle_exit_speed = 4.0
 vault_min_speed = 4.0
 vault_reach = 0.8
@@ -38,7 +38,7 @@ vault_min_height = 0.6
 vault_max_height = 1.3
 vault_max_depth = 1.5
 vault_max_drop = 1.5
-vault_duration = 0.4
+vault_duration = 0.6
 vault_speed_kept = 0.9
 vault_two_hands_depth = 0.8
 wall_run_distance = 0.6
@@ -144,24 +144,36 @@ stick_deadzone = 0.2
 capsule_height = 1.8
 capsule_radius = 0.35
 turn_speed = 14.0
-animation_blend_time = 0.1
+animation_blend_time = 0.2
 animation_blend_times = Dictionary[String, float]({
+"*>falling_to_roll": 0.1,
+"*>hard_landing": 0.06,
+"*>land_to_run": 0.08,
+"*>landing": 0.08,
+"*>ledge_pull_up": 0.12,
 "*>tuck": 0.08,
-"falling_idle>landing": 0.05,
-"jump>falling_idle": 0.15,
-"landing>running": 0.15,
-"running>jump": 0.05,
-"running>running_slide": 0.08,
-"running_slide>running": 0.2,
-"tuck>*": 0.12
+"*>vault_one_hand": 0.12,
+"*>vault_two_hands": 0.12,
+"falling_to_roll>*": 0.25,
+"land_to_run>running": 0.25,
+"landing>running": 0.25,
+"ledge_pull_up>*": 0.25,
+"running>jump": 0.12,
+"running>running_jump": 0.12,
+"running>running_slide": 0.15,
+"running_slide>running": 0.25,
+"tuck>*": 0.12,
+"vault_one_hand>*": 0.2,
+"vault_two_hands>*": 0.2
 })
 animation_walk_speed = 1.49
+animation_jog_speed = 1.75
 animation_run_speed = 4.49
 animation_sprint_speed = 5.65
-animation_run_alone_pace = 1.3
+animation_run_alone_pace = 1.2
 animation_still_speed = 0.5
-animation_landing_time = 0.25
-animation_max_pace = 1.8
+animation_landing_time = 0.4
+animation_max_pace = 1.25
 animation_start_stop_time = 0.18
 wall_run_body_roll = 35.0
 wall_run_roll_time = 0.15

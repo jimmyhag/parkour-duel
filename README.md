@@ -48,8 +48,7 @@ is ignored by Git; each owner downloads the files and copies them there. Without
 everything works as before, the tests included.
 
 On [mixamo.com](https://www.mixamo.com) (free, with an Adobe account), download in one
-folder, as FBX Binary (.fbx), "With Skin" (Walking and Sprint without it, as the table
-says), with the default settings (In Place or not: the game removes the way forward of the
+folder, as FBX Binary (.fbx), "With Skin" (the clips the table marks without it), with the default settings (In Place or not: the game removes the way forward of the
 root), every animation with that same character selected: its bones are the ones the
 game moves (another character keeps the capsule):
 
@@ -63,6 +62,9 @@ game moves (another character keeps the capsule):
 | `Vault One Hand.fbx` | Mixamo's "Male Jumping Over An Obstacle With 1 Hand Planted", with `Ch08_nonPBR` selected, "Without Skin", 30 frames per second (In Place or not) |
 | `Vault Two Hands.fbx` | Mixamo's "Male Jumping Over An Obstacle With 2 Hands Planted", downloaded the same way as `Vault One Hand.fbx` |
 | `Ledge Pull Up.fbx` | Mixamo's "Pulling Up To A Ledge", downloaded the same way as `Vault One Hand.fbx` |
+| `Jogging.fbx` | Mixamo's "Jogging", downloaded the same way as `Vault One Hand.fbx` |
+| `Running Jump.fbx` | Mixamo's "Jumping From A Sprint", downloaded the same way as `Vault One Hand.fbx` |
+| `Land To Run.fbx` | Mixamo's "Land From Fall A To Run Forward", downloaded the same way as `Vault One Hand.fbx` |
 
 Then, from the repository root:
 
@@ -77,15 +79,18 @@ next start of Godot imports them (about a minute and a half, once). A missing fi
 named, and nothing is copied.
 
 Each state of the runner has its animation. On its feet, a blend of Idle, Walking,
-Running and Sprint on its speed (`docs/specs/locomotion-blend.md`): Idle standing,
-Walking at its own pace, Running at 1.3 times its own pace, Sprint from the top speed
-(faster beyond, with the flow), two neighbours blended in between, at the same phase of
-their stride and as fast as the feet keep up with the ground, the left one as the right
-one; the blend follows the speed no faster than a tuned time, so that a stop and a start
-go through the walk; back to the run (after a landing, a slide), the stride resumes
-where the legs already are. In the air and the other states: Jump rising, Falling Idle
-falling, Landing briefly after a small fall, Hard Landing, the roll of Falling To Roll,
-Running Slide, the hoist of Ledge Pull Up in a mantle, its hands put on the ledge; in a
+Jogging, Running and Sprint on its speed (`docs/specs/locomotion-blend.md`,
+`docs/specs/motion-weight.md`): Idle standing, Walking and Jogging at their own pace,
+Running at 1.2 times its own pace, Sprint from the top speed (faster beyond, with the
+flow), two neighbours blended in between, at the same phase of their stride and as fast
+as the feet keep up with the ground, the left one as the right one; the blend follows the
+speed no faster than a tuned time, so that a stop and a start go through the walk; back to
+the run (after a landing, a slide), the stride resumes where the legs already are. In the
+air, one jump, Running Jump from a run or Jump standing, whose pose follows the vertical
+speed (from the take-off to the top while rising, from the top to the approach of the
+ground while falling), then Falling Idle in a fall longer than a jump's. Then Land To Run
+after a small fall on the move, Landing standing, Hard Landing, the roll of Falling To
+Roll, Running Slide, the hoist of Ledge Pull Up in a mantle, its hands put on the ledge; in a
 vault, Vault One Hand, or Vault Two Hands over an obstacle deeper than 0.8 m, its hands put
 on the real top of the obstacle (inverse kinematics) and its body at the obstacle's real
 height (`docs/specs/vault.md`); along a wall, the run of
@@ -93,11 +98,12 @@ the blend, Running or Sprint by the speed along the wall, the whole body rolled 
 the way it runs, its feet towards the wall and its head away from it, and moved across
 once so that its feet brush the wall (`docs/specs/animation-polish.md`); during a trick,
 a tucked pose taken from Backflip, the body turning as before; while aiming, the upper
-body holds Pistol Idle. Every change shows through a blend, even one cut short by the
-next; the visible body and the blend move at every frame shown, between two fixed steps;
-no clip plays faster than 1.8 times its own pace (a state too short for its clip plays
-its first part). The blend times (a table of pairs, "from>to", and a default), the speed
-of the stride of Walking, Running and Sprint (measured from their clips), the pace of
+body holds Pistol Idle. Every change shows through an eased blend, even one cut short by
+the next (only a crash comes at once); the visible body and the blend move at every frame
+shown, between two fixed steps; no clip plays faster than 1.25 times its own pace, and
+each gesture (mantle, vault, roll, landings) lasts the part of its clip kept for it. The
+blend times (a table of pairs, "from>to", and a default), the speed of the stride of
+Walking, Jogging, Running and Sprint (measured from their clips), the pace of
 Running where it plays alone, the speed under which a runner stands still, how long a
 start or a stop takes at the least, how long Landing plays, the fastest pace of a clip,
 and the roll of the body along a wall and how long it takes to come and to go are in the

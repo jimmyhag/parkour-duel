@@ -18,8 +18,9 @@ const MANY_STEPS: int = 600
 ## The weights of the locomotion, in the order of RunnerAnimation.LOCOMOTION.
 const IDLE: int = 0
 const WALKING: int = 1
-const RUNNING: int = 2
-const SPRINT: int = 3
+const JOGGING: int = 2
+const RUNNING: int = 3
+const SPRINT: int = 4
 ## Speeds well spread over the whole range of the locomotion, in m/s.
 const SPEEDS: Array[float] = [0.0, 0.3, 0.5, 0.9, 1.4, 2.0, 4.4, 7.0, 9.0, 9.4, 10.0, 10.35, 14.0]
 ## A made-up stride of three clips: the height of the left foot (its ankle and its toe)
@@ -88,12 +89,14 @@ func before_each() -> void:
 
 
 func test_the_blend_space_weights_follow_the_speed() -> void:
-	# Running alone at 1.3 times its own speed, Sprint alone from the top speed
-	# (docs/specs/locomotion-blend.md, decision 1 as amended).
+	# Running alone at 1.2 times its own speed (under the cap of 1.25 of
+	# docs/specs/motion-weight.md), Sprint alone from the top speed
+	# (docs/specs/locomotion-blend.md, decision 1 as amended); Jogging between the walk and the
+	# run (docs/specs/motion-weight.md, decision 4).
 	var run_point: float = _tuning.animation_run_speed * _tuning.animation_run_alone_pace
-	assert_almost_eq(_tuning.animation_run_alone_pace, 1.3, 0.0001, "Running alone at 1.3 times")
+	assert_almost_eq(_tuning.animation_run_alone_pace, 1.2, 0.0001, "Running alone at 1.2 times")
 	var still: PackedFloat32Array = _weights_of(_running_at(0.0))
-	var between: float = (_tuning.animation_walk_speed + run_point) / 2.0
+	var between: float = (_tuning.animation_jog_speed + run_point) / 2.0
 	var walking_and_running: PackedFloat32Array = _weights_of(_running_at(between))
 	var running: PackedFloat32Array = _weights_of(_running_at(run_point))
 	var faster: float = (run_point + _tuning.top_speed) / 2.0
@@ -106,20 +109,24 @@ func test_the_blend_space_weights_follow_the_speed() -> void:
 		flowing.step(_push(FORWARD))
 	var with_the_flow: PackedFloat32Array = _weights_of(flowing)
 
-	_assert_weights(still, [1.0, 0.0, 0.0, 0.0], "still: Idle alone")
-	assert_almost_eq(walking_and_running[WALKING], 0.5, 0.02, "between: half Walking")
+	_assert_weights(still, [1.0, 0.0, 0.0, 0.0, 0.0], "still: Idle alone")
+	assert_almost_eq(walking_and_running[JOGGING], 0.5, 0.02, "between: half Jogging")
 	assert_almost_eq(walking_and_running[RUNNING], 0.5, 0.02, "and half Running")
-	_assert_weights(running, [0.0, 0.0, 1.0, 0.0], "at 1.3 times its own speed: Running alone")
+	_assert_weights(running, [0.0, 0.0, 0.0, 1.0, 0.0], "at 1.2 times its speed: Running alone")
 	assert_almost_eq(running_and_sprinting[RUNNING], 0.5, 0.02, "faster: half Running")
 	assert_almost_eq(running_and_sprinting[SPRINT], 0.5, 0.02, "and half Sprint")
-	_assert_weights(at_top_speed, [0.0, 0.0, 0.0, 1.0], "at the top speed: Sprint alone")
+	_assert_weights(at_top_speed, [0.0, 0.0, 0.0, 0.0, 1.0], "at the top speed: Sprint alone")
 	assert_gt(flowing.motor.real_speed(), _tuning.top_speed, "with the flow, faster")
-	_assert_weights(with_the_flow, [0.0, 0.0, 0.0, 1.0], "beyond, with the flow: Sprint alone")
+	_assert_weights(with_the_flow, [0.0, 0.0, 0.0, 0.0, 1.0], "beyond, with the flow: Sprint alone")
 
 	var walking: PackedFloat32Array = RunnerAnimation.locomotion_weights(
 		_tuning.animation_walk_speed, _tuning
 	)
-	_assert_weights(walking, [0.0, 1.0, 0.0, 0.0], "at its own speed: Walking alone")
+	_assert_weights(walking, [0.0, 1.0, 0.0, 0.0, 0.0], "at its own speed: Walking alone")
+	var walk_and_jog: float = (_tuning.animation_walk_speed + _tuning.animation_jog_speed) / 2.0
+	var walking_and_jogging: PackedFloat32Array = _weights_of(_running_at(walk_and_jog))
+	assert_almost_eq(walking_and_jogging[WALKING], 0.5, 0.02, "slower: half Walking")
+	assert_almost_eq(walking_and_jogging[JOGGING], 0.5, 0.02, "and half Jogging")
 	var animation: RunnerAnimation = RunnerAnimation.of(_running_at(between).motor, STEP)
 	assert_eq(animation.clip, RunnerAnimation.Clip.RUNNING, "moving on its feet: the locomotion")
 	assert_eq(animation.locomotion, walking_and_running, "with its weights")
@@ -132,12 +139,12 @@ func test_the_blend_space_weights_follow_the_speed() -> void:
 	)
 	_assert_weights(
 		RunnerAnimation.locomotion_weights(game_point, game_tuning),
-		[0.0, 0.0, 1.0, 0.0],
+		[0.0, 0.0, 0.0, 1.0, 0.0],
 		"the game's tuning: Running alone there"
 	)
 	_assert_weights(
 		RunnerAnimation.locomotion_weights(game_tuning.top_speed, game_tuning),
-		[0.0, 0.0, 0.0, 1.0],
+		[0.0, 0.0, 0.0, 0.0, 1.0],
 		"the game's tuning: Sprint alone at the top speed"
 	)
 
@@ -168,15 +175,20 @@ func test_the_stop_goes_through_the_walk() -> void:
 		var most: float = STEP / tuning.animation_start_stop_time + 0.0001
 		var was: float = moving[moving.size() - 1]
 		assert_lte(absf(share - was), most, context + ": Idle comes and goes smoothly")
-		for clip: int in [WALKING, RUNNING, SPRINT]:
+		for clip: int in [WALKING, JOGGING, RUNNING, SPRINT]:
 			var change: float = absf(shown.locomotion[clip] - before.locomotion[clip])
-			assert_lte(change, 2.0 * most, context + ": no clip jumps in or out")
+			# No faster than from Walking to Sprint in the tuned time (locomotion_moved): the
+			# clips that stride, one after the other, less one.
+			var along: float = RunnerAnimation.LOCOMOTION.size() - 2
+			assert_lte(change, along * most, context + ": no clip jumps in or out")
 		moving.append(share)
 		# Without skipping the walk: as Idle comes, Walking is the clip it blends with; as it
 		# goes, Walking shows, and alone with it at first.
 		if share > 0.0 and share < 1.0:
 			var walking: float = shown.locomotion[WALKING]
-			var others: float = maxf(shown.locomotion[RUNNING], shown.locomotion[SPRINT])
+			var others: float = maxf(
+				shown.locomotion[JOGGING], maxf(shown.locomotion[RUNNING], shown.locomotion[SPRINT])
+			)
 			if step < STOP_STEPS:
 				assert_gt(walking, others, context + ": stopping, through the walk")
 			else:
@@ -211,6 +223,41 @@ func test_the_weights_always_make_a_whole() -> void:
 		assert_almost_eq(total, 1.0, 0.0001, context + ": they sum to 1")
 
 
+func test_the_locomotion_goes_through_jogging() -> void:
+	# docs/specs/motion-weight.md, decision 4: from the walk to the run, Jogging has its
+	# share, alone at its own speed; the weights always make a whole.
+	var run_point: float = _tuning.animation_run_speed * _tuning.animation_run_alone_pace
+	var walk: float = _tuning.animation_walk_speed
+	var jog: float = _tuning.animation_jog_speed
+	assert_between(jog, walk, run_point, "Jogging between the walk and the run")
+	var most: float = 0.0
+	var speed: float = walk
+	while speed <= run_point:
+		var weights: PackedFloat32Array = _weights_of(_running_at(speed))
+		var context: String = "at %.2f m/s" % speed
+		var total: float = 0.0
+		for weight: float in weights:
+			assert_between(weight, 0.0, 1.0, context + ": between 0 and 1")
+			total += weight
+		assert_almost_eq(total, 1.0, 0.0001, context + ": a whole")
+		most = maxf(most, weights[JOGGING])
+		if speed > walk and speed < run_point - 0.01:
+			assert_gt(weights[JOGGING], 0.0, context + ": Jogging has its share")
+		speed += 0.05
+	assert_almost_eq(most, 1.0, 0.01, "Jogging alone somewhere")
+	_assert_weights(
+		RunnerAnimation.locomotion_weights(jog, _tuning),
+		[0.0, 0.0, 1.0, 0.0, 0.0],
+		"at its own speed: Jogging alone"
+	)
+	var game_tuning: MovementTuning = load(TUNING) as MovementTuning
+	_assert_weights(
+		RunnerAnimation.locomotion_weights(game_tuning.animation_jog_speed, game_tuning),
+		[0.0, 0.0, 1.0, 0.0, 0.0],
+		"the game's tuning: Jogging alone at its own speed"
+	)
+
+
 func test_the_blended_clips_keep_the_same_phase() -> void:
 	# The rule, on the measures of two made-up clips: where the left foot touches the
 	# ground in each, read from its heights; the blended stride then goes as fast as the
@@ -243,10 +290,11 @@ func test_the_blended_clips_keep_the_same_phase() -> void:
 		pass_test("without the Mixamo files, the rule alone")
 		return
 	var tree: AnimationTree = _tree_of(character)
-	var between: float = (_tuning.animation_walk_speed + _tuning.top_speed) / 2.0
 	var game_tuning: MovementTuning = load(TUNING) as MovementTuning
+	var game_run: float = game_tuning.animation_run_speed * game_tuning.animation_run_alone_pace
+	var between: float = (game_tuning.animation_jog_speed + game_run) / 2.0
 	var animation: RunnerAnimation = _locomotion_at(between, game_tuning)
-	assert_gt(animation.locomotion[WALKING], 0.0, "walking")
+	assert_gt(animation.locomotion[JOGGING], 0.0, "jogging")
 	assert_gt(animation.locomotion[RUNNING], 0.0, "and running")
 	for step: int in SETTLE_STEPS:
 		await get_tree().physics_frame
@@ -256,9 +304,10 @@ func test_the_blended_clips_keep_the_same_phase() -> void:
 	for clip: RunnerAnimation.Clip in RunnerCharacter.STRIDES:
 		var phase: float = tree.get(RunnerCharacter.stride_position(clip))
 		phases.append(phase)
-	gut.p("phases of Walking, Running, Sprint: %s" % [phases])
-	assert_almost_eq(phases[0], phases[1], 0.001, "Walking and Running at the same phase")
-	assert_almost_eq(phases[1], phases[2], 0.001, "Running and Sprint at the same phase")
+	gut.p("phases of Walking, Jogging, Running, Sprint: %s" % [phases])
+	assert_almost_eq(phases[0], phases[1], 0.001, "Walking and Jogging at the same phase")
+	assert_almost_eq(phases[1], phases[2], 0.001, "Jogging and Running at the same phase")
+	assert_almost_eq(phases[2], phases[3], 0.001, "Running and Sprint at the same phase")
 	assert_gt(phases[0], 0.0, "the stride moves on")
 
 	# At the phase 0 of each clip alone, as the tree plays it, its left foot touches the
@@ -271,7 +320,8 @@ func test_the_blended_clips_keep_the_same_phase() -> void:
 	]
 	var points: Array[float] = [
 		game_tuning.animation_walk_speed,
-		game_tuning.animation_run_speed * game_tuning.animation_run_alone_pace,
+		game_tuning.animation_jog_speed,
+		game_run,
 		game_tuning.top_speed,
 	]
 	for point: int in points.size():
@@ -341,12 +391,13 @@ func test_each_transition_has_its_blend_time() -> void:
 	jump.jump_held = true
 	body.step(jump)
 	var jumping: RunnerAnimation = RunnerAnimation.of(body.motor, STEP, running)
-	assert_eq(jumping.clip, RunnerAnimation.Clip.JUMP, "it jumps")
+	assert_eq(jumping.clip, RunnerAnimation.Clip.RUNNING_JUMP, "it jumps from the run")
 	assert_eq(jumping.blend_time, 0.05, "with the blend time of run → jump")
 
 
 func test_an_abrupt_entry_stays_without_a_blend() -> void:
-	# Even a table that would give them one.
+	# Even a table that would give them one. A hard landing now takes it
+	# (docs/specs/motion-weight.md, decision 8): only a crash stays without a blend.
 	_tuning.animation_blend_times["falling_idle>hard_landing"] = 0.3
 	_tuning.animation_blend_times["*>hard_landing"] = 0.3
 	_tuning.animation_blend_times["tuck>*"] = 0.3
@@ -361,7 +412,7 @@ func test_an_abrupt_entry_stays_without_a_blend() -> void:
 		steps += 1
 	var hard: RunnerAnimation = RunnerAnimation.of(falling.motor, STEP, before)
 	assert_eq(hard.clip, RunnerAnimation.Clip.HARD_LANDING, "a hard landing")
-	assert_eq(hard.blend_time, 0.0, "without a blend")
+	assert_eq(hard.blend_time, 0.3, "with the blend of the table")
 
 	var tricking: MotorBody = _running_at(_tuning.top_speed)
 	var release: MoveIntent = _push(FORWARD)
@@ -438,7 +489,7 @@ func test_the_run_resumes_at_the_right_stride() -> void:
 ## as Idle weighs, and the walk plays as much faster, so that its foot on the ground keeps
 ## up with the ground, as long as the walk plays no faster than the tuning allows.
 func _assert_the_walk_keeps_up_with_the_ground() -> void:
-	var lengths: PackedFloat32Array = [0.0, 1.0, 0.7, 0.5]
+	var lengths: PackedFloat32Array = [0.0, 1.0, 0.9, 0.7, 0.5]
 	var speeds: PackedFloat32Array = RunnerAnimation.stride_speeds(_tuning)
 	var kept_up: int = 0
 	var speed: float = _tuning.animation_still_speed + 0.05
@@ -474,7 +525,7 @@ func _planted_feet_speeds(
 	var game_tuning: MovementTuning = load(TUNING) as MovementTuning
 	var animation: RunnerAnimation = RunnerAnimation.new()
 	animation.clip = RunnerAnimation.Clip.RUNNING
-	animation.locomotion = [0.0, 0.0, 0.0, 0.0]
+	animation.locomotion = [0.0, 0.0, 0.0, 0.0, 0.0]
 	animation.locomotion[RunnerAnimation.LOCOMOTION.find(clip)] = 1.0
 	animation.speed = ground / RunnerAnimation.own_speed(animation.locomotion, game_tuning)
 	for step: int in SETTLE_STEPS:
