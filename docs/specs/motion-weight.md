@@ -1,6 +1,6 @@
 # Du poids et du liant : des mouvements moins rapides, des animations qui coulent
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-15, avec Jimmy, après qu'il a joué le mode Chase et le
 franchissement : « pour ce qui est des mouvements, je les trouve trop rapides et pas
