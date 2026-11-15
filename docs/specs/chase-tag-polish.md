@@ -78,10 +78,33 @@ Fonctionnalité: L'attrape se voit
 Le développeur rapporte les morceaux de clips retenus (début, fin, rythme), le temps au
 sol final, la mesure sur 42 manches si un temps a changé, et le temps de `just check`.
 
+## Amendements
+
+Après l'inspection, le 2026-11-15, par la session principale (choix délégué par Jimmy) :
+
+- **Décision 1** : Getting Up met environ 3,4 s de clip des mains jusqu'à debout, ce qui
+  ne tient pas dans 1,2 s au rythme de 1,25. Un pont de 0,1 s à la place de 2,2 s de clip
+  ferait « sauter » le corps de 0,55 m : refusé. Pour **ce seul clip** (le relevé), le
+  rythme peut monter jusqu'à `tag_getup_max_pace` (**2,0**), et `tag_dive_recovery`
+  jusqu'à **1,6 s**. Une coupe entre deux morceaux n'est permise qu'entre deux poses
+  proches : les hanches et les mains à **moins de 0,1 m** l'une de l'autre. La poussée
+  des mains se joue, elle n'est jamais pontée. Le relevé finit **debout** (les hanches
+  à au moins 90 % de leur hauteur de course).
+- **Décision 2** : le déséquilibre ne se joue qu'au sol. Une touche ratée en l'air ne
+  trébuche pas : son bras revient seulement.
+- **Décision 3** : la pause vaut aussi pour l'attrape qui finit le match ; l'écran de fin
+  attend `chase_catch_pause`, comme l'écran entre deux manches.
+- **Décision 4** : la caméra suit la hauteur des hanches du corps visible quand les
+  fichiers Mixamo sont là, et une courbe calculée depuis le réglage sinon. C'est de la
+  présentation seulement : rien de ce que le moteur constate n'en dépend.
+- **Décision 5** : deux tests de `chase-tag.md` changent, parce que les décisions 3 et 6
+  l'imposent, sans perdre une assertion. `test_the_catch_of_a_touch_is_observed_not_the_contact`
+  attend la pause. La liste des clips non copiés disparaît de `test_mixamo_files.gd`.
+
 ## UI & Layout Contract
 
 - **Référence visuelle** : aucune ; Jimmy juge en jouant.
-- **Arbre de composants** : l'écran entre deux manches (attend la pause) ; rien d'autre ne
+- **Arbre de composants** : l'écran entre deux manches et l'écran de fin de match (attendent la pause) ; rien d'autre ne
   change dans les écrans.
 - **Libellés** : aucun nouveau.
 
