@@ -69,7 +69,7 @@ game moves (another character keeps the capsule):
 | `Run To Dive.fbx` | Mixamo's "Diving From A Run Pose" (the dive of the cat), downloaded the same way as `Vault One Hand.fbx` |
 | `Getting Up.fbx` | Mixamo's "Getting Up From Stomach" (the cat getting up after a dive missed), downloaded the same way as `Vault One Hand.fbx` |
 | `Jogging Stumble.fbx` | the Mixamo animation downloaded under that name (the stumble of a touch missed, and of the mouse touched), downloaded the same way as `Vault One Hand.fbx` |
-| `Falling Flat Impact.fbx` | the Mixamo animation downloaded under that name (the end of the dive of the cat, and the fall of the mouse caught by a dive), downloaded the same way as `Vault One Hand.fbx` |
+| `Falling Flat Impact.fbx` | the Mixamo animation downloaded under that name (the fall of the mouse caught by a dive), downloaded the same way as `Vault One Hand.fbx` |
 
 Then, from the repository root:
 

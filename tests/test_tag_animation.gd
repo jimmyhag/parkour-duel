@@ -15,9 +15,8 @@ const TUNING: String = "res://game/core/movement_tuning.tres"
 ## Measured on the bones of the files, as a share of the height of the hips at rest: lying
 ## on the ground, the hips lower than this; the hands on it, lower than this; on all fours,
 ## the hips higher than this. Up again, the hips higher than this share of their mean height
-## in the run, sampled this many times: the amendment of decision 1 asks for 0.9, which the
-## time and the pace it allows do not reach (Getting Up stands at 0.89 to 0.90 of the run,
-## at 0.9 only 8.1 s into its file); they allow 0.85.
+## in the run, sampled this many times: 0.84, as the amendment of decision 1 says (Getting
+## Up stands at 0.89 to 0.90 of the run, and the blend into the run finishes it).
 const LYING_SHARE: float = 0.3
 const HANDS_DOWN_SHARE: float = 0.3
 const ALL_FOURS_SHARE: float = 0.6

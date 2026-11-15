@@ -185,6 +185,7 @@ animation_blend_times = Dictionary[String, float]({
 "*>tuck": 0.08,
 "*>vault_one_hand": 0.12,
 "*>vault_two_hands": 0.12,
+"dive>getting_up": 0.08,
 "falling_to_roll>*": 0.25,
 "land_to_run>running": 0.25,
 "landing>running": 0.25,
