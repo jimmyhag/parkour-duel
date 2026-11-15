@@ -2,15 +2,18 @@ class_name ChaseRoundScreen
 extends Control
 ## The screen between two rounds of the chase (ChaseState, game/core), over both views:
 ## who won the round that just ended, CAT WINS or MOUSE WINS, and the rounds each player
-## has won; the countdown of the next round shows over it. Hidden during a round and once
+## has won, with their names (PLAYER 1 and PLAYER 2, or YOU and BOT against the bot); the
+## countdown of the next round shows over it. Hidden during a round and once
 ## the match is over. Nothing takes the focus.
 
 const CAT_WINS: String = "CAT WINS"
 const MOUSE_WINS: String = "MOUSE WINS"
-const SCORE: String = "PLAYER 1   %d - %d   PLAYER 2"
+const SCORE: String = "%s   %d - %d   %s"
 
 ## The chase to show.
 var chase: ChaseState
+## The names of player 1 and of player 2.
+var names: Array[String] = ["PLAYER 1", "PLAYER 2"]
 
 @onready var _verdict: Label = %Verdict as Label
 @onready var _score: Label = %Score as Label
@@ -29,7 +32,7 @@ func refresh() -> void:
 	_verdict.modulate = (
 		chase.tuning.chase_cat_colour if cat_won else chase.tuning.chase_mouse_colour
 	)
-	_score.text = SCORE % [chase.score[0], chase.score[1]]
+	_score.text = SCORE % [names[0], chase.score[0], chase.score[1], names[1]]
 
 
 ## The texts of the verdict and of the score.

@@ -1,6 +1,6 @@
 # Le Chase contre un bot : un adversaire qui court, franchit et grimpe
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-15, avec Jimmy, après avoir joué le tempo réaliste
 (`docs/specs/realistic-tempo.md`, « un peu plus lent, un peu mieux ») : « est-ce que tu
