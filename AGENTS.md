@@ -171,11 +171,11 @@ game/               the game, one folder per layer (table above)
                     and laid against it from the measure of the bones of its run, its
                     hands put by inverse kinematics on what it vaults or climbs and its
                     body at the real height of a vault, its upper body reaching out for a
-                    touch and its hand on the runner it reaches, the dive and the getting
-                    up each made of two parts of files; the capsule otherwise, lying
-                    forward in a dive), the clips made from the Mixamo files, camera rig
-                    (over the shoulder while aiming, still while a trick is drawn, down
-                    with the body on the ground), intents read from the inputs (the mouse or the right stick
+                    touch and its hand on the runner it reaches, the getting up made of
+                    two parts of its file; the capsule otherwise, lying forward in a
+                    dive), the clips made from the Mixamo files, camera rig (over the
+                    shoulder while aiming, still while a trick is drawn, down with the
+                    hips of the body on the ground), intents read from the inputs (the mouse or the right stick
                     draw the trick; in a split screen, of one device only, with the
                     actions made for it), and what the body observes around it (floor,
                     walls, ledges, obstacles ahead) and under the reticle; the pilot,
@@ -190,8 +190,8 @@ game/               the game, one folder per layer (table above)
                     countdown, the start screen (and the level of the bot of the chase)
                     and the result screens, and for the chase the view
                     of each player of the split screen, its role, time and indicator,
-                    the screen between two rounds (which waits for the pause after a
-                    catch), and the sounds of a catch and of a miss
+                    the screen between two rounds (which, like the result, waits for the
+                    pause after a catch), and the sounds of a catch and of a miss
   levels/           the lane of the course, the solo course (test_course.tscn), the
                     duel (two lanes), the Trick Park (trick_park.tscn), the chase (its
                     arena of 24 m with its loops round its obstacles and their

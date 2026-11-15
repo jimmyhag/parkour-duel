@@ -224,9 +224,10 @@ func test_the_catch_of_a_touch_is_observed_not_the_contact() -> void:
 
 
 func test_the_touched_mouse_reacts() -> void:
-	# docs/specs/chase-tag-polish.md, decision 3: the round is over at the very step of the
-	# catch; the mouse stumbles after a touch and falls flat after a dive; CAUGHT! waits for
-	# the tuned pause, so that its reaction is seen.
+	# docs/specs/chase-tag-polish.md, decision 3 as amended: the round is over at the very
+	# step of the catch; the mouse stumbles after a touch, for the time a touch missed costs,
+	# and falls flat after a dive; CAUGHT! and the result of the match wait for the tuned
+	# pause, so that its reaction is seen.
 	var chase: Chase = _add_chase()
 	var screen: ChaseRoundScreen = chase.get_node("Screens/RoundScreen") as ChaseRoundScreen
 	var tuning: MovementTuning = chase.players[ONE].tuning
@@ -239,9 +240,14 @@ func test_the_touched_mouse_reacts() -> void:
 	var heights: Array[float] = []
 	var shown: Array[RunnerAnimation.Clip] = await _the_reaction(chase, cat, mouse, screen, heights)
 	assert_eq(shown[0], RunnerAnimation.Clip.STUMBLE, "a touch: the mouse stumbles at once")
+	var stumbling: int = shown.find_custom(func(clip: int) -> bool: return clip != shown[0])
+	var recovery: int = roundi(tuning.tag_touch_recovery * STEPS_PER_SECOND)
+	assert_eq(stumbling, recovery, "for the time a touch missed costs")
 
-	# The next round: the cat runs at the mouse standing near a wall, and dives.
+	# The next round, the last one: the cat runs at the mouse standing near a wall, and
+	# dives; its catch ends the match, whose result waits for the pause too.
 	await _wait_for_go(chase)
+	chase.chase.score[chase.chase.cat] = tuning.chase_rounds_to_win - 1
 	cat = chase.players[chase.chase.cat]
 	mouse = chase.players[chase.chase.mouse()]
 	var arena: Node3D = chase.get_node("Arena") as Node3D
@@ -469,7 +475,9 @@ func _the_reaction(
 	chase: Chase, cat: Player, mouse: Player, screen: ChaseRoundScreen, heights: Array[float]
 ) -> Array[RunnerAnimation.Clip]:
 	var pause: int = roundi(cat.tuning.chase_catch_pause * STEPS_PER_SECOND)
-	assert_eq(chase.chase.phase, ChaseState.Phase.ROUND_OVER, "the round is over")
+	var result: ResultScreen = chase.get_node("Screens/ResultScreen") as ResultScreen
+	var over: bool = chase.chase.phase == ChaseState.Phase.MATCH_OVER
+	assert_true(over or chase.chase.phase == ChaseState.Phase.ROUND_OVER, "the round is over")
 	assert_eq(chase.chase.round_winner_role, ChaseState.Role.CAT, "won by the cat")
 	var caught_at: int = chase.chase.end_step
 	assert_eq(chase.match_steps, caught_at, "at the very step of the catch")
@@ -480,10 +488,14 @@ func _the_reaction(
 		screen.refresh()
 		var step: int = chase.match_steps - caught_at
 		assert_false(screen.visible, "step %d of the pause: not yet" % step)
+		assert_false(result.visible, "step %d of the pause: no result yet" % step)
 		await get_tree().physics_frame
 	screen.refresh()
-	assert_true(screen.visible, "the screen between two rounds after the pause")
-	assert_eq(screen.lines()[0], "CAUGHT!", "CAUGHT!")
+	if over:
+		assert_true(result.visible, "the result of the match after the pause")
+	else:
+		assert_true(screen.visible, "the screen between two rounds after the pause")
+		assert_eq(screen.lines()[0], "CAUGHT!", "CAUGHT!")
 	assert_eq(chase.chase.end_step, caught_at, "the round still over at the step of the catch")
 	return shown
 

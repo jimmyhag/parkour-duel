@@ -346,8 +346,8 @@ click, or the left trigger), on the ground and running, throws the cat forward, 
 faster, and reaches farther. A gesture that reaches nobody costs: after a touch the cat
 runs slower for a moment and stumbles, after a dive it lies on the ground, then gets up
 (the camera goes down with it, and back up). Caught, the mouse loses the round (an
-impact, and the mouse stumbles after a touch or falls flat after a dive; CAUGHT! shows
-once it has been seen); still free after 20 s, it wins it. The
+impact, and the mouse stumbles after a touch or falls flat after a dive; CAUGHT!, or the
+result of the match, shows once it has been seen); still free after 20 s, it wins it. The
 mouse has no gesture. The roles swap at every round, and the first to win 3 rounds wins the
 match. Each view shows its player's role (CAT or MOUSE) and the time left at the top,
 its flow at the bottom (the flow, the tricks and their speed bonus work as everywhere,

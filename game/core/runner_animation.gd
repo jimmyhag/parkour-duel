@@ -370,12 +370,22 @@ static func blend_time_between(from: Clip, to: Clip, tuning: MovementTuning) -> 
 
 
 ## How fast a clip `length` s long plays to last `duration` s (its own pace without a
-## duration), never faster than the tuning allows: a clip too long for its move plays its
-## first part only.
-static func fitted_pace(length: float, duration: float, tuning: MovementTuning) -> float:
+## duration), never faster than the tuning allows for `clip` (fastest_pace): a clip too long
+## for its move plays its first part only.
+static func fitted_pace(
+	length: float, duration: float, tuning: MovementTuning, clip: Clip = Clip.IDLE
+) -> float:
 	if duration <= 0.0:
 		return 1.0
-	return minf(length / duration, tuning.animation_max_pace)
+	return minf(length / duration, fastest_pace(clip, tuning))
+
+
+## The fastest `clip` may play, as a share of its own pace: the cap of the tuning, but for the
+## getting up after a dive missed, which has its own (docs/specs/chase-tag-polish.md).
+static func fastest_pace(clip: Clip, tuning: MovementTuning) -> float:
+	if clip == Clip.GETTING_UP:
+		return tuning.tag_getup_max_pace
+	return tuning.animation_max_pace
 
 
 ## The roll of the body about the way it runs, in radians (positive: its head to its left),

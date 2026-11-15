@@ -339,6 +339,9 @@ extends Resource
 ## that time, how long it lies there before it gets up, in s (docs/specs/chase-tag-polish.md).
 @export var tag_dive_recovery: float = 0.0
 @export var tag_down_lying: float = 0.0
+## The getting up after it may play this many times faster than its own pace, the only clip
+## allowed past animation_max_pace (docs/specs/chase-tag-polish.md, amendment of decision 1).
+@export var tag_getup_max_pace: float = 0.0
 ## The camera of a cat that dives and lies on the ground looks from this height above its
 ## feet, in m, instead of camera_look_height; it goes there, and back up as the cat gets up,
 ## smoothed: it covers about two thirds of the way left in this time, in s.

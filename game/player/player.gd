@@ -110,7 +110,11 @@ func _physics_process(delta: float) -> void:
 		_caught_steps += 1
 	else:
 		animation = RunnerAnimation.of(motor, delta, animation)
+	# The camera goes down with the body: its hips with the character, the curve of the
+	# animation otherwise (presentation only).
 	camera_rig.lowered = animation.lowered
+	if _character != null and animation.lowered > 0.0:
+		camera_rig.lowered = _character.lowered()
 	_lean_along_the_wall(delta)
 	_pose()
 	if _character != null:

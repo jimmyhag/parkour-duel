@@ -16,7 +16,7 @@ extends Node3D
 ## bonus to its motor; there is no weapon, no aim and no target (ChaseIntentSource). A catch
 ## ends the round at its very step; the players are held where they are, and the mouse
 ## reacts to the gesture that caught it, for the pause of the tuning, before the countdown
-## of the next round (docs/specs/chase-tag-polish.md). Between
+## of the next round, or the result of the match (docs/specs/chase-tag-polish.md). Between
 ## two rounds a screen shows the winner of the round and the score over the countdown;
 ## at the end of the match, the result, with the rematch and the way back to the menu. A
 ## catch and a miss each play their sound (ChaseSounds).
@@ -139,7 +139,10 @@ func _physics_process(_delta: float) -> void:
 		catch_pause -= 1
 		if catch_pause == 0:
 			_round_screen.waiting = false
-			_begin_the_countdown()
+			if chase.phase == ChaseState.Phase.MATCH_OVER:
+				_end_the_match()
+			else:
+				_begin_the_countdown()
 	else:
 		var before: ChaseState.Phase = chase.phase
 		_play_the_step()
@@ -212,7 +215,10 @@ func _follow_the_phase() -> void:
 			else:
 				_begin_the_countdown()
 		ChaseState.Phase.MATCH_OVER:
-			_end_the_match()
+			if chase.round_winner_role == ChaseState.Role.CAT:
+				_show_the_catch()
+			else:
+				_end_the_match()
 
 
 ## Whether the cat `cat` catches the mouse `mouse` at the step they just played: a gesture
@@ -259,7 +265,8 @@ func _begin_the_countdown() -> void:
 
 
 ## The cat has just caught the mouse: the players held where they are, and the screen
-## between two rounds hidden, for the pause of the tuning, so that the mouse is seen reacting.
+## between two rounds or the result hidden, for the pause of the tuning, so that the mouse is
+## seen reacting.
 func _show_the_catch() -> void:
 	var tuning: MovementTuning = players[PLAYER_ONE].tuning
 	catch_pause = maxi(roundi(tuning.chase_catch_pause * steps_per_second), 1)
