@@ -2,9 +2,10 @@ class_name ChaseState
 extends RefCounted
 ## The state of a chase between player 0 and player 1: a match of rounds, in each of which
 ## one player is the cat and the other the mouse. It sees nothing but dated messages
-## (ChaseMessage): the start of a round at GO, the contact of the cat with the mouse, the
-## end of the time of the round. A contact before the time is up wins the round for the
-## cat; the time up wins it for the mouse. The roles swap at the start of every round
+## (ChaseMessage): the start of a round at GO, a gesture of the cat that catches the mouse
+## (docs/specs/chase-tag.md; the bodies alone touching catch nothing), the end of the time
+## of the round. A catch by the cat before the time is up wins the round for it; the time
+## up wins it for the mouse. The roles swap at the start of every round
 ## after the first, whose cat is given (player 0 unless said); the first to win the rounds
 ## of the tuning wins the match. It holds the flow of each player, which starts from zero with every
 ## round and freezes at its end.
@@ -60,8 +61,9 @@ func receive(message: ChaseMessage) -> void:
 		ChaseMessage.Kind.START:
 			if phase == Phase.COUNTDOWN or phase == Phase.ROUND_OVER:
 				_start(message.step)
-		ChaseMessage.Kind.CONTACT:
-			if phase == Phase.RUNNING and message.step < _time_up_step():
+		ChaseMessage.Kind.CATCH:
+			var in_time: bool = message.step < _time_up_step()
+			if phase == Phase.RUNNING and in_time and message.player == cat:
 				_end(cat, Role.CAT, message.step)
 		ChaseMessage.Kind.TIME_UP:
 			if phase == Phase.RUNNING:

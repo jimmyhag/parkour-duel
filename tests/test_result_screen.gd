@@ -49,7 +49,7 @@ func test_the_result_screen_shows_the_end_of_a_chase() -> void:
 	for round_number: int in 3:
 		chase.receive(ChaseMessage.start(step))
 		if chase.cat == OPPONENT:
-			chase.receive(ChaseMessage.contact(step + 60))
+			chase.receive(ChaseMessage.catch(step + 60, chase.cat, Tag.Gesture.TOUCH))
 		else:
 			chase.receive(ChaseMessage.time_up(step + chase.round_steps()))
 		step += 2000
@@ -93,11 +93,13 @@ func test_the_end_of_the_match_says_who_won() -> void:
 	add_child_autofree(round_screen)
 	var under_way: ChaseState = ChaseState.new(MotorBody.fixed_tuning(), STEPS_PER_SECOND)
 	under_way.receive(ChaseMessage.start(0))
-	under_way.receive(ChaseMessage.contact(60))
+	under_way.receive(ChaseMessage.catch(60, under_way.cat, Tag.Gesture.TOUCH))
 	round_screen.chase = under_way
 	round_screen.names = ["YOU", "BOT"] as Array[String]
 	round_screen.refresh()
-	assert_eq(round_screen.lines(), ["CAT WINS", "YOU   1 - 0   BOT"], "the winner, the score")
+	assert_eq(
+		round_screen.lines(), ["CAUGHT!", "CAT WINS", "YOU   1 - 0   BOT"], "the winner, the score"
+	)
 
 
 func test_the_verdict_of_a_lost_round_and_of_a_draw() -> void:
@@ -148,7 +150,7 @@ func _chase_won_by(winner: int) -> ChaseState:
 	while chase.phase != ChaseState.Phase.MATCH_OVER:
 		chase.receive(ChaseMessage.start(step))
 		if chase.cat == winner:
-			chase.receive(ChaseMessage.contact(step + 60))
+			chase.receive(ChaseMessage.catch(step + 60, chase.cat, Tag.Gesture.TOUCH))
 		else:
 			chase.receive(ChaseMessage.time_up(step + chase.round_steps()))
 		step += 2000

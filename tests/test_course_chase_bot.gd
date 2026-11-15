@@ -1,8 +1,9 @@
 extends ReplayTest
 ## The chase against the bot (docs/specs/chase-bot.md) in the real physics, without a
 ## screen: the bot in the arena of game/levels/chase.tscn (its links, its slides, its
-## trick, its rounds against another bot), the links of the arena run by the pilot, and
-## the mode as the start screen starts it, played on the keyboard and on the gamepad.
+## trick, its rounds against another bot, its touches and dives as the cat), the links of the
+## arena run by the pilot, and the mode as the start screen starts it, played on the keyboard
+## and on the gamepad.
 ## Much faster than real time with the same fixed step of 1/60 s, many steps to a frame
 ## (see before_all); the rounds between bots (ChaseBotRounds) are played once for the
 ## four tests that read them.
@@ -34,6 +35,13 @@ const ALTITUDE: float = 0.3
 const ASIDE: float = 1.0
 ## How long the bot is given to come down from a platform, in steps.
 const DESCENT_STEPS: int = 300
+## How far the cat runs at the mouse standing still, in m; steps the cat is given to catch it.
+const RUN_AT_THE_MOUSE: float = 6.0
+const CATCH_STEPS: int = 300
+## Where the bot waits while the player makes its gestures, and the steps the player runs
+## before each of them.
+const FAR_CORNER: Vector3 = Vector3(11.0, 0.0, 11.0)
+const GESTURE_RUN_UP_STEPS: int = 30
 ## Steps a device is held, then left to settle; more steps than a countdown lasts.
 const PUSH_STEPS: int = 20
 const COUNTDOWN_STEPS: int = 400
@@ -67,6 +75,12 @@ class Run:
 
 	func went_through(state: RunnerMotor.State) -> bool:
 		return states.has(state)
+
+
+## What a cat did as it ran at the mouse: its gestures, and whether it caught the mouse.
+class Catch:
+	var gestures: Array[Tag.Gesture] = []
+	var caught: bool = false
 
 
 func before_all() -> void:
@@ -211,6 +225,48 @@ func test_the_bot_drives_only_with_intents() -> void:
 	assert_eq(played.steps_too_fast, 0, "never faster than a runner of its tier of the flow")
 
 
+func test_the_cat_bot_catches_with_its_gestures() -> void:
+	var chase: Chase = await _add_still_chase()
+	var cat: Player = chase.players[TWO]
+	var mouse: Player = chase.players[ONE]
+	var start: Transform3D = chase.spawns[ONE]
+	var way: Vector3 = -start.basis.z
+	# A mouse standing still, a few metres ahead.
+	_bot_towards(chase, HARD, start.origin, start.origin + way * RUN_AT_THE_MOUSE)
+	cat.motor.can_tag = true
+	var seen: Catch = await _the_catch(cat, mouse)
+	assert_eq(seen.gestures, [Tag.Gesture.TOUCH], "the bot touches the mouse standing still")
+	assert_true(seen.caught, "and catches it")
+
+	# A mouse fleeing, its body ahead of the cat's halfway between the reach of a touch and the
+	# reach of a dive (1.3 m with the reaches of docs/specs/chase-tag.md): out of the first,
+	# within the second.
+	var tuning: MovementTuning = cat.tuning
+	var between: float = (tuning.tag_touch_reach + tuning.tag_dive_reach) / 2.0
+	var gap: float = between + 2.0 * tuning.capsule_radius
+	_bot_towards(chase, HARD, start.origin, start.origin + way * gap)
+	mouse.held = false
+	mouse.intent_source = ScriptedIntentSource.new().hold(way, false, CATCH_STEPS)
+	seen = await _the_catch(cat, mouse)
+	assert_eq(seen.gestures, [Tag.Gesture.DIVE], "the bot dives on the mouse that flees")
+	assert_true(seen.caught, "and catches it")
+
+
+func test_the_easy_bot_never_dives() -> void:
+	var played: ChaseBotRounds = await _played_rounds()
+	assert_gt(played.touches[EASY], 0, "the EASY cat touched")
+	assert_eq(played.dives[EASY], 0, "and never dived")
+
+
+func test_the_cat_and_the_mouse_are_even_with_the_gestures() -> void:
+	# docs/specs/chase-tag.md, decision 11: with the touch and the dive, the NORMAL cat wins
+	# some of its rounds against the NORMAL mouse, not all of them, nor none.
+	var played: ChaseBotRounds = await _played_rounds()
+	assert_eq(played.rounds[0], ROUNDS, "6 rounds of NORMAL against NORMAL")
+	assert_gt(played.touches[NORMAL] + played.dives[NORMAL], 0, "the cat made its gestures")
+	assert_between(played.cat_wins[0], EVEN_CAT_LEAST, EVEN_CAT_MOST, "the cat wins 1 to 5")
+
+
 func test_a_higher_level_wins_more() -> void:
 	var played: ChaseBotRounds = await _played_rounds()
 	for line: String in played.lines:
@@ -269,6 +325,53 @@ func test_each_link_of_the_arena_is_run_through() -> void:
 		for node: Node in links.get_node(group).get_children():
 			var layers: int = (node as NavigationLink3D).navigation_layers
 			assert_eq(layers, ChaseBotIntentSource.GROUND_LAYER, node.name + ": any runner's")
+
+
+func test_the_gestures_work_on_the_keyboard_as_on_the_gamepad() -> void:
+	# docs/specs/chase-tag.md, decision 2: the touch on the left click and the right trigger,
+	# the dive on the right click and the left trigger.
+	var chase: Chase = (load(CHASE_SCENE) as PackedScene).instantiate() as Chase
+	chase.against_the_bot = true
+	add_child_autofree(chase)
+	await _wait_for_go(chase)
+	var cat: Player = chase.players[ONE]
+	assert_eq(chase.chase.role(ONE), ChaseState.Role.CAT, "the player is the cat")
+	# The bot waits in a far corner.
+	var bot: Player = chase.players[TWO]
+	bot.held = true
+	bot.teleport(Transform3D(Basis.IDENTITY, FAR_CORNER))
+	var forward: InputEventKey = _key(KEY_W)
+	Input.parse_input_event(forward)
+	Input.flush_buffered_events()
+	var presses: Array[InputEvent] = [
+		_mouse_button(MOUSE_BUTTON_LEFT),
+		_trigger(JOY_AXIS_TRIGGER_RIGHT),
+		_mouse_button(MOUSE_BUTTON_RIGHT),
+		_trigger(JOY_AXIS_TRIGGER_LEFT),
+	]
+	var releases: Array[InputEvent] = [
+		_mouse_button(MOUSE_BUTTON_LEFT, false),
+		_trigger(JOY_AXIS_TRIGGER_RIGHT, false),
+		_mouse_button(MOUSE_BUTTON_RIGHT, false),
+		_trigger(JOY_AXIS_TRIGGER_LEFT, false),
+	]
+	var gestures: Array[Tag.Gesture] = []
+	for index: int in presses.size():
+		# From the start point, running forward: fast enough to dive.
+		cat.teleport(chase.spawns[ONE])
+		for step: int in GESTURE_RUN_UP_STEPS:
+			await get_tree().physics_frame
+		await _push(presses[index])
+		gestures.append(cat.motor.tag.gesture if cat.motor.tag != null else -1)
+		await _push(releases[index])
+	var released: InputEventKey = forward.duplicate() as InputEventKey
+	released.pressed = false
+	await _push(released)
+	var expected: Array[Tag.Gesture] = [
+		Tag.Gesture.TOUCH, Tag.Gesture.TOUCH, Tag.Gesture.DIVE, Tag.Gesture.DIVE
+	]
+	assert_eq(gestures, expected, "a touch, a touch, a dive, a dive")
+	assert_eq(chase.chase.phase, ChaseState.Phase.RUNNING, "catching nobody")
 
 
 func test_the_mode_is_chosen_on_the_start_screen() -> void:
@@ -342,6 +445,42 @@ func test_the_player_plays_on_the_keyboard_as_on_the_gamepad() -> void:
 	assert_gt(_ahead(one, from, towards), 1.0, "the gamepad: forward too")
 
 
+## The gestures the motor of `cat` makes until it catches `mouse`, or for as long as it is
+## given, and whether it caught it (Chase.catches) during one of them.
+func _the_catch(cat: Player, mouse: Player) -> Catch:
+	var seen: Catch = Catch.new()
+	var last: Tag = null
+	for step: int in CATCH_STEPS:
+		await get_tree().physics_frame
+		var gesture: Tag = cat.motor.tag
+		if gesture != null and gesture != last:
+			last = gesture
+			seen.gestures.append(gesture.gesture)
+		if Chase.catches(cat, mouse):
+			seen.caught = true
+			break
+	cat.held = true
+	mouse.held = true
+	return seen
+
+
+## A press of the mouse button `button`, or its release.
+func _mouse_button(button: MouseButton, pressed: bool = true) -> InputEventMouseButton:
+	var event: InputEventMouseButton = InputEventMouseButton.new()
+	event.button_index = button
+	event.pressed = pressed
+	return event
+
+
+## The trigger `axis` of the gamepad of player 2 pulled, or let go.
+func _trigger(axis: JoyAxis, pulled: bool = true) -> InputEventJoypadMotion:
+	var event: InputEventJoypadMotion = InputEventJoypadMotion.new()
+	event.device = ChaseState.GAMEPAD_DEVICE
+	event.axis = axis
+	event.axis_value = 1.0 if pulled else 0.0
+	return event
+
+
 ## The rounds between bots of the spec, played once for the tests that read them.
 func _played_rounds() -> ChaseBotRounds:
 	if _rounds == null:
@@ -350,7 +489,7 @@ func _played_rounds() -> ChaseBotRounds:
 	return _rounds
 
 
-## A chase whose match does not run (no clock, no contact): its runners only, held, and
+## A chase whose match does not run (no clock, no catch): its runners only, held, and
 ## its navigation baked and ready.
 func _add_still_chase() -> Chase:
 	var chase: Chase = (load(CHASE_SCENE) as PackedScene).instantiate() as Chase

@@ -725,7 +725,7 @@ func _running_cycle(tree: AnimationTree, skeleton: Skeleton3D) -> PackedVector2A
 		var time: float = fposmod(
 			touchdown + clip.length * sample / RunnerCharacter.STRIDE_SAMPLES, clip.length
 		)
-		var places: PackedVector3Array = RunnerCharacter.bone_places(clip, time, skeleton)
+		var places: PackedVector3Array = MixamoClip.bone_places(clip, time, skeleton)
 		var left: Vector3 = places[skeleton.find_bone(RunnerCharacter.LEFT_FOOT)]
 		var right: Vector3 = places[skeleton.find_bone(RunnerCharacter.RIGHT_FOOT)]
 		cycle.append(Vector2(left.z - right.z, left.y - right.y))

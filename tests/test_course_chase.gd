@@ -1,6 +1,7 @@
 extends ReplayTest
 ## The chase (game/levels/chase.tscn) in the real physics, without a screen: its arena,
-## the contact of the two bodies, the start of a round face to face, the device of each
+## the catch of a touch of the cat (not of the contact of the bodies), its dive stopped by a
+## wall, the start of a round face to face, the device of each
 ## player, the fall out of the arena, and its low walls vaulted both ways by the pilot.
 ## Faster than real time with the same fixed step of 1/60 s (see ReplayTest).
 
@@ -9,9 +10,10 @@ const ONE: int = Chase.PLAYER_ONE
 const TWO: int = Chase.PLAYER_TWO
 ## More steps than a countdown lasts.
 const COUNTDOWN_STEPS: int = 400
-## How much the arena may differ from 32 m by 32 m, in m (docs/specs/chase-arena.md,
-## decision 1, after the 20 m by 20 m of docs/specs/chase-mode.md).
-const ARENA_SIZE: float = 32.0
+## How much the arena may differ from 24 m by 24 m, in m (docs/specs/chase-tag.md,
+## decision 10, after the 32 m of docs/specs/chase-arena.md, decision 1, and the 20 m of
+## docs/specs/chase-mode.md).
+const ARENA_SIZE: float = 24.0
 const ARENA_TOLERANCE: float = 2.0
 ## The height of a low wall the vault will take, and how thin it is at most, in m.
 const LOW_WALL_LOWEST: float = 0.8
@@ -40,8 +42,33 @@ const PLAYER_SCENE: PackedScene = preload("res://game/player/player.tscn")
 const RUN_UP: float = 2.8
 ## Steps a run at a low wall lasts at most: well past it.
 const RUN_STEPS: int = 90
+## How far from a wall a cat runs up to it, and dives, in m; steps it is given to.
+const DIVE_RUN_UP: float = 6.0
+const DIVE_FROM_THE_WALL: float = 1.0
+const DIVE_STEPS: int = 240
 ## The share of its top speed a runner has at least as it vaults at it.
 const AT_TOP_SPEED: float = 0.99
+
+
+## Runs along +X, and dives once its runner is at `at` along X.
+class DiveAt:
+	extends IntentSource
+
+	var dived: bool = false
+	var _runner: Player
+	var _at: float
+
+	func _init(runner: Player, at: float) -> void:
+		_runner = runner
+		_at = at
+
+	func next_intent() -> MoveIntent:
+		var intent: MoveIntent = MoveIntent.new()
+		intent.direction = Vector3.RIGHT
+		if not dived and _runner.global_position.x >= _at:
+			intent.dive_pressed = true
+			dived = true
+		return intent
 
 
 func after_each() -> void:
@@ -54,11 +81,11 @@ func test_the_arena_has_all_its_obstacles() -> void:
 	var arena: Node3D = chase.get_node("Arena") as Node3D
 	var ground_top: float = _box_of(arena.get_node("Ground") as StaticBody3D).end.y
 
-	# Enclosed by walls not to be run along, about 32 m by 32 m.
+	# Enclosed by walls not to be run along, about 24 m by 24 m.
 	var enclosure: Array[AABB] = _boxes(arena, "Enclosure", "the enclosure")
 	var inside: AABB = _inside_of(enclosure)
-	assert_almost_eq(inside.size.x, ARENA_SIZE, ARENA_TOLERANCE, "about 32 m wide")
-	assert_almost_eq(inside.size.z, ARENA_SIZE, ARENA_TOLERANCE, "about 32 m deep")
+	assert_almost_eq(inside.size.x, ARENA_SIZE, ARENA_TOLERANCE, "about 24 m wide")
+	assert_almost_eq(inside.size.z, ARENA_SIZE, ARENA_TOLERANCE, "about 24 m deep")
 	for wall: Node in arena.get_node("Enclosure").get_children():
 		assert_true(wall.is_in_group(Player.NO_WALL_RUN_GROUP), wall.name + ": no wall run on it")
 	# No way out: higher than a jump from the highest top, and the mantle above it.
@@ -143,7 +170,9 @@ func test_the_chase_arena_keeps_its_rules_at_the_realistic_tempo() -> void:
 		assert_true(_has_a_ledge_to(box, blocks, tuning), "reached by its ledge block")
 
 
-func test_the_contact_of_the_two_bodies_is_observed() -> void:
+func test_the_catch_of_a_touch_is_observed_not_the_contact() -> void:
+	# docs/specs/chase-tag.md, decision 1: the bodies running into each other catch nothing;
+	# a touch of the cat in reach does, dated.
 	var chase: Chase = _add_chase()
 	await _wait_for_go(chase)
 	var cat: Player = chase.players[chase.chase.cat]
@@ -152,27 +181,36 @@ func test_the_contact_of_the_two_bodies_is_observed() -> void:
 	var touching: float = 2.0 * tuning.capsule_radius
 	cat.intent_source = ScriptedIntentSource.new().hold(Vector3.RIGHT, false, 200)
 	mouse.intent_source = ScriptedIntentSource.new().hold(Vector3.LEFT, false, 200)
-	# The distance between the axes of the two capsules after each step, by its step.
-	var distances: Dictionary[int, float] = {}
+	var closest: float = INF
 	for step: int in 200:
+		closest = minf(closest, _apart(cat, mouse))
+		await get_tree().physics_frame
+	assert_lt(closest, touching, "the bodies ran into each other")
+	assert_eq(chase.chase.phase, ChaseState.Phase.RUNNING, "and the round goes on")
+
+	# The cat touches the mouse in front of it, within the reach of a touch.
+	mouse.teleport(Transform3D(Basis.IDENTITY, Vector3(0.0, 0.0, 0.0)))
+	cat.teleport(Transform3D(Basis.IDENTITY, Vector3.BACK * _in_reach(tuning)))
+	cat.intent_source = ScriptedIntentSource.new().gesture(Vector3.ZERO)
+	mouse.intent_source = ScriptedIntentSource.new()
+	var touched_at: int = chase.match_steps
+	for step: int in 10:
+		await get_tree().physics_frame
 		if chase.chase.phase != ChaseState.Phase.RUNNING:
 			break
-		distances[chase.match_steps] = _apart(cat, mouse)
-		await get_tree().physics_frame
-
 	assert_eq(chase.chase.phase, ChaseState.Phase.ROUND_OVER, "the round is over")
 	assert_eq(chase.chase.round_winner_role, ChaseState.Role.CAT, "won by the cat")
-	var dated: int = chase.chase.end_step
-	assert_true(distances.has(dated - 1), "a contact message, dated")
-	if distances.has(dated - 1) and distances.has(dated - 2):
-		assert_lte(distances[dated - 1], touching + NEAR, "the capsules touched")
-		assert_gt(distances[dated - 2], touching, "and not one step before")
+	assert_between(chase.chase.end_step, touched_at + 1, touched_at + 3, "a catch message, dated")
 	# The screens follow the match at every frame shown.
 	await get_tree().process_frame
 	await get_tree().process_frame
 	var screen: ChaseRoundScreen = chase.get_node("Screens/RoundScreen") as ChaseRoundScreen
 	assert_true(screen.visible, "the screen between two rounds shows")
-	assert_eq(screen.lines(), ["CAT WINS", "PLAYER 1   1 - 0   PLAYER 2"], "the winner, the score")
+	assert_eq(
+		screen.lines(),
+		["CAUGHT!", "CAT WINS", "PLAYER 1   1 - 0   PLAYER 2"],
+		"caught: the winner, the score"
+	)
 
 
 func test_the_two_players_start_face_to_face() -> void:
@@ -183,12 +221,7 @@ func test_the_two_players_start_face_to_face() -> void:
 	_assert_face_to_face(chase, "the first round")
 	await _wait_for_go(chase)
 	# The cat catches the mouse at once, away from the start: then the next round.
-	var cat: Player = chase.players[chase.chase.cat]
-	var mouse: Player = chase.players[chase.chase.mouse()]
-	cat.teleport(Transform3D(Basis.IDENTITY, Vector3(-6.0, 0.0, 5.0)))
-	mouse.teleport(Transform3D(Basis.IDENTITY, Vector3(-6.3, 0.0, 5.0)))
-	await get_tree().physics_frame
-	await get_tree().physics_frame
+	await _catch(chase, Vector3(-6.0, 0.0, 6.0))
 	assert_eq(chase.chase.phase, ChaseState.Phase.ROUND_OVER, "the first round is over")
 	_push_forward(chase)
 	await _wait_for_the_end_of_the_countdown(chase)
@@ -197,16 +230,19 @@ func test_the_two_players_start_face_to_face() -> void:
 	assert_eq(chase.chase.cat, TWO, "with the roles swapped")
 
 
-func test_a_contact_on_the_step_the_time_ends_lets_the_mouse_win() -> void:
+func test_a_catch_on_the_step_the_time_ends_lets_the_mouse_win() -> void:
 	var chase: Chase = _add_chase()
 	await _wait_for_go(chase)
+	var time_up: int = chase.chase.start_step + chase.chase.round_steps()
+	while chase.match_steps < time_up - 2:
+		await get_tree().physics_frame
+	# The cat touches the mouse in reach: its touch is observed at the step the time ends.
 	var cat: Player = chase.players[chase.chase.cat]
 	var mouse: Player = chase.players[chase.chase.mouse()]
-	var time_up: int = chase.chase.start_step + chase.chase.round_steps()
-	while chase.match_steps < time_up - 1:
-		await get_tree().physics_frame
-	# The capsules overlap from the very step the time ends, and stay so.
-	cat.teleport(Transform3D(Basis.IDENTITY, mouse.global_position + Vector3(0.3, 0.0, 0.0)))
+	var at: Vector3 = Vector3(-6.0, 0.0, 6.0)
+	mouse.teleport(Transform3D(Basis.IDENTITY, at))
+	cat.teleport(Transform3D(Basis.IDENTITY, at + Vector3.BACK * _in_reach(cat.tuning)))
+	cat.intent_source = ScriptedIntentSource.new().gesture(Vector3.ZERO)
 	for step: int in 3:
 		await get_tree().physics_frame
 
@@ -228,11 +264,7 @@ func test_the_gauge_of_a_round_is_empty_at_the_next_go() -> void:
 	assert_gt(flow.gauge, 0.0, "the moves of the round fill the gauge")
 	assert_gt(flow.moves_counted, 0, "they are counted")
 	# The cat catches the mouse: the next round.
-	var cat: Player = chase.players[chase.chase.cat]
-	var mouse: Player = chase.players[chase.chase.mouse()]
-	cat.teleport(Transform3D(Basis.IDENTITY, mouse.global_position + Vector3(0.3, 0.0, 0.0)))
-	await get_tree().physics_frame
-	await get_tree().physics_frame
+	await _catch(chase, Vector3(-6.0, 0.0, 6.0))
 	assert_eq(chase.chase.phase, ChaseState.Phase.ROUND_OVER, "the round is over")
 
 	await _wait_for_go(chase)
@@ -240,6 +272,35 @@ func test_the_gauge_of_a_round_is_empty_at_the_next_go() -> void:
 	for player: int in ChaseState.PLAYERS:
 		assert_eq(chase.chase.flows[player].gauge, 0.0, "an empty gauge at GO")
 		assert_eq(chase.players[player].motor.top_speed_bonus, 0.0, "and no speed bonus")
+
+
+func test_the_dive_stops_against_a_wall() -> void:
+	# docs/specs/chase-tag.md, decision 3: nothing stops a dive but a wall, against which it
+	# stops.
+	var chase: Chase = _add_chase()
+	await _wait_for_go(chase)
+	var cat: Player = chase.players[chase.chase.cat]
+	var arena: Node3D = chase.get_node("Arena") as Node3D
+	var face: float = _inside_of(_boxes(arena, "Enclosure", "the enclosure")).end.x
+	var radius: float = cat.tuning.capsule_radius
+	cat.teleport(
+		Transform3D(Basis.looking_at(Vector3.RIGHT), Vector3(face - DIVE_RUN_UP, 0.0, 0.0))
+	)
+	var source: DiveAt = DiveAt.new(cat, face - radius - DIVE_FROM_THE_WALL)
+	cat.intent_source = source
+	var farthest: float = -INF
+	var states: Dictionary[RunnerMotor.State, bool] = {}
+	for step: int in DIVE_STEPS:
+		await get_tree().physics_frame
+		farthest = maxf(farthest, cat.global_position.x)
+		states[cat.motor.state] = true
+		if source.dived and cat.motor.state == RunnerMotor.State.DOWN:
+			break
+
+	assert_true(source.dived, "the cat dives 1 m from the wall")
+	assert_true(states.has(RunnerMotor.State.DIVING), "it dives")
+	assert_lte(farthest, face - radius + NEAR, "it stops against the wall, not through it")
+	assert_eq(cat.motor.state, RunnerMotor.State.DOWN, "and ends on the ground")
 
 
 func test_a_rematch_starts_with_the_other_player_as_the_cat() -> void:
@@ -324,6 +385,26 @@ func test_a_fall_out_of_the_arena_brings_the_player_back_to_its_start() -> void:
 	assert_lt(_moved(one, start), NEAR, "back at its start point")
 	assert_eq(chase.chase.phase, ChaseState.Phase.RUNNING, "the round goes on")
 	assert_lt(chase.chase.seconds_left(chase.match_steps), time_left, "the time too")
+
+
+## The cat of the round under way touches the mouse put at `at`, within the reach of a touch
+## ahead of the cat (along -Z, where it looks), and the round is over.
+func _catch(chase: Chase, at: Vector3) -> void:
+	var cat: Player = chase.players[chase.chase.cat]
+	var mouse: Player = chase.players[chase.chase.mouse()]
+	mouse.teleport(Transform3D(Basis.IDENTITY, at))
+	cat.teleport(Transform3D(Basis.IDENTITY, at + Vector3.BACK * _in_reach(cat.tuning)))
+	cat.intent_source = ScriptedIntentSource.new().gesture(Vector3.ZERO)
+	mouse.intent_source = ScriptedIntentSource.new()
+	for step: int in 10:
+		await get_tree().physics_frame
+		if chase.chase.phase != ChaseState.Phase.RUNNING:
+			return
+
+
+## How far apart the axes of two runners are, their bodies half the reach of a touch apart.
+func _in_reach(tuning: MovementTuning) -> float:
+	return 2.0 * tuning.capsule_radius + tuning.tag_touch_reach / 2.0
 
 
 ## Both players at their start points, the distance of the tuning apart, each facing the

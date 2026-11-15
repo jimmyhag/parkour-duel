@@ -16,8 +16,9 @@ const FAST: int = 400
 const STEPS_PER_FRAME: int = 64
 ## The precision of a size read from the physics, in m.
 const PRECISION: float = 0.001
-## The free floor, in m, and the grid of the measures of the obstacles.
-const ARENA_SIZE: float = 32.0
+## The free floor, in m (docs/specs/chase-tag.md, decision 10: 24 m, after the 32 m of
+## docs/specs/chase-arena.md), and the grid of the measures of the obstacles.
+const ARENA_SIZE: float = 24.0
 const GRID: float = 0.5
 ## The measures of each kind of obstacle, in m.
 const LOW_WALL_HEIGHT: float = 1.0
@@ -36,8 +37,8 @@ const KINDS: Array[String] = [
 ## reached it, in m; the least speed of a lap run without stopping, as a share of the top
 ## speed; how near its lap a flee point stands, in m.
 const LOOPS_LEAST: int = 3
-const LAP_SHORTEST: float = 12.0
-const LAP_LONGEST: float = 30.0
+const LAP_SHORTEST: float = 10.0
+const LAP_LONGEST: float = 24.0
 const CORNER_REACH: float = 1.0
 const LAP_SLOWEST: float = 0.5
 const ON_THE_LAP: float = 0.3
@@ -123,8 +124,8 @@ func test_the_arena_is_big_and_enclosed() -> void:
 	var tuning: MovementTuning = chase.players[Chase.PLAYER_ONE].tuning
 	var arena: Node3D = chase.get_node("Arena") as Node3D
 	var inside: AABB = _inside_of(_boxes_of_kind(arena, "Enclosure"))
-	assert_almost_eq(inside.size.x, ARENA_SIZE, PRECISION, "32 m wide")
-	assert_almost_eq(inside.size.z, ARENA_SIZE, PRECISION, "32 m deep")
+	assert_almost_eq(inside.size.x, ARENA_SIZE, PRECISION, "24 m wide")
+	assert_almost_eq(inside.size.z, ARENA_SIZE, PRECISION, "24 m deep")
 	var ground: AABB = _box_of(arena.get_node("Ground") as StaticBody3D)
 	assert_almost_eq(ground.end.y, 0.0, PRECISION, "a flat floor")
 	var floor_box: AABB = AABB(Vector3(inside.position.x, 0.0, inside.position.z), inside.size)
@@ -160,90 +161,39 @@ func test_the_arena_has_its_loops_and_their_shortcuts() -> void:
 	var arena: Node3D = chase.get_node("Arena") as Node3D
 	var loops: Array[Node] = arena.get_node("Loops").get_children()
 	assert_gte(loops.size(), LOOPS_LEAST, "at least three loops")
-	var flee_points: Array[Vector3] = []
-	for point: Node in arena.get_node("FleePoints").get_children():
-		flee_points.append((point as Node3D).global_position)
 	for loop: Node in loops:
-		var lap: Array[Vector3] = _corners_of(loop)
-		var length: float = _perimeter(lap)
-		var name: String = loop.name
-		assert_between(length, LAP_SHORTEST, LAP_LONGEST, name + ": a lap of 12 to 30 m")
-		var obstacle: StaticBody3D = _obstacle_inside(arena, lap)
-		assert_not_null(obstacle, name + ": round an obstacle")
-		if obstacle == null:
-			continue
-		var middle: Vector3 = _box_of(obstacle).get_center()
-		_assert_flee_points_on_either_side(flee_points, lap, middle, name)
+		await _assert_the_loop(chase, loop)
 
-		# Round the lap, running.
-		var runner: Player = _add_runner(chase, lap[0], lap[1] - lap[0])
-		var pilot: LapPilot = LapPilot.new(runner, lap)
-		runner.intent_source = pilot
-		var slowest: float = INF
-		var moves: Dictionary[RunnerMotor.State, bool] = {}
-		for step: int in LAP_STEPS:
-			await get_tree().physics_frame
-			if pilot.passed > lap.size():
-				break
-			if pilot.passed >= 1:
-				slowest = minf(slowest, Vector2(runner.velocity.x, runner.velocity.z).length())
-				moves[runner.motor.state] = true
-		runner.queue_free()
-		assert_gt(pilot.passed, lap.size(), name + ": the pilot goes all round")
-		var top_speed: float = runner.tuning.top_speed
-		assert_gte(slowest, top_speed * LAP_SLOWEST, name + ": without stopping")
-		assert_eq(moves.keys(), [RunnerMotor.State.GROUNDED], name + ": running all along")
 
-		# Then cut short through the obstacle.
-		var shortcut: Node = loop.get_node("Shortcut")
-		var from: Vector3 = (shortcut.get_node("From") as Node3D).global_position
-		var to: Vector3 = (shortcut.get_node("To") as Node3D).global_position
-		var round_the_lap: float = _along_the_lap(lap, from, to)
-		assert_lt(from.distance_to(to), round_the_lap, name + ": shorter than round the lap")
-		var run: Run = await _run_straight(chase, from, to)
-		assert_true(run.arrived, name + ": the shortcut is run through")
-		var move: bool = run.states.has(RunnerMotor.State.VAULTING)
-		move = move or run.states.has(RunnerMotor.State.SLIDING)
-		move = move or run.states.has(RunnerMotor.State.MANTLING)
-		assert_true(move, name + ": by a vault, a slide or a mantle")
+func test_the_smaller_arena_keeps_its_rules() -> void:
+	# docs/specs/chase-tag.md, decision 10: a free floor of 24 m by 24 m, with the rules of
+	# docs/specs/chase-arena.md. Each low wall is vaulted here straight at it from either
+	# side; aslant and at tier 3 of the flow, in the test of the vaults at the new tempo.
+	var chase: Chase = _add_still_chase()
+	var arena: Node3D = chase.get_node("Arena") as Node3D
+	var inside: AABB = _inside_of(_boxes_of_kind(arena, "Enclosure"))
+	assert_almost_eq(inside.size.x, ARENA_SIZE, PRECISION, "a free floor 24 m wide")
+	assert_almost_eq(inside.size.z, ARENA_SIZE, PRECISION, "and 24 m deep")
+	var loops: Array[Node] = arena.get_node("Loops").get_children()
+	assert_gte(loops.size(), LOOPS_LEAST, "at least three loops")
+	for loop: Node in loops:
+		await _assert_the_loop(chase, loop)
+	_assert_the_same_on_both_sides(chase)
+	for wall: Node in arena.get_node("LowWalls").get_children():
+		var box: AABB = _box_of(wall as StaticBody3D)
+		var across: Vector3 = Vector3.FORWARD if box.size.z < box.size.x else Vector3.RIGHT
+		var half: float = box.size.dot(across) / 2.0
+		var middle: Vector3 = Vector3(box.get_center().x, 0.0, box.get_center().z)
+		for way: Vector3 in [across, -across]:
+			var start: Vector3 = middle - way * (half + VAULT_RUN_UP)
+			var seen: Array[float] = await _vault_at(chase, start, way, 0.0, half)
+			var context: String = "%s, going %s: " % [wall.name, way]
+			assert_gt(seen[0], 0.0, context + "the pilot vaults it")
+			assert_gte(seen[3], half + PAST, context + "and stands behind it")
 
 
 func test_the_arena_is_the_same_on_both_sides() -> void:
-	var chase: Chase = _add_still_chase()
-	var arena: Node3D = chase.get_node("Arena") as Node3D
-	var centre: Vector3 = (arena.get_node("Centre") as Node3D).global_position
-	var bodies: Array[StaticBody3D] = _bodies(arena)
-	for body: StaticBody3D in bodies:
-		var kind: String = _kind_of(arena, body)
-		var turned: AABB = _turned(_box_of(body), centre)
-		var found: bool = false
-		for other: StaticBody3D in bodies:
-			if _kind_of(arena, other) != kind:
-				continue
-			var box: AABB = _box_of(other)
-			var same: bool = box.position.is_equal_approx(turned.position)
-			if same and box.size.is_equal_approx(turned.size):
-				found = true
-		assert_true(found, "%s: an obstacle of its kind on the other side" % body.name)
-	# The start points: each on the other one, facing the same way turned.
-	for player: int in ChaseState.PLAYERS:
-		var start: Transform3D = chase.spawns[player]
-		var other: Transform3D = chase.spawns[1 - player]
-		var origin: Vector3 = start.origin - centre
-		var turned_origin: Vector3 = centre + Vector3(-origin.x, origin.y, -origin.z)
-		assert_almost_eq(turned_origin.distance_to(other.origin), 0.0, PRECISION, "on the other")
-		var facing: Vector3 = -start.basis.z.rotated(Vector3.UP, PI)
-		assert_almost_eq(facing.dot(-other.basis.z), 1.0, PRECISION, "facing as the other")
-		# Free in front of it for a run-up.
-		var space: PhysicsDirectSpaceState3D = chase.get_world_3d().direct_space_state
-		var tuning: MovementTuning = chase.players[player].tuning
-		var ahead: float = START_RUN_UP + tuning.capsule_radius
-		for height: float in [0.3, tuning.capsule_height / 2.0, tuning.capsule_height - 0.1]:
-			var from: Vector3 = start.origin + Vector3.UP * height
-			var ray: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
-				from, from - start.basis.z * ahead
-			)
-			assert_true(space.intersect_ray(ray).is_empty(), "3 m free in front of a start")
+	_assert_the_same_on_both_sides(_add_still_chase())
 
 
 func test_each_obstacle_has_the_measures_of_its_kind() -> void:
@@ -433,6 +383,98 @@ func _add_runner(chase: Chase, start: Vector3, way: Vector3) -> Player:
 	var flat: Vector3 = Vector3(way.x, 0.0, way.z).normalized()
 	runner.teleport(Transform3D(Basis.looking_at(flat), start))
 	return runner
+
+
+## The loop `loop` of the arena of `chase`: a lap of 10 to 24 m round an obstacle, with flee
+## points on either side of it, that the pilot runs all round without stopping; then its
+## shortcut, shorter, through the obstacle by a vault, a slide or a mantle.
+func _assert_the_loop(chase: Chase, loop: Node) -> void:
+	var arena: Node3D = chase.get_node("Arena") as Node3D
+	var flee_points: Array[Vector3] = []
+	for point: Node in arena.get_node("FleePoints").get_children():
+		flee_points.append((point as Node3D).global_position)
+	var lap: Array[Vector3] = _corners_of(loop)
+	var length: float = _perimeter(lap)
+	var name: String = loop.name
+	assert_between(length, LAP_SHORTEST, LAP_LONGEST, name + ": a lap of 10 to 24 m")
+	var obstacle: StaticBody3D = _obstacle_inside(arena, lap)
+	assert_not_null(obstacle, name + ": round an obstacle")
+	if obstacle == null:
+		return
+	var middle: Vector3 = _box_of(obstacle).get_center()
+	_assert_flee_points_on_either_side(flee_points, lap, middle, name)
+
+	# Round the lap, running.
+	var runner: Player = _add_runner(chase, lap[0], lap[1] - lap[0])
+	var pilot: LapPilot = LapPilot.new(runner, lap)
+	runner.intent_source = pilot
+	var slowest: float = INF
+	var moves: Dictionary[RunnerMotor.State, bool] = {}
+	for step: int in LAP_STEPS:
+		await get_tree().physics_frame
+		if pilot.passed > lap.size():
+			break
+		if pilot.passed >= 1:
+			slowest = minf(slowest, Vector2(runner.velocity.x, runner.velocity.z).length())
+			moves[runner.motor.state] = true
+	runner.queue_free()
+	assert_gt(pilot.passed, lap.size(), name + ": the pilot goes all round")
+	var top_speed: float = runner.tuning.top_speed
+	assert_gte(slowest, top_speed * LAP_SLOWEST, name + ": without stopping")
+	assert_eq(moves.keys(), [RunnerMotor.State.GROUNDED], name + ": running all along")
+
+	# Then cut short through the obstacle.
+	var shortcut: Node = loop.get_node("Shortcut")
+	var from: Vector3 = (shortcut.get_node("From") as Node3D).global_position
+	var to: Vector3 = (shortcut.get_node("To") as Node3D).global_position
+	var round_the_lap: float = _along_the_lap(lap, from, to)
+	assert_lt(from.distance_to(to), round_the_lap, name + ": shorter than round the lap")
+	var run: Run = await _run_straight(chase, from, to)
+	assert_true(run.arrived, name + ": the shortcut is run through")
+	var move: bool = run.states.has(RunnerMotor.State.VAULTING)
+	move = move or run.states.has(RunnerMotor.State.SLIDING)
+	move = move or run.states.has(RunnerMotor.State.MANTLING)
+	assert_true(move, name + ": by a vault, a slide or a mantle")
+
+
+## Each obstacle and each start point of the arena of `chase` falls, turned by half a turn
+## round the centre, on an obstacle of its kind or on the other start point, with a run-up
+## free in front of each start.
+func _assert_the_same_on_both_sides(chase: Chase) -> void:
+	var arena: Node3D = chase.get_node("Arena") as Node3D
+	var centre: Vector3 = (arena.get_node("Centre") as Node3D).global_position
+	var bodies: Array[StaticBody3D] = _bodies(arena)
+	for body: StaticBody3D in bodies:
+		var kind: String = _kind_of(arena, body)
+		var turned: AABB = _turned(_box_of(body), centre)
+		var found: bool = false
+		for other: StaticBody3D in bodies:
+			if _kind_of(arena, other) != kind:
+				continue
+			var box: AABB = _box_of(other)
+			var same: bool = box.position.is_equal_approx(turned.position)
+			if same and box.size.is_equal_approx(turned.size):
+				found = true
+		assert_true(found, "%s: an obstacle of its kind on the other side" % body.name)
+	# The start points: each on the other one, facing the same way turned.
+	for player: int in ChaseState.PLAYERS:
+		var start: Transform3D = chase.spawns[player]
+		var other: Transform3D = chase.spawns[1 - player]
+		var origin: Vector3 = start.origin - centre
+		var turned_origin: Vector3 = centre + Vector3(-origin.x, origin.y, -origin.z)
+		assert_almost_eq(turned_origin.distance_to(other.origin), 0.0, PRECISION, "on the other")
+		var facing: Vector3 = -start.basis.z.rotated(Vector3.UP, PI)
+		assert_almost_eq(facing.dot(-other.basis.z), 1.0, PRECISION, "facing as the other")
+		# Free in front of it for a run-up.
+		var space: PhysicsDirectSpaceState3D = chase.get_world_3d().direct_space_state
+		var tuning: MovementTuning = chase.players[player].tuning
+		var ahead: float = START_RUN_UP + tuning.capsule_radius
+		for height: float in [0.3, tuning.capsule_height / 2.0, tuning.capsule_height - 0.1]:
+			var from: Vector3 = start.origin + Vector3.UP * height
+			var ray: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
+				from, from - start.basis.z * ahead
+			)
+			assert_true(space.intersect_ray(ray).is_empty(), "3 m free in front of a start")
 
 
 ## The pilot runs from `from` straight on to `to`: whether it got there (on the floor at

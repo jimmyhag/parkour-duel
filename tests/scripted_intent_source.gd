@@ -65,6 +65,17 @@ func aim(
 	return self
 
 
+## Adds one step going in `direction` (in the world) with the touch of the cat pressed, or
+## its dive with `dive` (docs/specs/chase-tag.md).
+func gesture(direction: Vector3, dive: bool = false) -> ScriptedIntentSource:
+	var intent: MoveIntent = MoveIntent.new()
+	intent.direction = direction
+	intent.touch_pressed = not dive
+	intent.dive_pressed = dive
+	_intents.append(intent)
+	return self
+
+
 ## Adds one step that asks to come back to the last checkpoint.
 func request_respawn() -> ScriptedIntentSource:
 	var intent: MoveIntent = MoveIntent.new()

@@ -10,8 +10,10 @@ extends CharacterBody3D
 ## physics interpolation of the project shows it in between. While it aims, it observes
 ## what is under the reticle
 ## (AimFacts), or on the line from its head that its intent gives (the bot's aim), and
-## puts the camera over its shoulder. Held (a countdown), it follows no intent. It decides
-## nothing about the movement or the shot itself.
+## puts the camera over its shoulder. While a touch of the cat reaches, the character's hand
+## reaches for the runner it may catch (tag_target); in a dive and down after it, the capsule
+## one sees lies forward. Held (a countdown), it follows no intent. It decides nothing about
+## the movement, the shot or the catch itself.
 
 ## Emitted at the end of every fixed step, with the intent the runner just followed.
 signal stepped(intent: MoveIntent)
@@ -31,6 +33,8 @@ const AIM_MASK: int = 0b101
 ## How far past a face, or under a top, the probes of an obstacle ahead look, in m: inside
 ## the obstacle, not on its surface.
 const PROBE_INSET: float = 0.05
+## How far forward the capsule one sees lies in a dive and down after it, in degrees.
+const DIVE_TILT: float = 75.0
 
 ## The tuning resource; its capsule and camera values replace the ones of the scene.
 @export var tuning: MovementTuning
@@ -47,6 +51,9 @@ var held: bool = false
 var character_model: String = RunnerCharacter.MODEL
 ## The animation of the state of the runner at its last step: what its body shows.
 var animation: RunnerAnimation = RunnerAnimation.new()
+## The runner a touch of this one reaches for, the hand of its character on its body: the
+## other runner of a chase; null for none.
+var tag_target: CollisionObject3D = null
 
 ## Where the visible body looks, as a rotation around the vertical axis, and how far it
 ## leans to its left, in radians.
@@ -95,6 +102,7 @@ func _physics_process(delta: float) -> void:
 	_pose()
 	if _character != null:
 		_character.play(animation)
+		_reach_for_the_target()
 	stepped.emit(intent)
 
 
@@ -166,6 +174,31 @@ func reload_tuning() -> void:
 	)
 	if fresh != null:
 		apply_tuning(fresh)
+
+
+## Where the runner faces for a gesture of the cat (Tag): the way it runs, or the way its
+## camera looks when it stands; horizontal, of length 1.
+func tag_facing() -> Vector3:
+	var running: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
+	if running.length() > ALMOST_STILL:
+		return running.normalized()
+	return Vector3.FORWARD.rotated(Vector3.UP, camera_rig.view_yaw())
+
+
+## The lowest and the highest points of the axis of the capsule of `body`, in the world: a
+## runner's, or any body with one upright capsule.
+static func axis_of(body: CollisionObject3D) -> PackedVector3Array:
+	var owner_id: int = body.get_shape_owners()[0]
+	var capsule: CapsuleShape3D = body.shape_owner_get_shape(owner_id, 0) as CapsuleShape3D
+	var centre: Vector3 = (body.global_transform * body.shape_owner_get_transform(owner_id)).origin
+	var half: float = capsule.height / 2.0 - capsule.radius
+	return PackedVector3Array([centre + Vector3.DOWN * half, centre + Vector3.UP * half])
+
+
+## The radius of the capsule of `body`.
+static func radius_of(body: CollisionObject3D) -> float:
+	var owner_id: int = body.get_shape_owners()[0]
+	return (body.shape_owner_get_shape(owner_id, 0) as CapsuleShape3D).radius
 
 
 ## Puts the runner at `spawn`, standing and at rest, facing its -Z axis, with the camera
@@ -550,6 +583,15 @@ func _set_capsule_height(height: float) -> void:
 	_visor.position.y = height * VISOR_HEIGHT_RATIO
 
 
+## While the touch reaches, the hand of the character reaches for the runner of tag_target:
+## presentation only.
+func _reach_for_the_target() -> void:
+	if tag_target == null or not animation.touching:
+		_character.reach_for(PackedVector3Array(), 0.0)
+		return
+	_character.reach_for(axis_of(tag_target), radius_of(tag_target))
+
+
 ## The visible body turns, at its pace, towards where it should look this step; with
 ## nowhere to look, or during a trick, it keeps its orientation.
 func _turn(intent: MoveIntent, delta: float) -> void:
@@ -563,11 +605,11 @@ func _turn(intent: MoveIntent, delta: float) -> void:
 ## Where the visible body should look, horizontal; ZERO to keep its orientation. Towards
 ## where the runner pushes, not where the scenery lets it go; in a slide or a roll,
 ## towards where it moves; in a wall run, along the wall the way it runs, whatever the
-## push; during a mantle, nowhere new.
+## push; during a mantle, a dive and the time down after it, nowhere new.
 func _heading(intent: MoveIntent) -> Vector3:
 	var motion: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
 	match motor.state:
-		RunnerMotor.State.MANTLING:
+		RunnerMotor.State.MANTLING, RunnerMotor.State.DIVING, RunnerMotor.State.DOWN:
 			return Vector3.ZERO
 		RunnerMotor.State.SLIDING, RunnerMotor.State.ROLLING:
 			return motion if motion.length() > ALMOST_STILL else Vector3.ZERO
@@ -603,9 +645,13 @@ func _lean_along_the_wall(delta: float) -> void:
 ## character rolled about the middle of its body and moved across against the wall of the
 ## wall run, WallRunPose); in a trick, read from the motor, twisted around its own axis
 ## and turned around the axis of the flip, through the middle of the body. A trick over
-## leaves it upright, and so does a crash, at once.
+## leaves it upright, and so does a crash, at once. Without the character, in a dive and
+## down after it, the capsule lies forward about its feet.
 func _pose() -> void:
 	var leaning: Transform3D = Transform3D(Basis(Vector3.BACK, _lean), Vector3.ZERO)
+	var diving: bool = motor.state == RunnerMotor.State.DIVING
+	if _character == null and (diving or motor.state == RunnerMotor.State.DOWN):
+		leaning = Transform3D(Basis(Vector3.RIGHT, -deg_to_rad(DIVE_TILT)), Vector3.ZERO)
 	if _character != null:
 		leaning = _character.placed_against_the_wall(
 			_lean, _wall_run_distance, _wall_run_locomotion

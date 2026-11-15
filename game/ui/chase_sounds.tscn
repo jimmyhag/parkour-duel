@@ -1,0 +1,14 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://game/ui/chase_sounds.gd" id="1_chase_sounds"]
+[ext_resource type="AudioStream" path="res://assets/sounds/impactPunch_heavy_000.ogg" id="2_catch"]
+[ext_resource type="AudioStream" path="res://assets/sounds/back_002.ogg" id="3_miss"]
+
+[node name="ChaseSounds" type="Node"]
+script = ExtResource("1_chase_sounds")
+
+[node name="Catch" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("2_catch")
+
+[node name="Miss" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("3_miss")

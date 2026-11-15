@@ -1,6 +1,6 @@
 # Attraper pour de vrai : la touche, le plongeon, et le prix d'un raté
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-15, avec Jimmy, après la nouvelle arène (`docs/specs/chase-arena.md`) :
 « pour la version chat et souris, comme dans les compétitions IRL […] quand tu veux

@@ -65,6 +65,9 @@ game moves (another character keeps the capsule):
 | `Jogging.fbx` | Mixamo's "Jogging", downloaded the same way as `Vault One Hand.fbx` |
 | `Running Jump.fbx` | Mixamo's "Jumping From A Sprint", downloaded the same way as `Vault One Hand.fbx` |
 | `Land To Run.fbx` | Mixamo's "Land From Fall A To Run Forward", downloaded the same way as `Vault One Hand.fbx` |
+| `Reaching Out.fbx` | Mixamo's "Reaching Out Gesture" (the touch of the cat), downloaded the same way as `Vault One Hand.fbx` |
+| `Run To Dive.fbx` | Mixamo's "Diving From A Run Pose" (the dive of the cat), downloaded the same way as `Vault One Hand.fbx` |
+| `Getting Up.fbx` | Mixamo's "Getting Up From Stomach" (the cat getting up after a dive missed), downloaded the same way as `Vault One Hand.fbx` |
 
 Then, from the repository root:
 
@@ -324,29 +327,36 @@ Chase: two players on one machine, in a split screen, a prototype of the cat and
 format. Player 1 plays on the left, on the keyboard and the mouse only; player 2 on the
 right, on the gamepad only (the first one connected). Choose CHASE on the start screen:
 without a gamepad, the screen says CONNECT A GAMEPAD FOR PLAYER 2 and the chase starts
-as soon as one is connected. The arena is a 20 m by 20 m square closed by high walls
-that cannot be run along, full of obstacles: four light low walls (0.9 to 1.2 m, thin,
-to vault at a run either way, or to jump over or climb), grey blocks of 1.5 to 2 m to
-climb, two blue-grey walls 3 m apart to run along and to jump between, two low beams to
-slide under (their tops, and the tops of the walls, can be climbed too), and two
-platforms 4.2 m high in opposite corners, out of reach of a jump and a mantle from the
-floor: each is reached only from the grey block of about 2 m against it. One player is the
+as soon as one is connected. The arena (`docs/specs/chase-tag.md`) is a 24 m by 24 m
+floor closed by high walls that cannot be run along, the same on both sides by a half
+turn, with six loops to run round, each cut short by a move: yellow low walls (1 m) to
+vault either way between two orange blocks, green tunnels to slide through, and an
+orange block of 1.8 m to mantle, against a purple platform out of reach of a jump and a
+mantle from the floor; two blue walls to run along stand against the enclosure. One
+player is the
 cat, in red, the other the mouse, in blue; player 1 is the cat of the first round of the
 first match, and each REMATCH gives that first round to the other player. A countdown
-(3, 2, 1, GO) holds both at their start points, 14 m apart and face to face; then the cat has 20 s to touch the mouse (the two
-bodies touching is enough). Caught, the cat wins the round; still free after 20 s, the
-mouse wins it. The roles swap at every round, and the first to win 3 rounds wins the
+(3, 2, 1, GO) holds both at their start points, 14 m apart and face to face; then the
+cat has 20 s to catch the mouse with a gesture: the bodies touching catch nothing (they
+pass through each other). The touch (left click, or the right trigger) stretches an arm
+for a quarter of a second while the cat runs on, a little slower; the dive (right
+click, or the left trigger), on the ground and running, throws the cat forward, low and
+faster, and reaches farther. A gesture that reaches nobody costs: after a touch the cat
+runs slower for a moment, after a dive it lies on the ground, then gets up. Caught, the
+mouse loses the round (CAUGHT!, and an impact); still free after 20 s, it wins it. The
+mouse has no gesture. The roles swap at every round, and the first to win 3 rounds wins the
 match. Each view shows its player's role (CAT or MOUSE) and the time left at the top,
 its flow at the bottom (the flow, the tricks and their speed bonus work as everywhere,
 and the gauge starts from zero at every round), and, when the other player is out of
 sight, an arrow at the edge of the view pointing the way to it. Between two rounds, the
 winner of the round (CAT WINS or MOUSE WINS) and the score show over the countdown of
 the next one; at the end, PLAYER 1 WINS or PLAYER 2 WINS, with REMATCH and MENU, taken
-by either player. There is no weapon in the chase: aiming, shooting, the return to a
-checkpoint and the restart do nothing. A fall out of the arena brings a player back to
+by either player. There is no weapon in the chase: aiming and shooting are the touch and
+the dive of the cat, the return to a checkpoint and the restart do nothing. A fall out of the arena brings a player back to
 its start point, and the time goes on. Escape or Start goes back to the start screen.
 The time of a round, the rounds to win, the start distance and the two colours are in
-the tuning file (group Chase).
+the tuning file (group Chase), the reaches, times and costs of the gestures too (group
+Tag).
 
 ## Roadmap
 

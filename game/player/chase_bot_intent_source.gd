@@ -17,8 +17,12 @@ extends IntentSource
 ## slides on. It takes a new path to its goal at each decision, but not halfway along a
 ## link: a link it has started it runs to its end. When it gets no nearer its goal for the
 ## stuck time of the tuning, it takes a new path from where it is, or goes back to the
-## start of the link it is on to take it again, and jumps if something stops it. It drives
-## the motor with intents only, one per step, like a gamepad.
+## start of the link it is on to take it again, and jumps if something stops it. As the cat
+## (docs/specs/chase-tag.md), once the mouse has been the delay of its level within the
+## reach and the cone of a touch, it touches; at the levels that dive, once the mouse has
+## been that long within those of a dive but not of a touch, and would stay within them all
+## through a dive, both going on as they go, it dives. It drives the motor with intents
+## only, one per step, like a gamepad.
 
 ## The navigation layers of the arena: the ground, with the links any runner takes
 ## (vaults, jumps down), and the links that climb (mantles onto blocks, platforms).
@@ -58,6 +62,9 @@ var intents: int = 0
 ## it last started playing a role.
 var steps_without_progress: int = 0
 var most_steps_without_progress: int = 0
+## The touches and the dives it asked for so far.
+var touches: int = 0
+var dives: int = 0
 
 var _runner: Player
 var _other: CharacterBody3D
@@ -81,6 +88,9 @@ var _take_off_floor: float = 0.0
 var _trick_done: bool = false
 var _pose_pressed: bool = false
 var _pose_steps_left: int = 0
+## Fixed steps in a row the mouse has been within the reach of a touch, and of a dive only.
+var _steps_in_touch_reach: int = 0
+var _steps_in_dive_reach: int = 0
 
 
 ## A bot running `runner` against `other` at `level`, over the navigation map `map`, with
@@ -117,6 +127,8 @@ func play(role: ChaseState.Role) -> void:
 	_trick_done = false
 	_pose_pressed = false
 	_pose_steps_left = 0
+	_steps_in_touch_reach = 0
+	_steps_in_dive_reach = 0
 
 
 ## The navigation layers of the paths of the bot: the climbs too, at the levels that take
@@ -173,7 +185,60 @@ func next_intent() -> MoveIntent:
 		intent.jump_pressed = true
 		intent.jump_held = true
 	_trick(intent, on_the_ground)
+	if mind.role == ChaseState.Role.CAT:
+		_tag(intent)
 	return intent
+
+
+## The gestures of the cat: a touch once the mouse has been the delay of the level within
+## its reach and its cone; at the levels that dive, a dive once it has been that long within
+## the reach of a dive only, and would stay within it all through the dive. None while a
+## gesture of the cat goes on.
+func _tag(intent: MoveIntent) -> void:
+	var tuning: MovementTuning = _runner.tuning
+	var cat: PackedVector3Array = Player.axis_of(_runner)
+	var mouse: PackedVector3Array = Player.axis_of(_other)
+	var radii: float = Player.radius_of(_runner) + Player.radius_of(_other)
+	var facing: Vector3 = _runner.tag_facing()
+	var touch: float = tuning.tag_touch_reach
+	var in_touch_reach: bool = Tag.reaches(cat, mouse, radii, facing, touch, tuning.tag_touch_cone)
+	var in_dive_reach: bool = not in_touch_reach and mind.dives() and _dive_catches()
+	_steps_in_touch_reach = _steps_in_touch_reach + 1 if in_touch_reach else 0
+	_steps_in_dive_reach = _steps_in_dive_reach + 1 if in_dive_reach else 0
+	var gesture: Tag = _runner.motor.tag
+	if gesture != null and not gesture.is_over():
+		return
+	var delay: int = roundi(mind.tag_delay() / _runner.get_physics_process_delta_time())
+	if _steps_in_touch_reach > delay:
+		intent.touch_pressed = true
+		touches += 1
+	elif _steps_in_dive_reach > delay:
+		intent.dive_pressed = true
+		dives += 1
+
+
+## Whether a dive started now would keep the mouse within its reach and its cone all
+## through it: at each of its steps, the cat going the way it runs, the push of a dive
+## faster, the mouse going on at its velocity. Only on its feet, fast enough to dive.
+func _dive_catches() -> bool:
+	var tuning: MovementTuning = _runner.tuning
+	var motor: RunnerMotor = _runner.motor
+	if not motor.is_on_foot() or motor.real_speed() < tuning.tag_dive_min_speed:
+		return false
+	var step: float = _runner.get_physics_process_delta_time()
+	var run: Vector3 = Vector3(_runner.velocity.x, 0.0, _runner.velocity.z)
+	var dive: Vector3 = run.normalized() * (run.length() + tuning.tag_dive_push)
+	var flight: Vector3 = Vector3(_other.velocity.x, 0.0, _other.velocity.z)
+	var cat: PackedVector3Array = Player.axis_of(_runner)
+	var mouse: PackedVector3Array = Player.axis_of(_other)
+	var radii: float = Player.radius_of(_runner) + Player.radius_of(_other)
+	for index: int in roundi(tuning.tag_dive_time / step) + 1:
+		var ahead: Vector3 = (flight - dive) * step * index
+		var moved: PackedVector3Array = [mouse[0] + ahead, mouse[1] + ahead]
+		var reach: float = tuning.tag_dive_reach
+		if not Tag.reaches(cat, moved, radii, run.normalized(), reach, tuning.tag_dive_cone):
+			return false
+	return true
 
 
 ## A decision of the mind: its goal, on the navigation; a new path to it is wanted.

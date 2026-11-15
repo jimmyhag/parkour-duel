@@ -29,7 +29,7 @@ func test_each_hud_shows_its_role_and_the_time() -> void:
 	assert_eq(cat_colour, chase.tuning.chase_cat_colour, "in the colour of the cat")
 	assert_eq(mouse_colour, chase.tuning.chase_mouse_colour, "in the colour of the mouse")
 
-	chase.receive(ChaseMessage.contact(800))
+	chase.receive(ChaseMessage.catch(800, chase.cat, Tag.Gesture.TOUCH))
 	for hud: ChaseHud in huds:
 		hud.refresh()
 	assert_eq(_text(huds[0], "%RoleLabel"), "MOUSE", "between two rounds: the coming role")

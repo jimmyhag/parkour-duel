@@ -39,6 +39,8 @@ const FIXED_DURATIONS: Dictionary[RunnerAnimation.Clip, RunnerMotor.State] = {
 	RunnerAnimation.Clip.LEDGE_PULL_UP: RunnerMotor.State.MANTLING,
 	RunnerAnimation.Clip.VAULT_ONE_HAND: RunnerMotor.State.VAULTING,
 	RunnerAnimation.Clip.VAULT_TWO_HANDS: RunnerMotor.State.VAULTING,
+	RunnerAnimation.Clip.DIVE: RunnerMotor.State.DIVING,
+	RunnerAnimation.Clip.GETTING_UP: RunnerMotor.State.DOWN,
 }
 ## A low wall, a thin one and one deeper than the fixed tuning vaults with one hand; where
 ## it stands before the runner as it starts, out of reach; the speed of the run at it.
@@ -70,6 +72,9 @@ func test_every_state_of_the_runner_has_its_animation() -> void:
 		RunnerMotor.State.VAULTING: RunnerAnimation.Clip.VAULT_ONE_HAND,
 		# Along a wall, the run (docs/specs/animation-polish.md).
 		RunnerMotor.State.WALL_RUNNING: RunnerAnimation.Clip.RUNNING,
+		# The dive of the cat, and its getting up after one missed (docs/specs/chase-tag.md).
+		RunnerMotor.State.DIVING: RunnerAnimation.Clip.DIVE,
+		RunnerMotor.State.DOWN: RunnerAnimation.Clip.GETTING_UP,
 	}
 	assert_eq(expected.size(), RunnerMotor.State.size(), "every state of the motor is listed")
 	for state: RunnerMotor.State in expected:
@@ -229,6 +234,41 @@ func test_aiming_takes_the_upper_body() -> void:
 	assert_false(
 		RunnerAnimation.of(body.motor, MotorBody.STEP).aiming, "the aim released, the body runs"
 	)
+
+
+func test_each_gesture_has_its_animation() -> void:
+	# docs/specs/chase-tag.md, decision 7: the touch on the upper body, over the run; the
+	# dive; the getting up of a dive missed; then the run again.
+	var cat: MotorBody = _running_at(_tuning.top_speed)
+	cat.motor.can_tag = true
+	var touch: MoveIntent = _push(FORWARD)
+	touch.touch_pressed = true
+	cat.step(touch)
+	var touching: RunnerAnimation = RunnerAnimation.of(cat.motor, STEP)
+	assert_true(touching.touching, "the touch: the arm stretched on the upper body")
+	assert_eq(touching.clip, RunnerAnimation.Clip.RUNNING, "over the run")
+	var shown: Array[RunnerAnimation.Clip] = []
+	var reached: bool = true
+	for step: int in MANY_STEPS:
+		var intent: MoveIntent = _push(FORWARD)
+		# The dive once the touch is over.
+		intent.dive_pressed = cat.motor.tag.gesture == Tag.Gesture.TOUCH and cat.motor.tag.is_over()
+		cat.step(intent)
+		var animation: RunnerAnimation = RunnerAnimation.of(cat.motor, STEP)
+		if cat.motor.tag.gesture == Tag.Gesture.TOUCH:
+			reached = reached and animation.touching == (cat.motor.tag.phase == Tag.Phase.REACHING)
+		elif shown.is_empty() or shown[-1] != animation.clip:
+			shown.append(animation.clip)
+		if shown.size() >= 3 and cat.motor.tag.is_over():
+			break
+	assert_true(reached, "the arm stretched while the touch reaches, and only then")
+	var dive_and_up: Array[RunnerAnimation.Clip] = [
+		RunnerAnimation.Clip.DIVE, RunnerAnimation.Clip.GETTING_UP
+	]
+	assert_eq(shown.slice(0, 2), dive_and_up, "the dive, then the getting up")
+	assert_eq(shown.size(), 3, "then")
+	if shown.size() == 3:
+		assert_has(RunnerAnimation.LOCOMOTION, shown[2], "the locomotion again")
 
 
 func test_a_simple_landing_plays_landing_briefly() -> void:

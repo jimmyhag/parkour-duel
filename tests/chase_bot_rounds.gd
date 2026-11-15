@@ -6,7 +6,8 @@ extends RefCounted
 ## countdown cut short; then the round is played to its end. The sides change with every
 ## round, as the roles swap. As they run, what the tests check is noted: who wins, how long
 ## each bot goes without getting nearer its goal, whether its motor gets one intent per
-## step from it, and whether it ever goes faster than a runner of its tier of the flow.
+## step from it, whether it ever goes faster than a runner of its tier of the flow, and the
+## touches and the dives of each level of the cat (docs/specs/chase-tag.md).
 ## The rounds run at the pace of the engine the test sets, in fixed steps of 1/60 s.
 
 const CHASE_SCENE: String = "res://game/levels/chase.tscn"
@@ -36,6 +37,9 @@ var rounds: Array[int] = [0, 0, 0]
 ## goal, and the steps of the rounds each level played.
 var longest_without_progress: Array[int] = [0, 0, 0]
 var steps_played: Array[int] = [0, 0, 0]
+## The touches and the dives the motor of a cat of each level made.
+var touches: Array[int] = [0, 0, 0]
+var dives: Array[int] = [0, 0, 0]
 ## Steps at which a bot did not give its motor exactly one intent, and at which a bot went
 ## faster than a runner of its tier of the flow; its fastest speed above its top speed.
 var steps_without_one_intent: int = 0
@@ -96,9 +100,11 @@ func _play_a_round(chase: Chase, pairing: int, index: int) -> void:
 	var intents: Array[int] = [cat_bot.intents, mouse_bot.intents]
 	var steps: int = 0
 	var trails: Array[PackedVector3Array] = [PackedVector3Array(), PackedVector3Array()]
+	var gestures: Array[Tag] = []
 	while chase.chase.phase == ChaseState.Phase.RUNNING and steps < LONGEST_WAIT:
 		await _tree.physics_frame
 		steps += 1
+		_count_the_gesture(runners[0].motor.tag, gestures, levels[0])
 		# At the step the round ends, the runners are held: they ask for no intent.
 		var running: bool = chase.chase.phase == ChaseState.Phase.RUNNING
 		for side: int in 2:
@@ -133,11 +139,23 @@ func _play_a_round(chase: Chase, pairing: int, index: int) -> void:
 	)
 
 
+## Counts the gesture `gesture` of the cat of `level` once, the first time it is seen (the
+## motor drops it as the round ends, its runner put back at its start).
+func _count_the_gesture(gesture: Tag, seen: Array[Tag], level: ChaseBot.Level) -> void:
+	if gesture == null or gesture in seen:
+		return
+	seen.append(gesture)
+	touches[level] += int(gesture.gesture == Tag.Gesture.TOUCH)
+	dives[level] += int(gesture.gesture == Tag.Gesture.DIVE)
+
+
 ## A runner may go no faster than the top speed of the highest tier of the flow it reached
-## in the round, plus the most a move gains above it (a perfect slide or landing).
+## in the round, plus the most a move gains above it (a perfect slide or landing, or the push
+## of a dive, docs/specs/chase-tag.md).
 func _check_the_speed(runner: Player, bonus: float, trail: PackedVector3Array) -> void:
 	var tuning: MovementTuning = runner.tuning
 	var gain: float = maxf(tuning.perfect_slide_speed_gain, tuning.trick_perfect_speed_gain)
+	gain = maxf(gain, tuning.tag_dive_push)
 	var limit: float = tuning.top_speed * (1.0 + bonus) + gain
 	# How far the body really went over the last steps, not the velocity it reports.
 	trail.append(runner.global_position)
