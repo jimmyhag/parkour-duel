@@ -6,14 +6,16 @@ extends Node3D
 ## feet on the ground, facing -Z, and plays the animation chosen from the motor
 ## (RunnerAnimation): a blend from one clip to the next, the clip fitted to the move it
 ## shows, the upper body held in the aim of Pistol Idle over what the legs do. On its feet,
-## the locomotion blends Idle, Walking, Running and Sprint as the animation weighs them,
-## the last three at the same phase of their stride (Stride), as fast as the feet keep up
-## with the ground, and resumed at the stride nearest the pose shown. The clips play in
-## place: the motor alone moves the runner. Every change shows through a blend, frame by
-## frame, even one cut short by another (Crossfade, docs/specs/animation-polish.md), and
-## the keys of the clips are followed on curves, not on straight lines from one to the
-## next. Along a wall it runs, and the runner rolls its visible body against the wall as its
-## run allows (WallRunPose). In a vault and a mantle, its hands are put on the real top
+## the locomotion blends Idle, Walking, Jogging, Running and Sprint as the animation weighs
+## them, the last four at the same phase of their stride (Stride), as fast as the feet keep
+## up with the ground, and resumed at the stride nearest the pose shown. In a jump, the clip
+## does not play: it shows the pose of where the runner is in the jump, from one fixed step
+## to the next at every frame (docs/specs/motion-weight.md). The clips play in place: the
+## motor alone moves the runner. Every change shows through an eased blend, frame by frame,
+## even one cut short by another (Crossfade, docs/specs/animation-polish.md), and the keys
+## of the clips are followed on curves, not on straight lines from one to the next. Along a
+## wall it runs, and the runner rolls its visible body against the wall as its run allows
+## (WallRunPose). In a vault and a mantle, its hands are put on the real top
 ## (HandPlant) by inverse kinematics (TwoBoneIK3D) while the clip plants them; in a vault,
 ## its body follows the real height of the obstacle (docs/specs/vault.md). Presentation
 ## only: nothing the runner observes depends on it.
@@ -24,11 +26,14 @@ const MODEL: String = "res://assets/mixamo/ch08_nonpbr.fbx"
 const CLIP_FILES: Dictionary[RunnerAnimation.Clip, String] = {
 	RunnerAnimation.Clip.IDLE: "res://assets/mixamo/idle.fbx",
 	RunnerAnimation.Clip.WALKING: "res://assets/mixamo/walking.fbx",
+	RunnerAnimation.Clip.JOGGING: "res://assets/mixamo/jogging.fbx",
 	RunnerAnimation.Clip.RUNNING: "res://assets/mixamo/running.fbx",
 	RunnerAnimation.Clip.SPRINT: "res://assets/mixamo/sprint.fbx",
 	RunnerAnimation.Clip.JUMP: "res://assets/mixamo/jump.fbx",
+	RunnerAnimation.Clip.RUNNING_JUMP: "res://assets/mixamo/running_jump.fbx",
 	RunnerAnimation.Clip.FALLING_IDLE: "res://assets/mixamo/falling_idle.fbx",
 	RunnerAnimation.Clip.LANDING: "res://assets/mixamo/landing.fbx",
+	RunnerAnimation.Clip.LAND_TO_RUN: "res://assets/mixamo/land_to_run.fbx",
 	RunnerAnimation.Clip.HARD_LANDING: "res://assets/mixamo/hard_landing.fbx",
 	RunnerAnimation.Clip.FALLING_TO_ROLL: "res://assets/mixamo/falling_to_roll.fbx",
 	RunnerAnimation.Clip.RUNNING_SLIDE: "res://assets/mixamo/running_slide.fbx",
@@ -39,20 +44,36 @@ const CLIP_FILES: Dictionary[RunnerAnimation.Clip, String] = {
 }
 const PISTOL_IDLE: String = "res://assets/mixamo/pistol_idle.fbx"
 ## The part of each clip that is played, from its start to its end, in s (an end of 0: to
-## the end of the file): the part of Falling To Roll that rolls, of Ledge Pull Up that
-## hoists, of the vaults from the take-off to the landing, of Landing from the contact with
-## the ground. A state that lasts less than its part at the fastest pace the tuning allows
-## plays its first part only.
+## the end of the file), measured on the clips (docs/specs/motion-weight.md, decision 3): one
+## cycle of Jogging; the jumps from the take-off to the approach of the ground; the roll from
+## the hands down to the body up; the hoist of Ledge Pull Up; the vaults from the take-off to
+## the run resumed; the landings from the contact through the crouch. Each part lasts its
+## state at a pace from 1 to the fastest the tuning allows.
 const CUTS: Dictionary[RunnerAnimation.Clip, Vector2] = {
-	RunnerAnimation.Clip.JUMP: Vector2(0.05, 0.42),
-	RunnerAnimation.Clip.LANDING: Vector2(0.35, 0.8),
-	RunnerAnimation.Clip.HARD_LANDING: Vector2(0.0, 0.5),
-	RunnerAnimation.Clip.FALLING_TO_ROLL: Vector2(0.3, 1.1),
+	RunnerAnimation.Clip.JOGGING: Vector2(0.0, 0.8556),
+	RunnerAnimation.Clip.JUMP: Vector2(0.05, 0.62),
+	RunnerAnimation.Clip.RUNNING_JUMP: Vector2(0.05, 0.57),
+	RunnerAnimation.Clip.LANDING: Vector2(0.35, 0.83),
+	RunnerAnimation.Clip.LAND_TO_RUN: Vector2(0.03, 0.51),
+	RunnerAnimation.Clip.HARD_LANDING: Vector2(0.0, 0.72),
+	RunnerAnimation.Clip.FALLING_TO_ROLL: Vector2(0.3, 1.2),
 	RunnerAnimation.Clip.RUNNING_SLIDE: Vector2(0.1, 0.8),
-	RunnerAnimation.Clip.LEDGE_PULL_UP: Vector2(1.7, 2.33),
-	RunnerAnimation.Clip.VAULT_ONE_HAND: Vector2(0.3, 0.93),
-	RunnerAnimation.Clip.VAULT_TWO_HANDS: Vector2(0.2, 0.9),
+	RunnerAnimation.Clip.LEDGE_PULL_UP: Vector2(1.65, 2.5),
+	RunnerAnimation.Clip.VAULT_ONE_HAND: Vector2(0.27, 0.97),
+	RunnerAnimation.Clip.VAULT_TWO_HANDS: Vector2(0.2, 0.92),
 }
+## The gestures that last a fixed time; past its part, each one goes on in its file for as
+## long, in s, while it blends out, instead of stopping dead as the next state comes.
+const FOLLOWED_THROUGH: Array[RunnerAnimation.Clip] = [
+	RunnerAnimation.Clip.LANDING,
+	RunnerAnimation.Clip.LAND_TO_RUN,
+	RunnerAnimation.Clip.HARD_LANDING,
+	RunnerAnimation.Clip.FALLING_TO_ROLL,
+	RunnerAnimation.Clip.LEDGE_PULL_UP,
+	RunnerAnimation.Clip.VAULT_ONE_HAND,
+	RunnerAnimation.Clip.VAULT_TWO_HANDS,
+]
+const FOLLOW_THROUGH: float = 0.25
 ## The hands, and of each one the upper arm and the forearm it hangs from, with the axis of
 ## the forearm that points out of the bend of the elbow (measured on the clips: +X for the
 ## left one, -X for the right one).
@@ -75,7 +96,7 @@ const ELBOWS_OUT: Dictionary[String, SkeletonModifier3D.SecondaryDirection] = {
 const PLANTS: Dictionary[RunnerAnimation.Clip, Vector2] = {
 	RunnerAnimation.Clip.VAULT_ONE_HAND: Vector2(0.43, 0.7),
 	RunnerAnimation.Clip.VAULT_TWO_HANDS: Vector2(0.57, 0.7),
-	RunnerAnimation.Clip.LEDGE_PULL_UP: Vector2(1.7, 2.33),
+	RunnerAnimation.Clip.LEDGE_PULL_UP: Vector2(1.7, 2.5),
 }
 const BOTH_HANDS: Array[RunnerAnimation.Clip] = [
 	RunnerAnimation.Clip.VAULT_TWO_HANDS,
@@ -91,6 +112,7 @@ const POLE_DISTANCE: float = 0.3
 const LOOPED: Array[RunnerAnimation.Clip] = [
 	RunnerAnimation.Clip.IDLE,
 	RunnerAnimation.Clip.WALKING,
+	RunnerAnimation.Clip.JOGGING,
 	RunnerAnimation.Clip.RUNNING,
 	RunnerAnimation.Clip.SPRINT,
 	RunnerAnimation.Clip.FALLING_IDLE,
@@ -99,6 +121,7 @@ const LOOPED: Array[RunnerAnimation.Clip] = [
 ## phases of their stride they are measured.
 const STRIDES: Array[RunnerAnimation.Clip] = [
 	RunnerAnimation.Clip.WALKING,
+	RunnerAnimation.Clip.JOGGING,
 	RunnerAnimation.Clip.RUNNING,
 	RunnerAnimation.Clip.SPRINT,
 ]
@@ -113,6 +136,7 @@ const WALL_RUN_CLIPS: Array[RunnerAnimation.Clip] = [
 ## roll, a crouch), not their way forward.
 const RAISED: Array[RunnerAnimation.Clip] = [
 	RunnerAnimation.Clip.JUMP,
+	RunnerAnimation.Clip.RUNNING_JUMP,
 	RunnerAnimation.Clip.LEDGE_PULL_UP,
 ]
 ## The animation of a Mixamo file, the root bone of its skeleton, the first bone of the
@@ -225,35 +249,11 @@ var _shown_state: StringName = &""
 ## show over Idle, and where on their axis; shown in between at every frame.
 var _walk_before: Vector2 = Vector2.ZERO
 var _walk_now: Vector2 = Vector2.ZERO
+## The pose of the jump shown last, shown at every frame while it is asked for.
+var _jump: JumpPose = JumpPose.new()
 var _aim: float = 0.0
 var _aim_wanted: float = 0.0
 var _aim_blend_time: float = 0.0
-
-
-## Holds the upper body in the aim of Pistol Idle, turned as in that clip, whatever the
-## hips of the legs do: the aim faces where the runner faces.
-class AimHold:
-	extends SkeletonModifier3D
-
-	## How much of the aim the upper body holds (0 to 1).
-	var weight: float = 0.0
-	var _hips: int = -1
-	var _spine: int = -1
-	## The rotation of the hips in Pistol Idle.
-	var _aim_hips: Quaternion = Quaternion.IDENTITY
-
-	func _init(hips: int, spine: int, aim_hips: Quaternion) -> void:
-		_hips = hips
-		_spine = spine
-		_aim_hips = aim_hips
-
-	func _process_modification_with_delta(_delta: float) -> void:
-		var skeleton: Skeleton3D = get_skeleton()
-		if weight <= 0.0 or skeleton == null:
-			return
-		var hips: Quaternion = skeleton.get_bone_pose_rotation(_hips)
-		var turn: Quaternion = Quaternion.IDENTITY.slerp(hips.inverse() * _aim_hips, weight)
-		skeleton.set_bone_pose_rotation(_spine, turn * skeleton.get_bone_pose_rotation(_spine))
 
 
 ## Before the arms reach for the top: lifts the body of a vault to the real height of its
@@ -310,8 +310,8 @@ static func fits(model: Node3D) -> bool:
 
 ## Shows `animation`: a new clip blends in, in its blend time, started again if it was not
 ## shown any more, the locomotion at the phase of the stride nearest the pose shown; the
-## clip plays at its speed, or fitted to its duration; the locomotion blends its clips as
-## weighed; the aim blends in and out.
+## clip plays at its speed, or fitted to its duration; a jump holds the pose of where the
+## runner is in it; the locomotion blends its clips as weighed; the aim blends in and out.
 func play(animation: RunnerAnimation) -> void:
 	var state: StringName = _state_of(animation.clip)
 	var fresh: bool = _fade.go_to(state, animation.blend_time)
@@ -323,8 +323,14 @@ func play(animation: RunnerAnimation) -> void:
 			_tree.set(START % state, 0.0)
 	if state == LOCOMOTION_NODE:
 		_walk(animation, fresh)
+	elif animation.clip in RunnerAnimation.JUMPS:
+		_tree.set(PACE % state, 0.0)
+		var cut: Vector2 = CUTS[animation.clip]
+		_jump.follow(state, JumpPose.time_in(animation.clip, cut, animation.jump_position), fresh)
 	else:
 		var length: float = _library.get_animation(state).length
+		if animation.clip in FOLLOWED_THROUGH:
+			length = CUTS[animation.clip].y - CUTS[animation.clip].x
 		var pace: float = animation.speed
 		if animation.duration > 0.0:
 			pace = RunnerAnimation.fitted_pace(length, animation.duration, _tuning)
@@ -386,12 +392,15 @@ func wear(material: Material) -> void:
 
 
 ## At every frame shown, before the tree plays: the blend of the states and the aim move
-## on, frame by frame, and the blend of the locomotion is shown between the last two fixed
-## steps.
+## on, frame by frame, and the blend of the locomotion, and the pose of a jump asked for,
+## are shown between the last two fixed steps.
 func _process(delta: float) -> void:
-	var walk: Vector2 = _walk_before.lerp(_walk_now, Engine.get_physics_interpolation_fraction())
+	var fraction: float = Engine.get_physics_interpolation_fraction()
+	var walk: Vector2 = _walk_before.lerp(_walk_now, fraction)
 	_tree.set(LOCOMOTION_AMOUNT, walk.x)
 	_tree.set(MOVING_POSITION, walk.y)
+	if not _jump.state.is_empty() and _shown_state == _jump.state:
+		_tree.set(START % _jump.state, _jump.time_at(fraction))
 	_fade.advance(delta)
 	var shown: float = _fade.weight(_states[0])
 	for index: int in range(1, _states.size()):
@@ -403,8 +412,8 @@ func _process(delta: float) -> void:
 		_aim = _aim_wanted
 	else:
 		_aim = move_toward(_aim, _aim_wanted, delta / _aim_blend_time)
-	_tree.set(AIM_AMOUNT, _aim)
-	_hold.weight = _aim
+	_tree.set(AIM_AMOUNT, Crossfade.eased(_aim))
+	_hold.weight = Crossfade.eased(_aim)
 
 
 ## The clip `clip`, which plants hands, is shown: from its start when it starts again
@@ -778,6 +787,8 @@ static func _make_library(skeleton: Skeleton3D) -> AnimationLibrary:
 			made = _pose_at(source, _tightest_tuck(source), hips_rest)
 		else:
 			var cut: Vector2 = CUTS.get(clip, Vector2.ZERO)
+			if clip in FOLLOWED_THROUGH:
+				cut.y += FOLLOW_THROUGH
 			made = in_place(source, cut, clip in RAISED, hips_rest, clip in LOOPED)
 		if clip in STRIDES:
 			_measure_the_stride(clip, made, skeleton)

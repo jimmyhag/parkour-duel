@@ -3,24 +3,29 @@ extends RefCounted
 ## The animation the runner's body shows, chosen from the state of its motor at the step
 ## it just played: which clip, at what playback speed or in how long, on which side the
 ## wall it runs along is, whether the upper body holds the aim, and how long the blend into
-## it lasts. On its feet, the clip is the locomotion: a blend of Idle, Walking, Running and
-## Sprint on its horizontal speed (docs/specs/locomotion-blend.md); along a wall, the run of
-## that blend, Running or Sprint by the speed along it, the whole body rolled, its feet
-## towards the wall (docs/specs/animation-polish.md). No clip plays faster than the tuning
-## allows. Choosing it is logic; playing it is presentation (game/player), with or without
-## the clips: the phase of the stride, and how the rolled body lies against the wall,
-## depend on the clips, and are chosen there. The clips are the Mixamo ones of
-## docs/specs/character-animations.md and docs/specs/vault.md, plus the tuck pose taken out
-## of Backflip.
+## it lasts. On its feet, the clip is the locomotion: a blend of Idle, Walking, Jogging,
+## Running and Sprint on its horizontal speed (docs/specs/locomotion-blend.md,
+## docs/specs/motion-weight.md); along a wall, the run of that blend, Running or Sprint by
+## the speed along it, the whole body rolled, its feet towards the wall
+## (docs/specs/animation-polish.md). In the air, one jump whose pose follows the vertical
+## speed, until a long fall. No clip plays faster than the tuning allows. Choosing it is
+## logic; playing it is presentation (game/player), with or without the clips: the phase of
+## the stride, and how the rolled body lies against the wall, depend on the clips, and are
+## chosen there. The clips are the Mixamo ones of docs/specs/character-animations.md,
+## docs/specs/vault.md and docs/specs/motion-weight.md, plus the tuck pose taken out of
+## Backflip.
 
 enum Clip {
 	IDLE,
 	WALKING,
+	JOGGING,
 	RUNNING,
 	SPRINT,
 	JUMP,
+	RUNNING_JUMP,
 	FALLING_IDLE,
 	LANDING,
+	LAND_TO_RUN,
 	HARD_LANDING,
 	FALLING_TO_ROLL,
 	RUNNING_SLIDE,
@@ -38,7 +43,14 @@ enum WallSide {
 }
 
 ## The clips of the locomotion, from the slowest to the fastest.
-const LOCOMOTION: Array[Clip] = [Clip.IDLE, Clip.WALKING, Clip.RUNNING, Clip.SPRINT]
+const LOCOMOTION: Array[Clip] = [Clip.IDLE, Clip.WALKING, Clip.JOGGING, Clip.RUNNING, Clip.SPRINT]
+## The clips of a jump, posed by where the runner is in it (jump_position_of): from a run, and
+## standing.
+const JUMPS: Array[Clip] = [Clip.RUNNING_JUMP, Clip.JUMP]
+## The clips of a simple landing, chosen as it touches down and kept until it ends.
+const LANDINGS: Array[Clip] = [Clip.LANDING, Clip.LAND_TO_RUN]
+## Where the top of a jump is, between its take-off (0) and the approach of the ground (1).
+const TOP_OF_THE_JUMP: float = 0.5
 ## In the table of blend times: any clip, and what parts a pair.
 const ANY_CLIP: String = "*"
 const PAIR: String = "%s>%s"
@@ -61,18 +73,21 @@ var locomotion: PackedFloat32Array = []
 ## Where the locomotion is in its blend space (see locomotion_position_of): how much the clips
 ## that stride show over Idle, and where on their axis.
 var locomotion_position: Vector2 = Vector2.ZERO
+## In a jump (JUMPS), where the runner is in it, from 0 to 1 (see jump_position_of).
+var jump_position: float = 0.0
 
 
 ## The animation of the runner whose motor is `motor`, at the step it just played, its
 ## fixed steps lasting `step_seconds`, after `before`, the animation of the step before
 ## (null: none). On its feet: the locomotion, its clips weighted by its real speed and
-## played so that the feet keep up with the ground; Landing for a moment after a simple
-## landing; along a wall, the run, as fast as the runner goes along it; in the air: Jump
-## rising, Falling Idle falling, the tuck pose while a trick is under way; in a vault, the
-## gesture its obstacle asks for (vault_clip); each other state its clip. The locomotion
-## follows the speed from the locomotion before, no faster than the tuning allows
-## (docs/specs/animation-polish.md, decision 9). A new clip blends in as the table of the
-## tuning says for the pair; a hard landing (a crash too) without a blend.
+## played so that the feet keep up with the ground; for a moment after a simple landing,
+## the landing (landing_clip); along a wall, the run, as fast as the runner goes along it;
+## in the air, the jump posed by the vertical speed (_fly), Falling Idle in a long fall, the
+## tuck pose while a trick is under way; in a vault, the gesture its obstacle asks for
+## (vault_clip); each other state its clip. The locomotion follows the speed from the
+## locomotion before, no faster than the tuning allows (docs/specs/animation-polish.md,
+## decision 9). A new clip blends in as the table of the tuning says for the pair; a crash
+## without a blend.
 static func of(
 	motor: RunnerMotor, step_seconds: float, before: RunnerAnimation = null
 ) -> RunnerAnimation:
@@ -83,14 +98,17 @@ static func of(
 		RunnerMotor.State.GROUNDED:
 			var landing_steps: int = roundi(tuning.animation_landing_time / step_seconds)
 			if motor.steps_since_landing < landing_steps:
-				animation.clip = Clip.LANDING
+				animation.clip = landing_clip(motor.real_speed(), tuning)
+				if motor.steps_since_landing > 0 and before != null and before.clip in LANDINGS:
+					animation.clip = before.clip
 				animation.duration = tuning.animation_landing_time
 			else:
 				animation._walk(motor.real_speed(), before, step_seconds, tuning)
-		RunnerMotor.State.RISING:
-			animation.clip = Clip.JUMP
-		RunnerMotor.State.FALLING:
-			animation.clip = Clip.FALLING_IDLE
+		RunnerMotor.State.RISING, RunnerMotor.State.FALLING:
+			if still_on_its_feet(motor, before):
+				animation._hold(before)
+			else:
+				animation._fly(motor, before, step_seconds, tuning)
 		RunnerMotor.State.HARD_LANDING:
 			animation.clip = Clip.HARD_LANDING
 			animation.duration = tuning.hard_landing_duration
@@ -113,6 +131,9 @@ static func of(
 		animation.speed = 1.0
 	var from: Clip = animation.clip if before == null else before.clip
 	animation.blend_time = blend_time_between(from, animation.clip, tuning)
+	for event: RunnerEvent in motor.events:
+		if event.kind == RunnerEvent.Kind.CRASH:
+			animation.blend_time = 0.0
 	return animation
 
 
@@ -124,11 +145,69 @@ static func vault_clip(vault: Vault, tuning: MovementTuning) -> Clip:
 	return Clip.VAULT_ONE_HAND
 
 
+## Whether a runner whose motor is `motor`, shown as `before` (null: none) the step before,
+## still shows what it showed on its feet or along a wall: it has just stepped off them
+## without a jump, and may still jump as from them (the coyote time, or the grace of a wall
+## jump). A jump taken then starts from the take-off, not from the fall it would otherwise
+## show (docs/specs/motion-weight.md, decision 6).
+static func still_on_its_feet(motor: RunnerMotor, before: RunnerAnimation) -> bool:
+	if motor.state != RunnerMotor.State.FALLING or before == null:
+		return false
+	if before.clip not in LOCOMOTION and before.clip not in LANDINGS:
+		return false
+	return motor.coyote_time_left() > 0.0 or motor.wall_jump_time_left() > 0.0
+
+
+## The clip of a simple landing at the horizontal speed `speed`: Land To Run faster than a
+## walk, Landing otherwise (docs/specs/motion-weight.md, decision 7).
+static func landing_clip(speed: float, tuning: MovementTuning) -> Clip:
+	return Clip.LAND_TO_RUN if speed > tuning.animation_walk_speed else Clip.LANDING
+
+
+## The clip of a jump taken at the horizontal speed `speed`: Running Jump faster than a
+## walk, Jump otherwise.
+static func jump_clip(speed: float, tuning: MovementTuning) -> Clip:
+	return Clip.RUNNING_JUMP if speed > tuning.animation_walk_speed else Clip.JUMP
+
+
+## Where a runner in the air at the vertical speed `vertical_speed` (m/s, up) is in a jump,
+## from 0 to 1 (docs/specs/motion-weight.md, decision 6): from the take-off (0, the speed of
+## a full jump upwards) to the top (TOP_OF_THE_JUMP, no vertical speed) while it rises,
+## then to the approach of the ground (1, the speed a full jump lands at) while it falls.
+## Gravity being steady, it moves on at a steady pace in each half.
+static func jump_position_of(vertical_speed: float, tuning: MovementTuning) -> float:
+	if vertical_speed > 0.0:
+		var rise: float = minf(vertical_speed / _take_off_speed(tuning), 1.0)
+		return TOP_OF_THE_JUMP * (1.0 - rise)
+	var fall: float = minf(-vertical_speed / _landing_speed(tuning), 1.0)
+	return TOP_OF_THE_JUMP + (1.0 - TOP_OF_THE_JUMP) * fall
+
+
+## Where a jump is `step` s after it was at `before`, on its way to `wanted`: no faster than
+## animation_jump_catch_up times the pace of a full jump in its faster half, so that a jump
+## released early (its rise cut short) moves the pose on without a jump.
+static func jump_position_moved(
+	before: float, wanted: float, step: float, tuning: MovementTuning
+) -> float:
+	var rise: float = _take_off_speed(tuning) / tuning.rise_gravity
+	var fall: float = _landing_speed(tuning) / tuning.fall_gravity
+	var fastest: float = maxf(TOP_OF_THE_JUMP / rise, (1.0 - TOP_OF_THE_JUMP) / fall)
+	return move_toward(before, wanted, tuning.animation_jump_catch_up * fastest * step)
+
+
+## Whether a runner falling at the vertical speed `vertical_speed` (m/s, up), in fixed steps
+## of `step` s, falls longer than the descent of a jump: faster than a full jump lands, by
+## more than the speed one step of its fall adds.
+static func is_a_long_fall(vertical_speed: float, step: float, tuning: MovementTuning) -> bool:
+	return -vertical_speed > _landing_speed(tuning) + tuning.fall_gravity * step
+
+
 ## The weight of each clip of the locomotion (LOCOMOTION) for a runner on its feet at the
 ## horizontal speed `speed`: Idle alone up to the still speed, Walking alone at its own
-## speed, Running alone at its own speed times the pace the tuning gives it alone, Sprint
-## alone from the top speed (docs/specs/locomotion-blend.md, decision 1 as amended);
-## between two of them, those two, in proportion. They sum to 1.
+## speed, Jogging alone at its own speed, Running alone at its own speed times the pace the
+## tuning gives it alone, Sprint alone from the top speed (docs/specs/locomotion-blend.md,
+## decision 1 as amended; docs/specs/motion-weight.md, decision 4); between two of them,
+## those two, in proportion. They sum to 1.
 static func locomotion_weights(speed: float, tuning: MovementTuning) -> PackedFloat32Array:
 	return locomotion_weights_at(locomotion_position_of(speed, tuning))
 
@@ -136,10 +215,12 @@ static func locomotion_weights(speed: float, tuning: MovementTuning) -> PackedFl
 ## Where a runner on its feet at the horizontal speed `speed` is in the blend space of the
 ## locomotion: how much the clips that stride show over Idle (x, from 0 at the still speed
 ## to 1 at the speed of Walking), and where on their axis (y, from 0 at the speed of Walking
-## through 1 where Running plays alone to 2 at the top speed, Sprint alone).
+## through 1 at the speed of Jogging and 2 where Running plays alone to 3 at the top speed,
+## Sprint alone).
 static func locomotion_position_of(speed: float, tuning: MovementTuning) -> Vector2:
 	var points: PackedFloat32Array = [
 		tuning.animation_walk_speed,
+		tuning.animation_jog_speed,
 		_running_alone(tuning),
 		tuning.top_speed,
 	]
@@ -172,7 +253,7 @@ static func locomotion_weights_at(position: Vector2) -> PackedFloat32Array:
 
 ## Where the locomotion is in its blend space `step` s after it was at `before`, on its way
 ## to `wanted`: no faster than from standing to moving (x, 0 to 1), or from Walking to Sprint
-## (y, 0 to 2), in the tuned start and stop time; at once without one.
+## (y, 0 to 3), in the tuned start and stop time; at once without one.
 static func locomotion_moved(
 	before: Vector2, wanted: Vector2, step: float, tuning: MovementTuning
 ) -> Vector2:
@@ -206,18 +287,17 @@ static func stride_speeds(tuning: MovementTuning) -> PackedFloat32Array:
 	return [
 		0.0,
 		tuning.animation_walk_speed,
+		tuning.animation_jog_speed,
 		tuning.animation_run_speed,
 		tuning.animation_sprint_speed,
 	]
 
 
-## How long the blend from the clip `from` into the clip `to` lasts, in s: none into a hard
-## landing; the default from a clip into itself (no blend happens); otherwise the table of
-## the tuning (the pair, then any clip into `to`, then `from` into any clip), or its
-## default.
+## How long the blend from the clip `from` into the clip `to` lasts, in s: the default from
+## a clip into itself (no blend happens); otherwise the table of the tuning (the pair, then
+## any clip into `to`, then `from` into any clip), or its default. A crash comes without a
+## blend whatever the table says (see of).
 static func blend_time_between(from: Clip, to: Clip, tuning: MovementTuning) -> float:
-	if to == Clip.HARD_LANDING:
-		return 0.0
 	if from == to:
 		return tuning.animation_blend_time
 	var table: Dictionary[String, float] = tuning.animation_blend_times
@@ -257,6 +337,34 @@ static func wall_run_roll(
 	if tuning.wall_run_roll_time <= 0.0:
 		return wanted
 	return move_toward(roll, wanted, full / tuning.wall_run_roll_time * step)
+
+
+## The animation of a runner in the air, after the animation `before` (null: none), `step`
+## s ago: Falling Idle in a long fall; otherwise the jump of its take-off (jump_clip, kept
+## until it lands), posed where its vertical speed puts it in the jump, on its way there
+## from where it was.
+func _fly(motor: RunnerMotor, before: RunnerAnimation, step: float, tuning: MovementTuning) -> void:
+	if motor.state == RunnerMotor.State.FALLING and is_a_long_fall(motor.velocity.y, step, tuning):
+		clip = Clip.FALLING_IDLE
+		return
+	var wanted: float = jump_position_of(motor.velocity.y, tuning)
+	if before != null and before.clip in JUMPS:
+		clip = before.clip
+		jump_position = jump_position_moved(before.jump_position, wanted, step, tuning)
+		return
+	clip = jump_clip(motor.real_speed(), tuning)
+	jump_position = wanted
+
+
+## What `before` showed, as it showed it (see still_on_its_feet).
+func _hold(before: RunnerAnimation) -> void:
+	clip = before.clip
+	speed = before.speed
+	duration = before.duration
+	wall_side = before.wall_side
+	locomotion = before.locomotion.duplicate()
+	locomotion_position = before.locomotion_position
+	jump_position = before.jump_position
 
 
 ## The locomotion of a runner on its feet at the horizontal speed `ground_speed`, after
@@ -312,6 +420,15 @@ static func _table_name(clip: Clip) -> String:
 	var named: Clip = Clip.RUNNING if clip in LOCOMOTION else clip
 	var name: String = Clip.keys()[named]
 	return name.to_lower()
+
+
+## The vertical speed of a full jump as it takes off, and as it lands, in m/s.
+static func _take_off_speed(tuning: MovementTuning) -> float:
+	return sqrt(2.0 * tuning.rise_gravity * tuning.jump_height)
+
+
+static func _landing_speed(tuning: MovementTuning) -> float:
+	return sqrt(2.0 * tuning.fall_gravity * tuning.jump_height)
 
 
 ## The speed at which Running plays alone, in m/s.

@@ -253,7 +253,8 @@ func test_the_bot_pays_for_the_aim() -> void:
 	var landing: Node3D = duel.opponent_lane.get_node("Blocks/BigDropLanding") as Node3D
 	var top: float = _box_of(landing.get_node("CollisionShape3D") as CollisionShape3D).end.y
 	await _put(bot, Vector3(landing.global_position.x, top, landing.global_position.z + 13.0))
-	await _wait_steps(STEPS_PER_SECOND)
+	# Time to fall off the landing, come back to the start and reach the top speed.
+	await _wait_steps(roundi(STEPS_PER_SECOND * 1.5))
 	var top_speed: float = bot.motor.top_speed()
 	assert_almost_eq(_speed_of(bot), top_speed, 0.05, "the bot runs at its top speed")
 	var obstacle: TargetBlock = _block_of_kind(duel.player_lane, SabotageTarget.Kind.OBSTACLE)

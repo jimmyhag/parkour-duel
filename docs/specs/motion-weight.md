@@ -1,6 +1,6 @@
 # Du poids et du liant : des mouvements moins rapides, des animations qui coulent
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-15, avec Jimmy, après qu'il a joué le mode Chase et le
 franchissement : « pour ce qui est des mouvements, je les trouve trop rapides et pas
@@ -102,6 +102,47 @@ Fonctionnalité: Du poids et du liant
 
 Avec les fichiers, le développeur vérifie localement la décision 9 (aucun à-coup aux
 changements d'état) et le pied d'appui à plus ou moins 10 %, et rapporte les chiffres.
+
+## Choix acceptés après le développement
+
+Acceptés le 2026-11-15 par la session principale (délégation de Jimmy) ; Jimmy peut
+rouvrir chacun après avoir joué.
+
+- **Aucune course Mixamo n'a la foulée voulue** (décision 4). Mesurées : Running Quickly
+  3,45 m/s, Fast Run 5,5, Sprint 5,6, Two Cycle Sprint 5,9 ; il faudrait 6,56 à la
+  vitesse de pointe et 7,54 au palier 3. Running et Sprint restent, plafonnés à 1,25 :
+  le pied d'appui glisse d'environ 14 % à la vitesse de pointe et 25 % au palier 3. Le
+  plafond passe avant les pieds (« moins rapides ») ; Jimmy juge en jouant, et l'on
+  choisira ensuite entre un pack de courses plus rapides, un plafond propre à la
+  locomotion, ou une vitesse de pointe plus basse.
+- **Le seuil de fluidité (décision 9) vaut pour le corps, sans orteils ni doigts** : le
+  clip de sprint dépasse déjà 2,5 sur l'orteil en course stable, sans aucun changement
+  d'état. Mesuré : 2,42 au plus pour le corps.
+- **Réception simple à 0,4 s** (et non 0,35), pour garder l'amorti.
+- **Gestes longs** : le mantle (1,45 s de fichier) et la réception dure (1,5 s) ne
+  tiennent pas entiers sous le plafond ; on garde la traction et l'impact, et chaque
+  geste continue dans son clip pendant un suivi de 0,25 s, le temps de son fondu de
+  sortie.
+- **Seuils** : « en mouvement » veut dire plus vite que la marche ; une longue chute,
+  plus vite qu'un saut complet n'atterrit, plus un pas de gravité ; la position dans le
+  saut avance au plus à deux fois l'allure d'un saut.
+- **Arène du Chase** : le passage bas Nord recule et s'amincit (centre de z −7,5 à
+  −8,2, profondeur de 2 à 1,4 m), pour que le franchissement du muret Nord ne se pose pas
+  dessous et qu'il reste 1,1 m derrière lui pour se relever.
+- **Le rattrapage du saut** : un saut relâché tôt ramène sa pose à la place que donne sa
+  vitesse verticale à au plus `animation_jump_catch_up` (**2**) fois l'allure d'un saut
+  complet, environ 0,12 s : la seule lecture au-dessus du plafond, pour ne pas laisser la
+  pose en retard sur le corps.
+- **Juste après avoir quitté le sol ou un mur sans sauter** (temps de coyote, grâce du
+  wall-jump), le corps garde ce qu'il montrait : un saut pris alors part de l'appel, pas
+  de la chute.
+- **La réception garde son geste** : Land To Run ou Landing est choisi au contact et
+  gardé jusqu'à la fin de la réception.
+- **Le suivi de 0,25 s** est une donnée des clips, avec les parties gardées, dans
+  `runner_character.gd` ; pas un réglage du jeu.
+- **`just check` met de 90 à 97 s** avec les fichiers Mixamo sur la machine de Jimmy, au
+  bord ou au-dessus de la limite de 90 s ; il dépassait déjà avant cette passe. À traiter
+  dans sa propre demande.
 
 ## Hors périmètre
 

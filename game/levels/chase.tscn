@@ -1,4 +1,4 @@
-[gd_scene load_steps=39 format=3]
+[gd_scene load_steps=41 format=3]
 
 [ext_resource type="Script" path="res://game/levels/chase.gd" id="1_chase"]
 [ext_resource type="PackedScene" path="res://game/ui/player_view.tscn" id="2_view"]
@@ -110,6 +110,13 @@ size = Vector3(3, 0.6, 2)
 [sub_resource type="BoxMesh" id="Mesh_3_0p6_2_low_passage"]
 material = SubResource("Material_low_passage")
 size = Vector3(3, 0.6, 2)
+
+[sub_resource type="BoxShape3D" id="Shape_3_0p6_1p4_low_passage"]
+size = Vector3(3, 0.6, 1.4)
+
+[sub_resource type="BoxMesh" id="Mesh_3_0p6_1p4_low_passage"]
+material = SubResource("Material_low_passage")
+size = Vector3(3, 0.6, 1.4)
 
 [sub_resource type="BoxShape3D" id="Shape_4_4p2_4_platform"]
 size = Vector3(4, 4.2, 4)
@@ -281,13 +288,13 @@ shape = SubResource("Shape_3_0p6_2_low_passage")
 mesh = SubResource("Mesh_3_0p6_2_low_passage")
 
 [node name="North" type="StaticBody3D" parent="Arena/LowPassages"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.75, 1.5, -7.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.75, 1.5, -8.2)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Arena/LowPassages/North"]
-shape = SubResource("Shape_3_0p6_2_low_passage")
+shape = SubResource("Shape_3_0p6_1p4_low_passage")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Arena/LowPassages/North"]
-mesh = SubResource("Mesh_3_0p6_2_low_passage")
+mesh = SubResource("Mesh_3_0p6_1p4_low_passage")
 
 [node name="Platforms" type="Node3D" parent="Arena"]
 

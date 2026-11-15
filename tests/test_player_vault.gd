@@ -22,7 +22,7 @@ const ASIDE: float = 10.0
 ## A runner faster than this has not stopped, in m/s.
 const STOPPED: float = 1.0
 ## Steps of a run that only pushes forward: past the wall, well before the end of the floor.
-const RUN_STEPS: int = 180
+const RUN_STEPS: int = 210
 ## Low walls of several heights within those a vault passes over, in m; how far from the
 ## edges of the top a hand is put, at the least; and how close to the top the wrist of the
 ## character must be, the hand on it, in m.

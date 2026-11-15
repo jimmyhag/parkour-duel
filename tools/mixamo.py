@@ -54,6 +54,12 @@ ANIMATIONS = {
     "Vault One Hand.fbx": "vault_one_hand.fbx",
     "Vault Two Hands.fbx": "vault_two_hands.fbx",
     "Ledge Pull Up.fbx": "ledge_pull_up.fbx",
+    # The jog of the locomotion, the jump from a run and the landing that runs on
+    # (docs/specs/motion-weight.md), downloaded without the character. The faster runs
+    # measured for it (Fast Run, Two Cycle Sprint, Running Quickly) are not used.
+    "Jogging.fbx": "jogging.fbx",
+    "Running Jump.fbx": "running_jump.fbx",
+    "Land To Run.fbx": "land_to_run.fbx",
 }
 # The pistol pack, and the clips taken out of it (skeleton and animation only).
 PACK = "Pistol_Handgun Locomotion Pack.zip"
