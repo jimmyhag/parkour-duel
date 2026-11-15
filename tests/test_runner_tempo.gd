@@ -104,6 +104,7 @@ func test_the_wall_run_is_shorter_and_slower() -> void:
 
 	assert_gt(steps, 0, "a wall run")
 	assert_lte(steps * STEP, LONGEST_WALL_RUN + TOLERANCE, "at most 1.0 s")
+	assert_gte(steps * STEP, LONGEST_WALL_RUN - ABOUT, "and about all of it at the top speed")
 
 
 func test_the_flow_speed_bonus_is_reduced() -> void:
