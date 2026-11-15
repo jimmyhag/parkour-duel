@@ -300,7 +300,8 @@ func snapshot(step: int) -> RunnerSnapshot:
 ## One step of the runner of the other machine: its body where the snapshot shown now puts
 ## it, at the height of its capsule, its visible body placed and animated as it says, its
 ## gesture held by its motor (for the sounds); put somewhere anew, it is not seen sliding
-## there, and its catch is over. Caught by the cat on this machine, it reacts at once.
+## there, and its catch is over. Caught by the cat on this machine, it reacts at once, until
+## its snapshots say it is caught: from then on, the reaction its machine plays.
 func _show_the_remote(delta: float) -> void:
 	var shown: RunnerSnapshot = remote.show_next(tuning.net_interpolation_delay / delta)
 	if shown == null:
@@ -316,7 +317,7 @@ func _show_the_remote(delta: float) -> void:
 	if remote.placed_anew:
 		reset_physics_interpolation()
 	_hold_the_gesture(shown, delta)
-	if _caught:
+	if _caught and not shown.caught:
 		var elapsed: float = _caught_steps * delta
 		animation = RunnerAnimation.caught(_caught_by, elapsed, motor, delta, animation)
 		_caught_steps += 1

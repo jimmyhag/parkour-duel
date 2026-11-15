@@ -29,6 +29,8 @@ const LINE: String = "%s   %s   STYLE %d"
 const PLAYER_WINS: String = "PLAYER %d WINS"
 const PLAYER_ROUNDS: String = "PLAYER %d   %d"
 const OTHER_WINS: String = "%s WINS"
+## Online, what each machine calls the other player.
+const FRIEND: String = "FRIEND"
 const ROUNDS: String = "%s   %d"
 const PLAYER: int = 0
 const OPPONENT: int = 1
@@ -73,6 +75,12 @@ func show_chase(chase: ChaseState, against_the_bot: bool = false) -> void:
 	_them_line.text = PLAYER_ROUNDS % [2, chase.score[1]]
 	visible = true
 	_menu.open()
+
+
+## Shows how the chase online ended for the player `player` of this machine, against its
+## FRIEND.
+func show_chase_online(chase: ChaseState, player: int) -> void:
+	show_chase_of(chase, player, FRIEND)
 
 
 ## Shows how the chase ended for the player `player`, against the other one, named

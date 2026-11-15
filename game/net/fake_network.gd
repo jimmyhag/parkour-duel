@@ -26,8 +26,9 @@ class Flight:
 var latency_ms: int = 0
 ## One packet sent at once in this many is lost; 0: none.
 var lose_every: int = 0
-## Every call, in order: "host <port>", "join <address>:<port>", "send <peer> <size>
-## reliable|at once", "drop <peer>", "leave".
+## Every call, in order: "host <port>", "join <address>:<port>", "send host|guest
+## <connection> <bytes in hex> reliable" (its end of the connection, what it sends to arrive),
+## "send host|guest <connection> <size> at once", "drop <connection>", "leave".
 var calls: Array[String] = []
 
 var _clock: Callable
@@ -83,9 +84,11 @@ func join(link: NetLink, ip: String, port: int) -> void:
 
 ## `link` sends `bytes` over its connection `connection`; sent at once, it may be lost.
 func send(link: NetLink, connection: int, bytes: PackedByteArray, reliable: bool) -> void:
-	calls.append(
-		"send %d %d %s" % [connection, bytes.size(), "reliable" if reliable else "at once"]
-	)
+	var end: String = "host" if _host_ends.get(connection) == link else "guest"
+	if reliable:
+		calls.append("send %s %d %s reliable" % [end, connection, bytes.hex_encode()])
+	else:
+		calls.append("send %s %d %d at once" % [end, connection, bytes.size()])
 	var other: NetLink = _other_end(link, connection)
 	if other == null:
 		return
@@ -122,16 +125,16 @@ func leave(link: NetLink) -> void:
 	_in_flight = _in_flight.filter(func(flight: Flight) -> bool: return flight.to != link)
 
 
-## `bytes` arrive at `link` at once, as if its other player had sent them: what a test makes
-## of a packet from the network.
-func inject(link: NetLink, bytes: PackedByteArray) -> void:
-	for connection: int in _host_ends.keys():
-		if _host_ends[connection] == link or _guest_ends[connection] == link:
-			var received: NetLink.Happened = NetLink.Happened.new(
-				NetLink.Happening.RECEIVED, connection, bytes
-			)
-			_fly(link, received, 0)
-			return
+## `bytes` arrive at `link` at once, as if its other player had sent them, or the machine
+## at the other end of the connection `connection` (one the link never met: a stranger):
+## what a test makes of a packet from the network.
+func inject(link: NetLink, bytes: PackedByteArray, connection: int = NetLink.NO_PEER) -> void:
+	var from: int = connection
+	for known: int in _host_ends.keys():
+		if from == NetLink.NO_PEER and (_host_ends[known] == link or _guest_ends[known] == link):
+			from = known
+	var received: NetLink.Happened = NetLink.Happened.new(NetLink.Happening.RECEIVED, from, bytes)
+	_fly(link, received, 0)
 
 
 ## What has arrived at `link` by now, in order.

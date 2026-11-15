@@ -6,8 +6,9 @@ extends RefCounted
 ## snapshot, in between the two snapshots around that date, so that it moves on smoothly
 ## though the packets come irregularly or not at all. The date shown goes on by one step per
 ## step, a little faster or slower to keep the delay, never back; with nothing newer, the
-## newest snapshot stays. A snapshot older than the last one shown, already there, or dated
-## absurdly far past the newest is ignored.
+## newest snapshot stays. A snapshot older than the last one shown, already there, dated
+## absurdly far past the newest, or past the latest date of a snapshot (the first one too),
+## is ignored.
 
 ## How far past the newest snapshot a new one may be dated, in steps (a minute), and how
 ## far behind the date it should show the date shown may fall before it jumps there.
@@ -41,7 +42,7 @@ func receive_all(snapshots: Array[RunnerSnapshot]) -> int:
 
 ## Keeps `snapshot` to be shown, unless it is ignored; whether it was kept.
 func receive(snapshot: RunnerSnapshot) -> bool:
-	if snapshot.step <= _last_shown_step:
+	if snapshot.step <= _last_shown_step or snapshot.step > RunnerSnapshot.LATEST_STEP:
 		return false
 	if not _snapshots.is_empty() and snapshot.step > newest_step() + MOST_STEPS_AHEAD:
 		return false

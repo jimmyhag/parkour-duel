@@ -11,6 +11,8 @@ extends RefCounted
 
 ## The bytes of an encoded snapshot.
 const SIZE: int = 118
+## The latest date a snapshot may have: a day of fixed steps at 60 per second.
+const LATEST_STEP: int = 60 * 60 * 60 * 24
 ## The gesture of no tag.
 const NO_GESTURE: int = 255
 ## The farthest a position may be from the origin, in m, and the widest a speed or a time,

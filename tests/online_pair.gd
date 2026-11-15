@@ -10,6 +10,9 @@ extends RefCounted
 const CHASE_SCENE: String = "res://game/levels/chase.tscn"
 const MAIN_SCENE_SETTING: String = "application/run/main_scene"
 const VERSION: String = "0.5.0"
+## Who sends, in the calls of the network.
+const HOST: String = "host"
+const GUEST: String = "guest"
 const ADDRESS: String = "127.0.0.1"
 ## The frames two links are given to connect, at most.
 const CONNECT_FRAMES: int = 120
@@ -31,8 +34,13 @@ func _init(test: GutTest, latency_ms: int = 0, lose_every: int = 0) -> void:
 
 
 ## Two chases joined, each in its world, every runner on `tuning` (none: the tuning of the
-## project), the match of the host started with `first_cat` its first cat.
-func start_chases(tuning: MovementTuning = null, first_cat: int = Chase.PLAYER_ONE) -> void:
+## project), those of the guest on `guest_tuning` if one is given, the match of the host
+## started with `first_cat` its first cat.
+func start_chases(
+	tuning: MovementTuning = null,
+	first_cat: int = Chase.PLAYER_ONE,
+	guest_tuning: MovementTuning = null
+) -> void:
 	var hosting: NetLink = FakeLink.new(network, VERSION)
 	var joining: NetLink = FakeLink.new(network, VERSION)
 	hosting.host()
@@ -51,7 +59,8 @@ func start_chases(tuning: MovementTuning = null, first_cat: int = Chase.PLAYER_O
 	if tuning != null:
 		for chase: Chase in [host, guest]:
 			for runner: Player in chase.players:
-				runner.apply_tuning(tuning)
+				var given: bool = chase == guest and guest_tuning != null
+				runner.apply_tuning(guest_tuning if given else tuning)
 	if tuning != null or host.chase.first_cat != first_cat:
 		host.rematch()
 	if host.chase.first_cat != first_cat:

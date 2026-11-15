@@ -5,8 +5,9 @@ extends RefCounted
 ## network. Two links connect, exchange messages and snapshots both ways, measure the ping;
 ## the guest leaving, or going silent for 3 s, is the other player gone; a port taken, an
 ## address where nobody hosts (5 s), another version, a third player are the same typed
-## failures. The clock of the links is the suite's own, moved on by 1 ms per poll, and as
-## far as a test needs at once; ENet runs in real time beside it.
+## failures; machines that connect and never tell their version are let go after 5 s, and do
+## not keep the friend out. The clock of the links is the suite's own, moved on by 1 ms per
+## poll, and as far as a test needs at once; ENet runs in real time beside it.
 
 enum Adapter { ENET, FAKE }
 
@@ -32,6 +33,10 @@ var _test: GutTest
 var _network: FakeNetwork
 var _links: Array[NetLink] = []
 var _taken: PacketPeerUDP = null
+## Machines that connect to the host and never say a word: raw ENet hosts, or fake links
+## never polled.
+var _enet_strangers: Array[ENetConnection] = []
+var _fake_strangers: Array[NetLink] = []
 
 
 func _init(test: GutTest, kind: Adapter) -> void:
@@ -61,6 +66,8 @@ func until(done: Callable, most: int = MOST_POLLS) -> bool:
 		clock.ms += 1
 		if adapter == Adapter.ENET:
 			OS.delay_msec(1)
+		for stranger: ENetConnection in _enet_strangers:
+			_service(stranger)
 		for each: NetLink in _links:
 			each.poll()
 	return done.call()
@@ -93,6 +100,12 @@ func close_all() -> void:
 	if _taken != null:
 		_taken.close()
 		_taken = null
+	for stranger: ENetConnection in _enet_strangers:
+		stranger.destroy()
+	_enet_strangers.clear()
+	for stranger: NetLink in _fake_strangers:
+		stranger.close()
+	_fake_strangers.clear()
 
 
 func run() -> void:
@@ -101,6 +114,8 @@ func run() -> void:
 	_silence_is_the_other_player_gone()
 	close_all()
 	_the_failures_are_typed()
+	close_all()
+	_silent_strangers_are_let_go()
 	close_all()
 
 
@@ -111,7 +126,7 @@ func _connects_and_exchanges() -> void:
 	_test.assert_true(host.hosting, "the host hosts")
 	_test.assert_false(guest.hosting, "the guest does not")
 
-	host.send_message(OnlineMessage.match_start(0, 0))
+	host.send_message(OnlineMessage.match_start(0, 0, 16.0, 3))
 	host.send_message(OnlineMessage.countdown(7))
 	host.send_message(OnlineMessage.of_chase(ChaseMessage.start(187)))
 	guest.send_message(OnlineMessage.of_chase(ChaseMessage.catch(300, 1, Tag.Gesture.DIVE)))
@@ -141,6 +156,8 @@ func _connects_and_exchanges() -> void:
 	_test.assert_eq(to_guest.size(), 3, "the messages of the host arrive")
 	if to_guest.size() == 3:
 		_test.assert_eq(to_guest[0].kind, OnlineMessage.Kind.MATCH, "in order: the match")
+		_test.assert_eq(to_guest[0].round_time, 16.0, "the time of its rounds")
+		_test.assert_eq(to_guest[0].rounds_to_win, 3, "the rounds to win")
 		_test.assert_eq(to_guest[1].step, 7, "the countdown, dated")
 		_test.assert_eq(to_guest[2].chase.kind, ChaseMessage.Kind.START, "the start")
 		_test.assert_eq(to_guest[2].chase.step, 187, "dated")
@@ -225,3 +242,38 @@ func _take(port: int) -> void:
 		return
 	_taken = PacketPeerUDP.new()
 	_test.assert_eq(_taken.bind(port, LOCAL), OK, "another program takes the port")
+
+
+## As many machines as the host has places connect and say nothing: after 5 s they are let
+## go, and the friend joins.
+func _silent_strangers_are_let_go() -> void:
+	var host: NetLink = link()
+	host.host(PORT)
+	for stranger: int in ENetLink.MOST_PEERS:
+		if adapter == Adapter.ENET:
+			var raw: ENetConnection = ENetConnection.new()
+			raw.create_host_bound(LOCAL, 0, 1, ENetLink.CHANNELS)
+			raw.connect_to_host(LOCAL, PORT, ENetLink.CHANNELS)
+			_enet_strangers.append(raw)
+		else:
+			var silent: NetLink = FakeLink.new(_network, VERSION)
+			silent.join("%s:%d" % [LOCAL, PORT])
+			_fake_strangers.append(silent)
+	until(func() -> bool: return false, SETTLING_POLLS)
+	clock.ms += NetLink.CONNECT_TIMEOUT_MS
+	until(func() -> bool: return false, SETTLING_POLLS)
+
+	var friend: NetLink = link()
+	friend.join("%s:%d" % [LOCAL, PORT])
+	var joined: bool = until(func() -> bool: return friend.state == LinkStatus.State.CONNECTED)
+	_test.assert_true(joined, "silent strangers let go, the friend joins")
+	_test.assert_eq(host.state, LinkStatus.State.CONNECTED, "the host plays with it")
+
+
+## Lets a raw ENet host shuttle what comes and goes, saying nothing.
+func _service(raw: ENetConnection) -> void:
+	for event: int in MOST_POLLS:
+		var happened: Array = raw.service(0)
+		var type: int = happened[0]
+		if type == ENetConnection.EVENT_NONE or type == ENetConnection.EVENT_ERROR:
+			return

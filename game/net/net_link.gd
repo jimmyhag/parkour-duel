@@ -8,7 +8,9 @@ extends RefCounted
 ## failures are a typed result (LinkStatus.Failure), never a crash or an error.
 ## The protocol is the same over every transport, here: as it connects, each machine tells
 ## the other the version of the protocol and of the game, and either refuses a different
-## one; the host refuses a third player; a link that hears nothing from the other for
+## one; the host refuses a third player, and lets go a machine that tells no version within
+## CONNECT_TIMEOUT_MS (silent strangers would fill its places); a link that hears nothing
+## from the other for
 ## SILENCE_TIMEOUT_MS, or a join that has no answer in CONNECT_TIMEOUT_MS, fails. Every
 ## packet that arrives is read as plain numbers and checked: a packet too short, of a kind
 ## unknown, out of its range, or from a machine that is not the other player, is ignored.
@@ -70,6 +72,9 @@ var _joined_at: int = 0
 var _last_heard: int = 0
 var _last_ping: int = 0
 var _ping: int = -1
+## The host's machines connected that have not told their versions yet, with when they
+## connected (ms): let go once a join would have given up on them.
+var _unknown: Dictionary[int, int] = {}
 var _messages: Array[OnlineMessage] = []
 var _snapshots: Array[RunnerSnapshot] = []
 
@@ -125,6 +130,10 @@ func poll() -> void:
 		if state == LinkStatus.State.FAILED:
 			return
 	var now: int = _now()
+	for peer: int in _unknown.keys():
+		if now - _unknown[peer] >= CONNECT_TIMEOUT_MS:
+			_unknown.erase(peer)
+			_drop(peer)
 	if state == LinkStatus.State.CONNECTING and now - _joined_at >= CONNECT_TIMEOUT_MS:
 		_shut()
 		_fail(LinkStatus.Failure.COULD_NOT_CONNECT)
@@ -206,6 +215,8 @@ func _on_connected(peer: int) -> void:
 	if hosting:
 		if _other != NO_PEER:
 			_refuse(peer, Refusal.FULL)
+		else:
+			_unknown[peer] = _now()
 		return
 	if state == LinkStatus.State.CONNECTING:
 		_other = peer
@@ -213,6 +224,7 @@ func _on_connected(peer: int) -> void:
 
 
 func _on_disconnected(peer: int) -> void:
+	_unknown.erase(peer)
 	if peer != _other:
 		return
 	_other = NO_PEER
@@ -274,10 +286,10 @@ func _on_hello(peer: int, payload: PackedByteArray) -> void:
 	if payload.size() < 3 or payload.size() - 3 != payload[2] or payload[2] > LONGEST_VERSION:
 		return
 	var same: bool = (
-		payload.decode_u16(0) == PROTOCOL_VERSION
-		and payload.slice(3).get_string_from_utf8() == game_version
+		payload.decode_u16(0) == PROTOCOL_VERSION and payload.slice(3) == _version_bytes()
 	)
 	if hosting:
+		_unknown.erase(peer)
 		if state != LinkStatus.State.WAITING or _other != NO_PEER:
 			if peer != _other:
 				_refuse(peer, Refusal.FULL)
@@ -319,11 +331,16 @@ func _refuse(peer: int, why: Refusal) -> void:
 
 ## The packet that tells the versions of this machine.
 func _hello() -> PackedByteArray:
-	var version: PackedByteArray = game_version.to_utf8_buffer().slice(0, LONGEST_VERSION)
+	var version: PackedByteArray = _version_bytes()
 	var bytes: PackedByteArray = PackedByteArray([Packet.HELLO, 0, 0, version.size()])
 	bytes.encode_u16(1, PROTOCOL_VERSION)
 	bytes.append_array(version)
 	return bytes
+
+
+## The version of the game as it is told: its bytes, never read back as text.
+func _version_bytes() -> PackedByteArray:
+	return game_version.to_utf8_buffer().slice(0, LONGEST_VERSION)
 
 
 func _send_packet(kind: Packet, payload: PackedByteArray, reliable: bool) -> void:

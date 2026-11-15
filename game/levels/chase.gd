@@ -57,10 +57,8 @@ const DEVICES: Array[InputDevice.Kind] = [
 	InputDevice.Kind.GAMEPAD,
 ]
 const NAMES: Array[String] = ["PlayerOne", "PlayerTwo"]
-## What the screens call the two players against the bot, and online.
+## What the screens call the two players against the bot.
 const NAMES_AGAINST_THE_BOT: Array[String] = ["YOU", "BOT"]
-const YOU: String = "YOU"
-const FRIEND: String = "FRIEND"
 
 ## The altitude under which a player has fallen out of the arena.
 @export var fall_limit: float = 0.0
@@ -131,10 +129,7 @@ func _ready() -> void:
 		var remote: Player = players[1 - local_player]
 		remote.remote = SnapshotBuffer.new()
 		remote.watch(false)
-		var names: Array[String] = [YOU, FRIEND]
-		if not link.hosting:
-			names.reverse()
-		_round_screen.names = names
+		_round_screen.name_online(local_player)
 	for player: int in _views:
 		var runner: Player = players[player]
 		var view: PlayerView = _views[player]
@@ -154,7 +149,7 @@ func _ready() -> void:
 	_result.menu_chosen.connect(_on_menu_chosen)
 	if _is_the_guest():
 		# The match of the host comes with its first message.
-		_start_a_match(PLAYER_ONE)
+		_start_a_match(PLAYER_ONE, players[PLAYER_ONE].tuning)
 		_hold_the_players(true)
 	else:
 		rematch()
@@ -168,18 +163,22 @@ func _exit_tree() -> void:
 
 ## A match from zero: the scores, the flows, and the countdown. Player 1 is the cat of the
 ## first round of the first match; each rematch gives that first round to the other. Online,
-## the host tells the guest.
+## the host tells the guest, with its rules.
 func rematch() -> void:
 	var first_cat: int = PLAYER_ONE if chase == null else 1 - chase.first_cat
-	_start_a_match(first_cat)
+	var rules: MovementTuning = players[PLAYER_ONE].tuning
+	_start_a_match(first_cat, rules)
 	if link != null:
-		link.send_message(OnlineMessage.match_start(match_steps, first_cat))
+		var seconds: float = rules.chase_round_time
+		var rounds: int = rules.chase_rounds_to_win
+		link.send_message(OnlineMessage.match_start(match_steps, first_cat, seconds, rounds))
 	_begin_the_countdown()
 
 
-## A match from zero whose first cat is `first_cat`, its countdown not begun.
-func _start_a_match(first_cat: int) -> void:
-	chase = ChaseState.new(players[PLAYER_ONE].tuning, steps_per_second, first_cat)
+## A match from zero whose first cat is `first_cat`, played by the rules of `rules` (the time
+## of a round, the rounds to win), its countdown not begun.
+func _start_a_match(first_cat: int, rules: MovementTuning) -> void:
+	chase = ChaseState.new(rules, steps_per_second, first_cat)
 	match_steps = 0
 	catch_pause = 0
 	_round_screen.waiting = false
@@ -348,12 +347,17 @@ func _hear_the_guest(message: OnlineMessage) -> void:
 		_follow_the_phase()
 
 
-## A message of the host: a match, a countdown (the pause after a catch over), or a message of
-## the chase, the match step set to its date when a round starts.
+## A message of the host: a match (played by its rules), a countdown (the pause after a
+## catch over), or a message of the chase, the match step set to its date when a round
+## starts.
 func _hear_the_host(message: OnlineMessage) -> void:
 	match message.kind:
 		OnlineMessage.Kind.MATCH:
-			_start_a_match(message.first_cat)
+			# The rules of the host, over the tuning of this machine.
+			var rules: MovementTuning = players[PLAYER_ONE].tuning.duplicate() as MovementTuning
+			rules.chase_round_time = message.round_time
+			rules.chase_rounds_to_win = message.rounds_to_win
+			_start_a_match(message.first_cat, rules)
 			match_steps = message.step
 			_hold_the_players(true)
 		OnlineMessage.Kind.COUNTDOWN:
@@ -416,7 +420,7 @@ func _add_player(player: int) -> Player:
 ## may not. Online, each machine places its own runner; the host tells the guest.
 func _begin_the_countdown() -> void:
 	var tuning: MovementTuning = players[PLAYER_ONE].tuning
-	clock = RoundClock.new(tuning, steps_per_second, tuning.chase_round_time)
+	clock = RoundClock.new(tuning, steps_per_second, chase.tuning.chase_round_time)
 	_countdown.clock = clock
 	_catch_told = false
 	if link != null and link.hosting:
@@ -483,7 +487,7 @@ func _end_the_match() -> void:
 	_over = true
 	_hold_the_players(true)
 	if link != null:
-		_result.show_chase_of(chase, local_player, FRIEND)
+		_result.show_chase_online(chase, local_player)
 	else:
 		_result.show_chase(chase, against_the_bot)
 

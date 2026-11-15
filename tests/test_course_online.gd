@@ -21,6 +21,9 @@ const LONGEST: int = 400
 const SHORT_ROUND: float = 2.0
 const SHORT_NUMBER: float = 0.2
 const SHORT_PAUSE: float = 0.3
+## Steps left in the round on the screen of the guest as its cat touches: its catch is told
+## before the time is up there, and reaches the host, the latency ahead, after it.
+const TOUCH_STEPS_LEFT: int = 4
 ## Steps the guest runs and jumps, watched from the host.
 const RUN_STEPS: int = 90
 const JUMP_AT: int = 30
@@ -167,7 +170,7 @@ func test_the_cat_catches_what_it_touches_on_its_screen() -> void:
 	await pair.start_chases(null, TWO)
 	assert_true(await pair.until_go(), "the round is on")
 	assert_eq(pair.guest.chase.cat, TWO, "the guest is the cat")
-	await _put_the_mouse_in_reach(pair)
+	await _put_in_reach(pair, pair.guest, TWO)
 	var cat: Player = pair.guest.players[TWO]
 
 	cat.intent_source = ScriptedIntentSource.new().gesture(Vector3.ZERO)
@@ -195,11 +198,11 @@ func test_a_catch_arriving_after_the_time_is_up_does_not_count() -> void:
 	var pair: OnlinePair = OnlinePair.new(self, LATENCY_MS)
 	await pair.start_chases(_short_tuning(1), TWO)
 	assert_true(await pair.until_go(), "the round is on")
-	await _put_the_mouse_in_reach(pair)
+	await _put_in_reach(pair, pair.guest, TWO)
 	var guest: Chase = pair.guest
 	var steps_left: Callable = func() -> int:
 		return guest.chase.start_step + guest.chase.round_steps() - guest.match_steps
-	await pair.until(func() -> bool: return steps_left.call() <= 2, LONGEST)
+	await pair.until(func() -> bool: return steps_left.call() <= TOUCH_STEPS_LEFT, LONGEST)
 	assert_eq(guest.chase.phase, ChaseState.Phase.RUNNING, "the time is not up on the guest")
 
 	var cat: Player = guest.players[TWO]
@@ -219,14 +222,26 @@ func test_a_catch_arriving_after_the_time_is_up_does_not_count() -> void:
 
 	assert_true(touched_in_time[0], "the cat touched the mouse on its screen in time")
 	assert_true(over, "the round is over on both machines")
+	for step: int in LATENCY_STEPS * 2:
+		await get_tree().physics_frame
+	assert_eq(_catches_told(pair, OnlinePair.GUEST), 1, "the guest told the host of its catch")
+	assert_eq(_catches_told(pair, OnlinePair.HOST), 0, "the host, having it late, took none")
 	for chase: Chase in [pair.host, guest]:
 		assert_eq(chase.chase.round_winner, ONE, "won by the mouse")
 		assert_eq(chase.chase.round_winner_role, ChaseState.Role.MOUSE, "the time was up")
 
 
 func test_both_machines_count_the_same_score() -> void:
+	# The rules of the host hold on both machines: the guest's own tuning has longer rounds,
+	# and more of them to win.
 	var pair: OnlinePair = OnlinePair.new(self, LATENCY_MS, LOSE_EVERY)
-	await pair.start_chases(_short_tuning(2))
+	var the_guests: MovementTuning = _short_tuning(3)
+	the_guests.chase_round_time = 2.0 * SHORT_ROUND
+	await pair.start_chases(_short_tuning(2), ONE, the_guests)
+	assert_true(await pair.until_go(), "the round is on")
+	# The first round: the cat of the host catches the mouse of the guest on its screen.
+	await _put_in_reach(pair, pair.host, ONE)
+	pair.host.players[ONE].intent_source = ScriptedIntentSource.new().gesture(Vector3.ZERO)
 
 	var over: bool = await _play_to_the_result(pair)
 
@@ -234,9 +249,9 @@ func test_both_machines_count_the_same_score() -> void:
 	assert_eq(pair.guest.chase.score, pair.host.chase.score, "the same score")
 	assert_eq(pair.guest.chase.round_number, pair.host.chase.round_number, "the same rounds")
 	assert_eq(pair.guest.chase.winner, pair.host.chase.winner, "the same winner")
-	assert_eq(pair.host.chase.score, [1, 2] as Array[int], "each mouse won its round")
-	assert_eq(_verdict(pair.host), "FRIEND WINS", "the host lost")
-	assert_eq(_verdict(pair.guest), "YOU WIN", "the guest won")
+	assert_eq(pair.host.chase.score, [2, 0] as Array[int], "a catch, then the time up")
+	assert_eq(_verdict(pair.host), "YOU WIN", "the host won")
+	assert_eq(_verdict(pair.guest), "FRIEND WINS", "the guest lost")
 
 
 func test_the_rematch_of_one_restarts_for_both() -> void:
@@ -300,22 +315,40 @@ func _connect(pair: OnlinePair, hosting: Main, joining: Main) -> void:
 	assert_true(both, "both play")
 
 
-## The mouse of the host at the centre, the cat of the guest within the reach of a touch
-## behind it, facing it, once the guest shows the mouse there.
-func _put_the_mouse_in_reach(pair: OnlinePair) -> void:
-	var mouse: Player = pair.host.players[ONE]
+## The mouse at the centre, put there by its own machine, and the cat of `cat_machine` (its
+## player `cat`) within the reach of a touch behind it, facing it, once that machine shows the
+## mouse there.
+func _put_in_reach(pair: OnlinePair, cat_machine: Chase, cat: int) -> void:
+	var mouse_machine: Chase = pair.host if cat_machine == pair.guest else pair.guest
+	var mouse: Player = mouse_machine.players[1 - cat]
 	mouse.intent_source = ScriptedIntentSource.new()
 	mouse.teleport(Transform3D(Basis.IDENTITY, Vector3.ZERO))
-	var shown: Player = pair.guest.players[ONE]
+	var shown: Player = cat_machine.players[1 - cat]
 	var there: bool = await pair.until(
 		func() -> bool: return shown.global_position.length() < 0.01, LATENCY_STEPS * 4
 	)
-	assert_true(there, "the guest shows the mouse where it is")
-	var cat: Player = pair.guest.players[TWO]
-	var reach: float = 2.0 * cat.tuning.capsule_radius + cat.tuning.tag_touch_reach
-	cat.intent_source = ScriptedIntentSource.new()
-	cat.teleport(Transform3D(Basis.IDENTITY, Vector3.BACK * (reach - IN_REACH_MARGIN)))
+	assert_true(there, "the machine of the cat shows the mouse where it is")
+	var runner: Player = cat_machine.players[cat]
+	var reach: float = 2.0 * runner.tuning.capsule_radius + runner.tuning.tag_touch_reach
+	runner.intent_source = ScriptedIntentSource.new()
+	runner.teleport(Transform3D(Basis.IDENTITY, Vector3.BACK * (reach - IN_REACH_MARGIN)))
 	await get_tree().physics_frame
+
+
+## How many catches the machine `from` (OnlinePair.HOST or GUEST) told the other one.
+func _catches_told(pair: OnlinePair, from: String) -> int:
+	var told: int = 0
+	for call: String in pair.network.calls:
+		var words: PackedStringArray = call.split(" ")
+		if words.size() != 5 or words[0] != "send" or words[1] != from or words[4] != "reliable":
+			continue
+		var bytes: PackedByteArray = words[3].hex_decode()
+		if bytes.is_empty() or bytes[0] != NetLink.Packet.MESSAGE:
+			continue
+		var message: OnlineMessage = OnlineMessage.decode(bytes.slice(1))
+		if message != null and message.kind == OnlineMessage.Kind.CHASE:
+			told += int(message.chase.kind == ChaseMessage.Kind.CATCH)
+	return told
 
 
 ## Both machines play until the match is over and its result shows; whether it did.

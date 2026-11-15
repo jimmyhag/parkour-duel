@@ -209,7 +209,7 @@ game/               the game, one folder per layer (table above)
                     the gamepad, why it failed) and the ping
   net/              the link of the chase online to the other machine: its contract
                     (NetLink: the handshake of the versions, the third player refused,
-                    the timeouts, the ping, every packet checked), its real adapter over
+                    the machines that never tell their version let go, the timeouts, the ping, every packet checked), its real adapter over
                     ENet and its fake one, deterministic, over a fake network
   levels/           the lane of the course, the solo course (test_course.tscn), the
                     duel (two lanes), the Trick Park (trick_park.tscn), the chase (its

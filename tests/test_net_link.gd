@@ -6,6 +6,8 @@ extends GutTest
 
 const PORT: int = LinkContract.PORT
 const ADDRESS: String = "127.0.0.1:24690"
+## A connection the host never met.
+const STRANGER: int = 999
 
 var _contract: LinkContract
 
@@ -68,8 +70,13 @@ func test_a_malformed_packet_is_ignored() -> void:
 	absurd_message.append_array(OnlineMessage.countdown(OnlineMessage.LATEST_STEP + 1).encode())
 	var older: PackedByteArray = PackedByteArray([NetLink.Packet.SNAPSHOT])
 	older.append_array(_snapshot(9).encode())
+	# A version that is not text, of a stranger and of the other player.
+	var not_text: PackedByteArray = PackedByteArray(
+		[NetLink.Packet.HELLO, 1, 0, 3, 0xff, 0xfe, 0xc3]
+	)
+	network.inject(host, not_text, STRANGER)
 	for bytes: PackedByteArray in [
-		PackedByteArray(), unreadable, unknown, not_a_number, absurd_message, older
+		PackedByteArray(), unreadable, unknown, not_a_number, absurd_message, older, not_text
 	]:
 		network.inject(host, bytes)
 	host.poll()
@@ -87,6 +94,13 @@ func test_a_malformed_packet_is_ignored() -> void:
 			return not later.is_empty()
 	)
 	assert_eq(later.size(), 1, "what comes next is read")
+
+
+func test_a_snapshot_dated_absurdly_is_ignored_even_first() -> void:
+	var buffer: SnapshotBuffer = SnapshotBuffer.new()
+	assert_false(buffer.receive(_snapshot(RunnerSnapshot.LATEST_STEP + 1)), "past the latest")
+	assert_eq(buffer.show_next(0.0), null, "nothing to show")
+	assert_true(buffer.receive(_snapshot(12)), "a snapshot dated as it should is kept")
 
 
 func _snapshot(step: int) -> RunnerSnapshot:

@@ -12,6 +12,9 @@ extends Control
 const CAT_WINS: String = "CAT WINS"
 const MOUSE_WINS: String = "MOUSE WINS"
 const SCORE: String = "%s   %d - %d   %s"
+## Online, what each machine calls its own player and the other one.
+const YOU: String = "YOU"
+const FRIEND: String = "FRIEND"
 
 ## The chase to show.
 var chase: ChaseState
@@ -40,6 +43,14 @@ func refresh() -> void:
 		chase.tuning.chase_cat_colour if cat_won else chase.tuning.chase_mouse_colour
 	)
 	_score.text = SCORE % [names[0], chase.score[0], chase.score[1], names[1]]
+
+
+## Online: the player `player` of this machine is YOU, the other one FRIEND.
+func name_online(player: int) -> void:
+	var online: Array[String] = [YOU, FRIEND]
+	if player != 0:
+		online.reverse()
+	names = online
 
 
 ## The texts shown: CAUGHT! when the cat won, the verdict and the score.
