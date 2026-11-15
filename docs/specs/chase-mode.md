@@ -154,6 +154,13 @@ Acceptés le 2026-11-15 ; Jimmy peut rouvrir chacun après avoir joué.
   chat bot qui fonce droit, une souris sur une plateforme lui échappe ; un chat humain y
   monte par le rebord. À juger en jouant : refuge trop fort ou non.
 - **Un contact au pas exact de la fin du temps** ne fige plus la manche : la souris gagne.
+- **Murets ouest et est à 4 m du centre** (et non 8), le 2026-11-15, avec le
+  franchissement (`docs/specs/vault.md`, décision 9) : à 8 m, l'enceinte se trouvait à
+  2,15 m derrière leur face, plus près que le point le plus lointain où un franchissement
+  à pleine vitesse pose le coureur (calculé depuis le réglage) ; on ne les franchissait
+  pas vers l'enceinte. À 6,5 m (le minimum pour ce calcul), ils touchaient les départs
+  (à 7 m du centre) ; à 4 m, chaque départ garde 2,5 m d'élan devant son muret, et le
+  pilote franchit chaque muret dans les deux sens à pleine vitesse (test du parcours).
 
 ## Hors périmètre
 

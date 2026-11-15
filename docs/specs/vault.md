@@ -1,6 +1,6 @@
 # Le franchissement : passer par-dessus un obstacle sans casser sa course
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Amendée le 2026-11-15 après l'inspection : un muret collé à un grand mur se franchissait
 (la sonde voyait le dos du grand mur comme de la place) ; en diagonale, pas de

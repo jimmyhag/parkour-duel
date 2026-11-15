@@ -312,7 +312,7 @@ func test_each_transition_has_its_blend_time() -> void:
 		[RunnerAnimation.Clip.RUNNING, RunnerAnimation.Clip.JUMP, 0.05, "run → jump"],
 		[RunnerAnimation.Clip.RUNNING_SLIDE, RunnerAnimation.Clip.RUNNING, 0.2, "slide → run"],
 		[
-			RunnerAnimation.Clip.SPRINT_TO_WALL_CLIMB,
+			RunnerAnimation.Clip.LEDGE_PULL_UP,
 			RunnerAnimation.Clip.FALLING_IDLE,
 			_tuning.animation_blend_time,
 			"a pair absent from the table: the default",

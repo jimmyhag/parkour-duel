@@ -12,6 +12,7 @@ enum Kind {
 	MANTLE,
 	WALL_RUN,
 	WALL_JUMP,
+	VAULT,
 	HARD_LANDING,
 	TRICK,
 	CRASH,

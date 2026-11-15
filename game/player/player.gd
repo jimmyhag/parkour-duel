@@ -28,6 +28,9 @@ const ALMOST_STILL: float = 0.1
 ## What the line of the reticle meets: the blocks of the world and the targets
 ## (project.godot, layer names 1 and 3), not the runners.
 const AIM_MASK: int = 0b101
+## How far past a face, or under a top, the probes of an obstacle ahead look, in m: inside
+## the obstacle, not on its surface.
+const PROBE_INSET: float = 0.05
 
 ## The tuning resource; its capsule and camera values replace the ones of the scene.
 @export var tuning: MovementTuning
@@ -79,7 +82,9 @@ func _ready() -> void:
 
 func _physics_process(delta: float) -> void:
 	var intent: MoveIntent = MoveIntent.new() if held else intent_source.next_intent()
-	velocity = motor.step(intent, _observe(intent), delta)
+	var facts: RunnerFacts = _observe(intent)
+	velocity = motor.step(intent, facts, delta)
+	_plant_the_hands(facts)
 	_fit_capsule()
 	move_and_slide()
 	camera_rig.aiming = intent.aim_held
@@ -192,7 +197,31 @@ func _observe(intent: MoveIntent) -> RunnerFacts:
 	_observe_the_wall_beside(facts, intent)
 	_wall_distance = facts.wall_distance
 	_observe_the_ledge_ahead(facts, intent)
+	_observe_the_obstacle_ahead(facts, intent)
 	return facts
+
+
+## A vault or a mantle that starts puts the hands of the character on the top the runner
+## observed (HandPlant): of the obstacle ahead, from its face on the way of the vault; of the
+## ledge, from its face, the capsule against it.
+func _plant_the_hands(facts: RunnerFacts) -> void:
+	if _character == null:
+		return
+	for event: RunnerEvent in motor.events:
+		if event.kind == RunnerEvent.Kind.VAULT:
+			var vault: Vault = motor.vault
+			var into: Vector3 = -Vector3(facts.obstacle_normal.x, 0.0, facts.obstacle_normal.z)
+			into = into.normalized()
+			var ahead: float = tuning.capsule_radius + facts.obstacle_distance
+			var edge: Vector3 = global_position + into * ahead
+			edge.y = vault.top
+			_character.plant_hands(HandPlant.new(vault.ground, vault.top, edge, into, vault.depth))
+		elif event.kind == RunnerEvent.Kind.MANTLE:
+			var onto: Vector3 = -Vector3(facts.ledge_normal.x, 0.0, facts.ledge_normal.z)
+			var top: float = facts.altitude + facts.ledge_height
+			var face: Vector3 = global_position + onto.normalized() * tuning.capsule_radius
+			face.y = top
+			_character.plant_hands(HandPlant.new(facts.altitude, top, face, onto, INF))
 
 
 ## How far down the ground is under the feet, probed as deep as a wall run asks the
@@ -299,6 +328,126 @@ func _observe_the_ledge_ahead(facts: RunnerFacts, intent: MoveIntent) -> void:
 	facts.ledge_height = top_point.y - feet.y
 	# A ray that starts inside the block found no top: the block is taller than that.
 	facts.ledge_clear = not top_normal.is_zero_approx() and _fits_standing_at(top_point)
+
+
+## The obstacle across the way of a runner on the floor, ahead the way its body moves (the
+## way it pushes when the body hardly moves), as far as a vault reaches (see
+## observe_the_obstacle_towards).
+func _observe_the_obstacle_ahead(facts: RunnerFacts, intent: MoveIntent) -> void:
+	if not facts.on_floor:
+		return
+	var moving: Vector3 = Vector3(velocity.x, 0.0, velocity.z)
+	if moving.length() <= ALMOST_STILL:
+		moving = Vector3(intent.direction.x, 0.0, intent.direction.z) * moving.length()
+	observe_the_obstacle_towards(facts, moving, tuning.vault_reach)
+
+
+## The obstacle across the way of a runner going at `velocity` (horizontal) whose face is at
+## most `reach` from its front, across that face, told in `facts` (RunnerFacts). Its face is
+## probed along that way, at half the lowest height a vault passes over, as far as the
+## slantest push into a face reaches; its top from above, as high as the highest one a vault
+## passes over, down to the feet; how deep it is, across its face, back towards it from as
+## deep as a vault passes over, just under its top. It has room when a standing body
+## passes, the way the runner goes, over its top from its face to where the vault would
+## leave the runner at the farthest (Vault.landing), and on the ground from right behind it
+## to there, and when there is a floor there, at most the deepest drop a vault takes below
+## the feet. An obstacle taller than a vault, or deeper, is reported so, without its room.
+## Probed from the body, never from where the visible body looks; the pilot asks it too,
+## farther ahead.
+func observe_the_obstacle_towards(facts: RunnerFacts, moving: Vector3, reach: float) -> void:
+	var heading: Vector3 = Vector3(moving.x, 0.0, moving.z).normalized()
+	if heading.is_zero_approx():
+		return
+	var feet: Vector3 = global_position
+	var low: Vector3 = feet + Vector3.UP * tuning.vault_min_height / 2.0
+	var slantest: float = maxf(sin(deg_to_rad(tuning.push_split_angle)), 0.1)
+	var ahead: float = (tuning.capsule_radius + reach) / slantest
+	var face: Dictionary = _first_hit(low, low + heading * ahead, false)
+	if face.is_empty():
+		return
+	var normal: Vector3 = face["normal"]
+	var towards_the_runner: Vector3 = Vector3(normal.x, 0.0, normal.z).normalized()
+	var face_point: Vector3 = face["position"]
+	var distance: float = (low - face_point).dot(towards_the_runner) - tuning.capsule_radius
+	if towards_the_runner.is_zero_approx() or distance > reach:
+		return
+	var inside: Vector3 = face_point - towards_the_runner * PROBE_INSET
+	var highest: float = feet.y + tuning.vault_max_height + PROBE_INSET
+	var top: Dictionary = _first_hit(
+		Vector3(inside.x, highest, inside.z), Vector3(inside.x, feet.y, inside.z), true
+	)
+	facts.obstacle_normal = normal
+	facts.obstacle_distance = maxf(distance, 0.0)
+	facts.obstacle_height = INF
+	var top_normal: Vector3 = top.get("normal", Vector3.ZERO)
+	if top_normal.is_zero_approx():
+		return
+	var top_point: Vector3 = top["position"]
+	facts.obstacle_height = top_point.y - feet.y
+	var under_the_top: Vector3 = Vector3(face_point.x, top_point.y - PROBE_INSET, face_point.z)
+	var into: Vector3 = -towards_the_runner
+	var deepest: Vector3 = under_the_top + into * (tuning.vault_max_depth + PROBE_INSET)
+	var back: Dictionary = _first_hit(deepest, under_the_top + into * PROBE_INSET, true)
+	var back_normal: Vector3 = back.get("normal", Vector3.ZERO)
+	if back_normal.is_zero_approx():
+		return
+	var back_point: Vector3 = back["position"]
+	facts.obstacle_depth = (back_point - face_point).dot(into)
+	facts.obstacle_clear = _has_room_to_vault(facts, moving, top_point.y)
+
+
+## Whether a runner going at `moving` has room to vault the obstacle `facts` tell of, whose
+## top stands at the altitude `top` (see observe_the_obstacle_towards).
+func _has_room_to_vault(facts: RunnerFacts, moving: Vector3, top: float) -> bool:
+	var heading: Vector3 = Vector3(moving.x, 0.0, moving.z).normalized()
+	var across: Vector3 = Vector3(facts.obstacle_normal.x, 0.0, facts.obstacle_normal.z)
+	var slant: float = maxf(absf(across.normalized().dot(heading)), 0.1)
+	var radius: float = tuning.capsule_radius
+	var feet: Vector3 = global_position
+	var at_the_face: Vector3 = feet + heading * (facts.obstacle_distance + radius) / slant
+	var landing: Vector3 = at_the_face + heading * Vault.landing(facts, moving, tuning)
+	var clear_of_it: float = (facts.obstacle_depth + radius) / slant + PROBE_INSET
+	var behind: Vector3 = at_the_face + heading * clear_of_it
+	var over: Vector3 = Vector3(at_the_face.x, top, at_the_face.z)
+	if not _passes_standing(over, Vector3(landing.x, top, landing.z) - over):
+		return false
+	if not _passes_standing(behind, landing - behind):
+		return false
+	var down: Dictionary = _first_hit(
+		Vector3(landing.x, top, landing.z),
+		Vector3(landing.x, feet.y - tuning.vault_max_drop, landing.z),
+		false
+	)
+	return not down.is_empty()
+
+
+## Whether a standing body with its feet at `feet` fits there and moves by `motion` without
+## meeting anything.
+func _passes_standing(feet: Vector3, motion: Vector3) -> bool:
+	var capsule: CapsuleShape3D = CapsuleShape3D.new()
+	capsule.radius = tuning.capsule_radius
+	capsule.height = tuning.capsule_height
+	var query: PhysicsShapeQueryParameters3D = PhysicsShapeQueryParameters3D.new()
+	query.shape = capsule
+	var middle: Vector3 = feet + Vector3.UP * (tuning.capsule_height / 2.0 + safe_margin)
+	query.transform = Transform3D(Basis.IDENTITY, middle)
+	query.motion = motion
+	query.collision_mask = collision_mask
+	query.exclude = [get_rid()]
+	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
+	if not space.intersect_shape(query, 1).is_empty():
+		return false
+	return space.cast_motion(query)[0] >= 1.0
+
+
+## What the line from `from` to `to` meets first among the blocks the body collides with;
+## from inside a block, with `from_inside`, a hit without a normal. Empty if nothing.
+func _first_hit(from: Vector3, to: Vector3, from_inside: bool) -> Dictionary:
+	var ray: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(
+		from, to, collision_mask, [get_rid()]
+	)
+	ray.hit_from_inside = from_inside
+	return get_world_3d().direct_space_state.intersect_ray(ray)
 
 
 ## Whether a standing body would fit with its feet at `feet`.

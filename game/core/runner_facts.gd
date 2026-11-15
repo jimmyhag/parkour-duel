@@ -36,3 +36,16 @@ var wall_height: float = 0.0
 var ledge_normal: Vector3 = Vector3.ZERO
 var ledge_height: float = 0.0
 var ledge_clear: bool = false
+
+## The obstacle across the way of a runner on the floor, ahead the way it moves (the way
+## it pushes when it hardly moves), if any: the normal of its face (pointing towards the
+## runner, ZERO when there is none), how far its face is from the front of the runner, in
+## m, the height of its top above the runner's feet, in m (INF when it is taller than a
+## vault is probed for), how deep it is the way the runner goes, in m (INF when deeper than
+## a vault is probed for), and whether a standing body fits over its top and right behind
+## it.
+var obstacle_normal: Vector3 = Vector3.ZERO
+var obstacle_distance: float = INF
+var obstacle_height: float = 0.0
+var obstacle_depth: float = INF
+var obstacle_clear: bool = false

@@ -29,6 +29,7 @@ const MOVE_NAMES: Dictionary[RunnerEvent.Kind, String] = {
 	RunnerEvent.Kind.MANTLE: "MANTLE",
 	RunnerEvent.Kind.WALL_RUN: "WALL RUN",
 	RunnerEvent.Kind.WALL_JUMP: "WALL JUMP",
+	RunnerEvent.Kind.VAULT: "VAULT",
 }
 ## How long a text stays on screen, and how long the gauge flashes, in s.
 const TEXT_SECONDS: float = 1.0
