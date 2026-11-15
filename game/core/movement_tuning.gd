@@ -320,6 +320,11 @@ extends Resource
 @export var tag_touch_speed_ratio: float = 0.0
 @export var tag_touch_reach: float = 0.0
 @export var tag_touch_cone: float = 0.0
+## Where the arm of a touch reaches out from: the shoulder, how high above the feet, and how
+## far from the axis of the capsule, turned towards the mouse, in m (measured once on the
+## bones, as tag_touch_reach: TagReach).
+@export var tag_touch_shoulder_height: float = 0.0
+@export var tag_touch_shoulder_offset: float = 0.0
 ## A touch that caught nothing: how long it costs, in s, and the share of its top speed the
 ## cat runs at most meanwhile.
 @export var tag_touch_recovery: float = 0.0
@@ -334,6 +339,9 @@ extends Resource
 @export var tag_dive_height: float = 0.0
 @export var tag_dive_reach: float = 0.0
 @export var tag_dive_cone: float = 0.0
+## How high above the feet the fingertips of a dive are when they are the farthest out, in m
+## (measured once on the bones, as tag_dive_reach: TagReach).
+@export var tag_dive_fingertips_height: float = 0.0
 ## Under this share of the speed of its dive, along its way, the diving cat has met a wall
 ## and stops.
 @export var tag_dive_stopped_share: float = 0.0

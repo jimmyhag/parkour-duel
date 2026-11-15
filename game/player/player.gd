@@ -638,9 +638,10 @@ func _set_capsule_height(height: float) -> void:
 ## only.
 func _reach_for_the_target() -> void:
 	if tag_target == null or not animation.touching:
-		_character.reach_for(PackedVector3Array(), 0.0, false)
+		_character.reach_for(PackedVector3Array(), 0.0, false, Vector3.ZERO)
 		return
-	_character.reach_for(axis_of(tag_target), radius_of(tag_target), _caught_the_target)
+	var axis: PackedVector3Array = axis_of(tag_target)
+	_character.reach_for(axis, radius_of(tag_target), _caught_the_target, tag_facing())
 
 
 ## The visible body turns, at its pace, towards where it should look this step; with

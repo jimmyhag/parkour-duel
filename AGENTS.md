@@ -149,8 +149,9 @@ game/               the game, one folder per layer (table above)
   core/             runner motor with its aerial tricks, its vaults and its mantles (and
                     how a push goes against a surface, and whether a wall may be run
                     along), the touch and the dive of the cat of a chase and the
-                    reach in which they catch (at any instant of a step), the drawing
-                    of a trick and
+                    reach in which they catch (from the shoulder or the fingertips, as
+                    measured on the body, at any instant of a step), the drawing of a
+                    trick and
                     the recipe it reads, intents, the facts the player observes, race
                     state, the flow state and the motor's dated messages, the weapon,
                     the state machines of the sabotageable targets and their dated

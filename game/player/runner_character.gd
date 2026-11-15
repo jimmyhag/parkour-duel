@@ -401,25 +401,16 @@ func play(animation: RunnerAnimation) -> void:
 
 
 ## The touch reaches for the runner whose capsule has the axis `axis`, from its lowest point
-## to its highest, and the radius `radius`, and `caught` it, as the level observed; an empty
-## axis: for nobody.
-func reach_for(axis: PackedVector3Array, radius: float, caught: bool) -> void:
-	_touch_hand.reach_for(axis, radius, caught)
+## to its highest, and the radius `radius`, and `caught` it, as the level observed, the cat
+## facing `facing` as the game says; an empty axis: for nobody (TouchHand).
+func reach_for(axis: PackedVector3Array, radius: float, caught: bool, facing: Vector3) -> void:
+	_touch_hand.reach_for(axis, radius, caught, facing)
 
 
-## How far the arm of a touch reaches beyond the capsule of the runner, in m, measured on the
-## bones at the size of the character (docs/specs/chase-tag-reach.md, decision 2): the right
-## shoulder turned towards the runner touched, the arm stretched, to the fingertips of the pose
-## of Reaching Out.
-func touch_reach() -> float:
-	return _touch_hand.touch_reach(_scale)
-
-
-## How far the fingertips of the dive go beyond the capsule of the runner, at the most, in m,
-## measured on the bones of the dive as it is played, at the size of the character
-## (docs/specs/chase-tag-reach.md, decision 3).
-func dive_reach() -> float:
-	return _touch_hand.dive_reach(_model.transform)
+## Of each value of the tuning measured once on the bones of the character, at its size, its
+## measure, in m (TouchHand.measured, docs/specs/chase-tag-reach.md).
+func measured_reaches() -> Dictionary[StringName, float]:
+	return _touch_hand.measured(_scale, _model.transform)
 
 
 ## Puts the hands on `plant` in the vault or the mantle that starts: the top the runner

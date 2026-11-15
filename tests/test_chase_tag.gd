@@ -32,6 +32,10 @@ const A_LITTLE: float = 0.02
 ## How far from the run of the cat a mouse on its side is, in degrees: out of the cone of
 ## docs/specs/chase-tag.md (60), within the one of docs/specs/chase-tag-reach.md (120).
 const ON_THE_SIDE: float = 50.0
+## How much lower than the cat a mouse below it stands, and how far aside of the cat a mouse
+## that passes beside it goes, in m.
+const LOWER: float = 0.6
+const BESIDE: float = 0.9
 
 var _tuning: MovementTuning
 
@@ -103,8 +107,8 @@ func test_the_dive_catches_farther() -> void:
 	var chase: ChaseState = _running_chase()
 	var cat: MotorBody = _cat(_tuning.top_speed)
 	var mouse: MotorBody = _mouse(1.4, _tuning.top_speed)
-	var touch_reach: bool = Tag.reaches(
-		_axis(cat), _axis(mouse), _radii(), Vector3.FORWARD, _tuning.tag_touch_reach, 60.0
+	var touch_reach: bool = TagReach.touch(_tuning).reaches(
+		_axis(cat), _axis(mouse), _tuning.capsule_radius, Vector3.FORWARD
 	)
 	assert_false(touch_reach, "beyond the reach of a touch")
 
@@ -206,7 +210,8 @@ func test_a_gesture_only_works_in_its_cone() -> void:
 
 	assert_eq(cat.motor.tag.gesture, Tag.Gesture.TOUCH, "the cat touched")
 	assert_eq(chase.phase, RUNNING, "it does not catch the mouse")
-	var ahead: bool = Tag.reaches(_axis(cat), _axis(mouse), _radii(), Vector3.RIGHT, 1.0, 60.0)
+	var touch: TagReach = TagReach.touch(_tuning)
+	var ahead: bool = touch.reaches(_axis(cat), _axis(mouse), _tuning.capsule_radius, Vector3.RIGHT)
 	assert_true(ahead, "it would, facing it")
 
 
@@ -306,8 +311,10 @@ func test_the_arm_reaches_for_a_mouse_on_the_side() -> void:
 	var side: Vector3 = Vector3.FORWARD.rotated(Vector3.UP, -deg_to_rad(ON_THE_SIDE))
 	var mouse: MotorBody = _mouse(-_radii(), 0.0)
 	mouse.position = side * (_tuning.tag_touch_reach - A_LITTLE + _radii())
-	var narrow: bool = Tag.reaches(
-		_axis(cat), _axis(mouse), _radii(), Vector3.FORWARD, _tuning.tag_touch_reach, 60.0
+	var touch: TagReach = TagReach.touch(_tuning)
+	touch.cone = 60.0
+	var narrow: bool = touch.reaches(
+		_axis(cat), _axis(mouse), _tuning.capsule_radius, Vector3.FORWARD
 	)
 	assert_false(narrow, "out of a cone of 60 degrees")
 
@@ -320,6 +327,78 @@ func test_the_arm_reaches_for_a_mouse_on_the_side() -> void:
 	assert_eq(cat.motor.tag.gesture, Tag.Gesture.TOUCH, "the cat touched, running straight")
 	assert_eq(chase.phase, ROUND_OVER, "the round is over")
 	assert_eq(chase.round_winner_role, ChaseState.Role.CAT, "the cat wins it")
+
+
+func test_a_touch_catches_a_sliding_mouse_only_where_the_hand_reaches() -> void:
+	# docs/specs/chase-tag-reach.md, decision 1: the arm reaches out from the shoulder, so a
+	# mouse low on the ground is caught only where the fingertips come down to its body.
+	_tuning = load(GAME_TUNING) as MovementTuning
+	var low: PackedVector3Array = _low_axis(0.0, _tuning.slide_capsule_height)
+	var farthest: float = _farthest_touched(low)
+	assert_true(_touch_against(low, farthest - A_LITTLE), "the hand reaches it: caught")
+	assert_false(_touch_against(low, farthest + A_LITTLE), "the hand stops short: missed")
+	assert_lt(farthest + A_LITTLE - 2.0 * _radii(), _tuning.tag_touch_reach, "the bodies alone")
+
+
+func test_a_touch_catches_a_lower_mouse_only_where_the_hand_reaches() -> void:
+	_tuning = load(GAME_TUNING) as MovementTuning
+	var low: PackedVector3Array = _low_axis(-LOWER, _tuning.capsule_height)
+	var farthest: float = _farthest_touched(low)
+	assert_true(_touch_against(low, farthest - A_LITTLE), "the hand reaches it: caught")
+	assert_false(_touch_against(low, farthest + A_LITTLE), "the hand stops short: missed")
+	assert_lt(farthest + A_LITTLE - 2.0 * _radii(), _tuning.tag_touch_reach, "the bodies alone")
+
+
+func test_a_dive_catches_a_sliding_mouse_only_where_the_fingertips_reach() -> void:
+	# The fingertips of a dive go out at their height: a mouse lower than them is caught only
+	# where they come down to its body.
+	_tuning = load(GAME_TUNING) as MovementTuning
+	var low: PackedVector3Array = _low_axis(0.0, _tuning.slide_capsule_height)
+	var up: float = _tuning.tag_dive_fingertips_height - low[1].y
+	var across: float = sqrt(_tuning.capsule_radius ** 2 - up ** 2)
+	var farthest: float = _tuning.capsule_radius + _tuning.tag_dive_reach + across
+	for apart: float in [farthest - A_LITTLE, farthest + A_LITTLE]:
+		var chase: ChaseState = _running_chase()
+		var cat: MotorBody = _cat(_tuning.top_speed)
+		var mouse: PackedVector3Array = low.duplicate()
+		for index: int in mouse.size():
+			mouse[index] += Vector3.FORWARD * apart
+		# The mouse slides away as fast as the cat dives: as far apart all along.
+		for step: int in DIVE_STEPS:
+			var cat_from: PackedVector3Array = _axis(cat)
+			var start: Vector3 = cat.position
+			cat.step(_run(false, step == 0))
+			var moved: Vector3 = Vector3(cat.position.x - start.x, 0.0, cat.position.z - start.z)
+			var mouse_to: PackedVector3Array = [mouse[0] + moved, mouse[1] + moved]
+			_observe(chase, cat, cat_from, mouse, mouse_to, step + 1)
+			mouse = mouse_to
+		var caught: bool = chase.phase == ROUND_OVER
+		assert_eq(caught, apart < farthest, "%.2f m apart: caught or not" % apart)
+	assert_lt(farthest + A_LITTLE - 2.0 * _radii(), _tuning.tag_dive_reach, "the bodies alone")
+
+
+func test_a_mouse_passing_beside_is_caught_at_the_edge_of_the_cone() -> void:
+	# The mouse passes beside the cat, the way the cat faces, in one step: at its nearest it
+	# is square to the cat, out of the cone; at both ends of the step, out of reach; it is in
+	# the cone and in reach only around its edge.
+	_tuning = load(GAME_TUNING) as MovementTuning
+	var reach: TagReach = TagReach.touch(_tuning)
+	var cat: PackedVector3Array = _axis(_cat(0.0))
+	var mouse: Array[PackedVector3Array] = [
+		_axis_at(Vector3(BESIDE, 0.0, BESIDE)), _axis_at(Vector3(BESIDE, 0.0, -BESIDE))
+	]
+	var radius: float = _tuning.capsule_radius
+	var nearest: PackedVector3Array = _axis_at(Vector3(BESIDE, 0.0, 0.0))
+	assert_false(reach.reaches(cat, nearest, radius, Vector3.FORWARD), "square: out of the cone")
+	assert_false(reach.reaches(cat, mouse[0], radius, Vector3.FORWARD), "out of reach as it starts")
+	assert_false(reach.reaches(cat, mouse[1], radius, Vector3.FORWARD), "and as it ends")
+	var edge: float = -BESIDE / tan(deg_to_rad(_tuning.tag_touch_cone) / 2.0)
+	var at_the_edge: PackedVector3Array = _axis_at(Vector3(BESIDE, 0.0, edge))
+	assert_true(reach.reaches(cat, at_the_edge, radius, Vector3.FORWARD), "at the edge: in reach")
+
+	var caught: bool = reach.reaches_during([cat, cat], mouse, radius, Vector3.FORWARD)
+
+	assert_true(caught, "caught during the step")
 
 
 ## A chase whose first round is on, player 0 the cat.
@@ -399,21 +478,16 @@ func _observe(
 		facing = Vector3.FORWARD
 	var cat_axes: Array[PackedVector3Array] = [cat_from, _axis(cat)]
 	var mouse_axes: Array[PackedVector3Array] = [mouse_from, mouse_to]
-	if Tag.catches(cat.motor, cat_axes, mouse_axes, _radii(), facing.normalized()):
+	var radius: float = _tuning.capsule_radius
+	if Tag.catches(cat.motor, cat_axes, mouse_axes, radius, facing.normalized()):
 		chase.receive(ChaseMessage.catch(step, chase.cat, cat.motor.tag.gesture))
 
 
 ## Whether the mouse, its capsule of axis `mouse_axis`, is within the reach of a touch of
 ## `cat` and its cone at this instant, the cat facing -Z.
 func _in_touch_reach(cat: MotorBody, mouse_axis: PackedVector3Array) -> bool:
-	return Tag.reaches(
-		_axis(cat),
-		mouse_axis,
-		_radii(),
-		Vector3.FORWARD,
-		_tuning.tag_touch_reach,
-		_tuning.tag_touch_cone
-	)
+	var touch: TagReach = TagReach.touch(_tuning)
+	return touch.reaches(_axis(cat), mouse_axis, _tuning.capsule_radius, Vector3.FORWARD)
 
 
 ## The lowest and the highest points of the axis of the capsule of `body`.
@@ -450,3 +524,44 @@ func _run_along(way: Vector3) -> MoveIntent:
 	var intent: MoveIntent = MoveIntent.new()
 	intent.direction = way
 	return intent
+
+
+## The axis of the capsule of a runner of the tuning standing at `feet`.
+func _axis_at(feet: Vector3) -> PackedVector3Array:
+	var radius: float = _tuning.capsule_radius
+	var top: float = _tuning.capsule_height - radius
+	return PackedVector3Array([feet + Vector3.UP * radius, feet + Vector3.UP * top])
+
+
+## The axis of the capsule, `height` m high, of a mouse whose feet are `below` m above the feet
+## of the cat, on its axis.
+func _low_axis(below: float, height: float) -> PackedVector3Array:
+	var radius: float = _tuning.capsule_radius
+	return PackedVector3Array(
+		[Vector3.UP * (below + radius), Vector3.UP * (below + height - radius)]
+	)
+
+
+## How far ahead of the cat, axis to axis, the mouse whose axis is `low` (on the cat's axis)
+## can be for its body to be within the arm of the shoulder of a touch, measured on the body.
+func _farthest_touched(low: PackedVector3Array) -> float:
+	var shoulder: float = _tuning.tag_touch_shoulder_height
+	var up: float = maxf(maxf(low[0].y - shoulder, shoulder - low[1].y), 0.0)
+	var offset: float = _tuning.tag_touch_shoulder_offset
+	var arm: float = _tuning.capsule_radius + _tuning.tag_touch_reach - offset
+	return offset + sqrt((_tuning.capsule_radius + arm) ** 2 - up ** 2)
+
+
+## Whether the touch of a cat standing still catches the mouse whose axis is `low`, moved
+## `apart` m ahead of the cat, standing still too.
+func _touch_against(low: PackedVector3Array, apart: float) -> bool:
+	var chase: ChaseState = _running_chase()
+	var cat: MotorBody = _cat(0.0)
+	var mouse: PackedVector3Array = low.duplicate()
+	for index: int in mouse.size():
+		mouse[index] += Vector3.FORWARD * apart
+	for step: int in TOUCH_STEPS:
+		var cat_from: PackedVector3Array = _axis(cat)
+		cat.step(_touch(step == 0))
+		_observe(chase, cat, cat_from, mouse, mouse, step + 1)
+	return chase.phase == ROUND_OVER

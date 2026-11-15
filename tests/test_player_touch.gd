@@ -22,6 +22,8 @@ const TOUCH_STEPS: int = 20
 const STANDING_STEPS: int = 45
 const SPEED_UP: int = 10
 const PRECISION: float = 0.0001
+## How many times the search for the farthest a mouse is in reach halves its interval.
+const HALVINGS: int = 40
 
 
 func test_the_reaches_are_those_of_the_body() -> void:
@@ -34,39 +36,71 @@ func test_the_reaches_are_those_of_the_body() -> void:
 		return
 	add_child_autofree(character)
 
-	var touch: float = character.touch_reach()
-	var dive: float = character.dive_reach()
+	var measured: Dictionary[StringName, float] = character.measured_reaches()
 
-	gut.p("measured on the bones: the touch %.3f m, the dive %.3f m" % [touch, dive])
-	assert_almost_eq(tuning.tag_touch_reach, touch, MEASURE_TOLERANCE, "the reach of the arm")
-	assert_almost_eq(tuning.tag_dive_reach, dive, MEASURE_TOLERANCE, "the reach of the dive")
+	assert_eq(measured.size(), 5, "the reaches of the touch and of the dive, and where from")
+	for name: StringName in measured:
+		var tuned: float = tuning.get(name)
+		gut.p("%s: %.3f m measured on the bones, %.3f m tuned" % [name, measured[name], tuned])
+		assert_almost_eq(tuned, measured[name], MEASURE_TOLERANCE, String(name))
 
 
 func test_the_hand_rests_only_on_a_catch() -> void:
 	var tuning: MovementTuning = load(TUNING) as MovementTuning
 	var radius: float = tuning.capsule_radius
-	var reach: float = tuning.tag_touch_reach
-	var from: Vector3 = Vector3(0.0, 1.4, 0.0)
-	# Where the fingertips go, the mouse ahead along -Z, at a gap from body to body.
-	for gap: float in [reach - A_LITTLE, reach + A_LITTLE]:
-		var context: String = "a gap of %.2f m: " % gap
-		var mouse: PackedVector3Array = _axis(Vector3.FORWARD * (2.0 * radius + gap), tuning)
-		var caught: Vector3 = TouchHand.fingertips_target(from, radius, reach, mouse, radius, true)
-		var missed: Vector3 = TouchHand.fingertips_target(from, radius, reach, mouse, radius, false)
-		var surface: float = -(2.0 * radius + gap - radius)
-		assert_lte(-caught.z, radius + reach + PRECISION, context + "never beyond the reach")
-		assert_lt(-missed.z, -surface - TouchHand.SHORT_OF_THE_BODY + PRECISION, context)
-		if gap <= reach:
-			assert_almost_eq(caught.z, surface, PRECISION, context + "caught: on the body")
+	var reach: TagReach = TagReach.touch(tuning)
+	var cat: PackedVector3Array = _axis(Vector3.ZERO, tuning.capsule_height, tuning)
+	# Where the fingertips go, a mouse standing or sliding ahead along -Z, a little within the
+	# reach of the game, then a little beyond.
+	for height: float in [tuning.capsule_height, tuning.slide_capsule_height]:
+		var limit: float = _farthest_in_reach(reach, cat, height, tuning)
+		for apart: float in [limit - A_LITTLE, limit + A_LITTLE]:
+			var context: String = "%.1f m high, %.2f m ahead: " % [height, apart]
+			var mouse: PackedVector3Array = _axis(Vector3.FORWARD * apart, height, tuning)
+			var in_reach: bool = reach.reaches(cat, mouse, radius, Vector3.FORWARD)
+			assert_eq(in_reach, apart < limit, context + "the game's reach")
+			var from: Vector3 = TouchHand.shoulder_towards(Vector3.ZERO, mouse, tuning)
+			var caught: Vector3 = TouchHand.fingertips_target(from, reach.arm, mouse, radius, true)
+			var missed: Vector3 = TouchHand.fingertips_target(from, reach.arm, mouse, radius, false)
+			assert_lte(from.distance_to(caught), reach.arm + PRECISION, context + "never beyond")
+			assert_gt(_off(missed, mouse, radius), 0.0, context + "missed: short of the body")
+			if in_reach:
+				assert_almost_eq(_off(caught, mouse, radius), 0.0, PRECISION, context + "on it")
+			else:
+				assert_gt(_off(caught, mouse, radius), 0.0, context + "out of reach: short of it")
 	# With the files, in the real physics: once caught, once just out of reach.
-	var landed: float = await _nearest_fingertips(reach - A_LITTLE)
+	var touch_reach: float = tuning.tag_touch_reach
+	var landed: float = await _nearest_fingertips(touch_reach - A_LITTLE)
 	if is_nan(landed):
 		pass_test("without the Mixamo files, where the fingertips go alone")
 		return
-	var stopped: float = await _nearest_fingertips(reach + A_LITTLE)
+	var stopped: float = await _nearest_fingertips(touch_reach + A_LITTLE)
 	gut.p("the fingertips: %.3f m from the body caught, %.3f m missed" % [landed, stopped])
 	assert_lte(absf(landed), ON_THE_BODY, "the hand lands on the mouse caught")
 	assert_gt(stopped, BEFORE_THE_BODY, "and stops before the mouse missed")
+
+
+## How far `point` is from the body of the capsule of axis `axis` and radius `radius`.
+func _off(point: Vector3, axis: PackedVector3Array, radius: float) -> float:
+	var on: Vector3 = Geometry3D.get_closest_point_to_segment(point, axis[0], axis[1])
+	return point.distance_to(on) - radius
+
+
+## How far ahead of the cat of axis `cat`, along -Z, a mouse `height` m high can stand for its
+## body to be within the reach `reach` (TagReach.gap), found by halving.
+func _farthest_in_reach(
+	reach: TagReach, cat: PackedVector3Array, height: float, tuning: MovementTuning
+) -> float:
+	var near: float = 0.0
+	var far: float = 4.0
+	for halving: int in HALVINGS:
+		var middle: float = (near + far) / 2.0
+		var mouse: PackedVector3Array = _axis(Vector3.FORWARD * middle, height, tuning)
+		if reach.gap(cat, mouse, tuning.capsule_radius) <= 0.0:
+			near = middle
+		else:
+			far = middle
+	return near
 
 
 ## The nearest the fingertips of a cat come to the body of a mouse standing `gap` m ahead of
@@ -127,12 +161,11 @@ func _nearest_fingertips(gap: float) -> float:
 	return nearest[0]
 
 
-## The axis of an upright capsule of the runners of `tuning`, its feet at `feet`.
-func _axis(feet: Vector3, tuning: MovementTuning) -> PackedVector3Array:
+## The axis of an upright capsule `height` m high of the runners of `tuning`, its feet at
+## `feet`.
+func _axis(feet: Vector3, height: float, tuning: MovementTuning) -> PackedVector3Array:
 	var radius: float = tuning.capsule_radius
-	return PackedVector3Array(
-		[feet + Vector3.UP * radius, feet + Vector3.UP * (tuning.capsule_height - radius)]
-	)
+	return PackedVector3Array([feet + Vector3.UP * radius, feet + Vector3.UP * (height - radius)])
 
 
 func _block(parent: Node3D, size: Vector3, center: Vector3) -> void:

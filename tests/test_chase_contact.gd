@@ -1,14 +1,20 @@
 extends GutTest
 ## The capsules of the chase (Player.axis_of, game/player) as the reach of a gesture of the
-## cat measures them (Tag.reaches, docs/specs/chase-tag.md): the least distance between
-## their axes, along the ground and up and down, less their radii together: the gap between
-## the two bodies. The bodies touching alone catch nothing (test_chase_tag.gd): a gesture
-## must reach.
+## cat measures them (TagReach, docs/specs/chase-tag-reach.md): from where the gesture
+## reaches out (a shoulder, at its height above the feet of the cat, turned towards the
+## mouse), how far the body of the mouse is, along the ground and up and down; side by side,
+## the gap between the two bodies. The bodies touching alone catch nothing
+## (test_chase_tag.gd): a gesture must reach.
 
 const HEIGHT: float = 1.8
 const RADIUS: float = 0.35
-## The reach of a gesture, and a cone that leaves out no way.
+## The reach of a gesture beyond the body, the shoulder it reaches out from (how high above
+## the feet, how far from the axis), the arm that goes from it, and a cone that leaves out no
+## way.
 const REACH: float = 1.0
+const SHOULDER_HEIGHT: float = 1.4
+const SHOULDER_OFFSET: float = 0.2
+const ARM: float = RADIUS + REACH - SHOULDER_OFFSET
 const ANY_WAY: float = 360.0
 
 
@@ -19,9 +25,9 @@ func test_two_capsules_one_above_the_other_are_in_reach_only_when_close() -> voi
 	assert_false(_in_reach(low, high), "on the same vertical, 3 m apart: out of reach")
 	assert_false(_in_reach(high, low), "whichever is the cat")
 
-	high.position.y = HEIGHT + REACH + 0.1
-	assert_false(_in_reach(low, high), "its feet 0.1 m beyond the reach above the head")
-	high.position.y = HEIGHT + REACH - 0.1
+	high.position.y = SHOULDER_HEIGHT + ARM + 0.1
+	assert_false(_in_reach(low, high), "its feet 0.1 m beyond the arm above the shoulder")
+	high.position.y = SHOULDER_HEIGHT + ARM - 0.1
 	assert_true(_in_reach(low, high), "0.1 m within it: in reach")
 
 
@@ -35,9 +41,9 @@ func test_two_capsules_side_by_side_are_in_reach_from_body_to_body() -> void:
 
 ## Whether `mouse` is within the reach of a gesture of `cat`.
 func _in_reach(cat: CharacterBody3D, mouse: CharacterBody3D) -> bool:
-	var radii: float = Player.radius_of(cat) + Player.radius_of(mouse)
-	return Tag.reaches(
-		Player.axis_of(cat), Player.axis_of(mouse), radii, Vector3.FORWARD, REACH, ANY_WAY
+	var reach: TagReach = TagReach.new(SHOULDER_HEIGHT, RADIUS, SHOULDER_OFFSET, ARM, ANY_WAY)
+	return reach.reaches(
+		Player.axis_of(cat), Player.axis_of(mouse), Player.radius_of(mouse), Vector3.FORWARD
 	)
 
 

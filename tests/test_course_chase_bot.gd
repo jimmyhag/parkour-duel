@@ -61,6 +61,8 @@ const UNDER_RUN: float = 3.0
 ## may run in one frame: nothing but the physics runs, and the same steps play sooner.
 const FAST: int = 400
 const STEPS_PER_FRAME: int = 64
+## The steps of the start of a round compared whatever the frame time: 3 s.
+const ROUND_START_STEPS: int = 180
 
 ## The rounds between bots, once played.
 var _rounds: ChaseBotRounds
@@ -311,6 +313,21 @@ func test_the_balance_holds_with_the_real_reaches() -> void:
 	assert_between(played.cat_wins[0], EVEN_CAT_LEAST, EVEN_CAT_MOST, "the cat wins 1 to 5")
 
 
+func test_a_round_between_bots_does_not_depend_on_the_frame_time() -> void:
+	# AGENTS.md: the simulation advances in fixed steps, never on frame time. The start of a
+	# round between two NORMAL bots, in a chase just made, played with many fixed steps to a
+	# frame, then with one: the bots go the same way, step for step.
+	var many: PackedVector3Array = await _start_of_a_round(STEPS_PER_FRAME)
+	var one: PackedVector3Array = await _start_of_a_round(1)
+	assert_eq(one.size(), many.size(), "as many steps")
+	var first_apart: int = -1
+	for index: int in mini(one.size(), many.size()):
+		if not one[index].is_equal_approx(many[index]):
+			first_apart = index
+			break
+	assert_eq(first_apart, -1, "the runners are where they were at every step")
+
+
 func test_each_link_of_the_arena_is_run_through() -> void:
 	var chase: Chase = await _add_still_chase()
 	var links: Node = chase.get_node("Arena/Links")
@@ -512,6 +529,29 @@ func _played_rounds() -> ChaseBotRounds:
 		_rounds = ChaseBotRounds.new(get_tree())
 		await _rounds.run(self, ROUNDS)
 	return _rounds
+
+
+## Where the two runners of a chase just made are at each of the first ROUND_START_STEPS
+## steps of its first round, both NORMAL bots, the countdown cut short, played with at most
+## `steps_per_frame` fixed steps to a frame.
+func _start_of_a_round(steps_per_frame: int) -> PackedVector3Array:
+	Engine.max_physics_steps_per_frame = steps_per_frame
+	var chase: Chase = (load(CHASE_SCENE) as PackedScene).instantiate() as Chase
+	add_child(chase)
+	for player: int in ChaseState.PLAYERS:
+		chase.make_bot(player, NORMAL)
+	var number: int = roundi(chase.players[ONE].tuning.round_countdown_number_time * 60)
+	chase.clock.steps = RoundClock.NUMBERS * number - 2
+	await _wait_for_go(chase)
+	var places: PackedVector3Array = []
+	for step: int in ROUND_START_STEPS:
+		await get_tree().physics_frame
+		for runner: Player in chase.players:
+			places.append(runner.global_position)
+	chase.queue_free()
+	await get_tree().process_frame
+	Engine.max_physics_steps_per_frame = STEPS_PER_FRAME
+	return places
 
 
 ## A chase whose match does not run (no clock, no catch): its runners only, held, and
