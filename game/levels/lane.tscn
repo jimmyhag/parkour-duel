@@ -44,11 +44,11 @@ material = SubResource("StandardMaterial3D_block")
 size = Vector3(6, 1, 12)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_steps_start"]
-size = Vector3(6, 1, 10)
+size = Vector3(6, 1, 11.7)
 
 [sub_resource type="BoxMesh" id="BoxMesh_steps_start"]
 material = SubResource("StandardMaterial3D_block")
-size = Vector3(6, 1, 10)
+size = Vector3(6, 1, 11.7)
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_step_1"]
 size = Vector3(6, 2, 5)
@@ -221,7 +221,7 @@ shape = SubResource("BoxShape3D_long_jump_start")
 mesh = SubResource("BoxMesh_long_jump_start")
 
 [node name="StepsStart" type="StaticBody3D" parent="Blocks"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, -70.9)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, -70.05)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Blocks/StepsStart"]
 shape = SubResource("BoxShape3D_steps_start")
@@ -389,7 +389,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.25, -7)
 target_id = 1
 
 [node name="LongJump1" parent="Targets" instance=ExtResource("10_falling_platform")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, -57.7)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, -56.85)
 target_id = 2
 
 [node name="Barrier" parent="Targets" instance=ExtResource("11_rising_barrier")]

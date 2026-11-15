@@ -1,6 +1,6 @@
 # Un tempo réaliste : courir, sauter et tourner à vitesse humaine
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-15, avec Jimmy, après avoir joué la passe « du poids et du liant »
 (`docs/specs/motion-weight.md`) : « c'est trop rapide […] pour le système que je veux

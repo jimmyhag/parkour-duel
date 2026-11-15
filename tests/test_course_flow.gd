@@ -148,9 +148,10 @@ func test_the_course_stays_clearable_at_full_speed() -> void:
 		_assert_cleared(attempt)
 		var runner: Player = attempt.course.player
 		var context: String = CHECKPOINT_NAMES[attempt.section]
-		var tier_speed: float = runner.tuning.top_speed * 1.15
+		# Tier 3 is 10 % above the top speed, tier 2 7 % (docs/specs/realistic-tempo.md).
+		var tier_speed: float = runner.tuning.top_speed * 1.10
 		assert_almost_eq(runner.motor.top_speed(), tier_speed, 0.001, context + ": at tier 3")
-		assert_gt(speeds[index].fastest, runner.tuning.top_speed * 1.1, context + ": and as fast")
+		assert_gt(speeds[index].fastest, runner.tuning.top_speed * 1.07, context + ": and as fast")
 
 
 func test_returning_to_the_checkpoint_on_request_empties_the_gauge() -> void:

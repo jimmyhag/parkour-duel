@@ -17,6 +17,13 @@ const RISKLESS_STYLE_PER_MINUTE: int = 4800
 ## longer one (decision 22 of docs/specs/trick-gestures.md).
 const FLOW_LINE_SHORT_SLIDE: int = 2
 const FLOW_LINE_LONG_SLIDE: int = 6
+## The tuning of the project before docs/specs/realistic-tempo.md: its top speed, its jump
+## and its turn, in m/s, m, m/s² and s.
+const BEFORE_TOP_SPEED: float = 8.2
+const BEFORE_JUMP_HEIGHT: float = 1.6
+const BEFORE_RISE_GRAVITY: float = 32.0
+const BEFORE_FALL_GRAVITY: float = 44.0
+const BEFORE_TURN_DURATION: float = 0.35
 
 
 ## What a minute of jumps earned.
@@ -125,6 +132,33 @@ func test_a_twist_makes_the_trick_longer() -> void:
 		var events: Array[RunnerEvent] = _hop(body, null, recipe, 0)
 
 		_assert_events(events, [CRASH])
+
+
+func test_the_tricks_keep_their_place_in_the_jump() -> void:
+	# docs/specs/realistic-tempo.md, decision 3: the durations of the tricks follow the
+	# flight of a held jump on the flat, from the tuning before the spec to the project's.
+	var tuning: MovementTuning = _project_tuning()
+	var before: MovementTuning = tuning.duplicate() as MovementTuning
+	before.top_speed = BEFORE_TOP_SPEED
+	before.jump_height = BEFORE_JUMP_HEIGHT
+	before.rise_gravity = BEFORE_RISE_GRAVITY
+	before.fall_gravity = BEFORE_FALL_GRAVITY
+	var flight: float = _steps_to_land(tuning) / float(STEPS_PER_SECOND)
+	var flight_before: float = _steps_to_land(before) / float(STEPS_PER_SECOND)
+	var share: float = tuning.trick_turn_duration / flight
+	var share_before: float = BEFORE_TURN_DURATION / flight_before
+	gut.p("a turn over the flight: %.3f before, %.3f now" % [share_before, share])
+	assert_almost_eq(share, share_before, share_before * 0.02, "the share of a turn, within 2 %")
+
+	var single: MotorBody = MotorBody.running(tuning, FORWARD, tuning.top_speed)
+	var events: Array[RunnerEvent] = _hop(single, null, _backflip(), 1)
+	_assert_events(events, [TRICK])
+	if events.size() == 1 and events[0].trick != null:
+		assert_true(events[0].trick.perfect, "a single fits, posed")
+	for recipe: TrickRecipe in [_backflip(2), _backflip(1, 1)]:
+		var body: MotorBody = MotorBody.running(tuning, FORWARD, tuning.top_speed)
+		# Released with the jump itself, the earliest it can be.
+		_assert_events(_hop(body, null, recipe, 0), [CRASH])
 
 
 # --- The loop without risk ---

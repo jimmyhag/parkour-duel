@@ -98,7 +98,7 @@ func test_returning_to_the_checkpoint_works_at_any_time() -> void:
 	await _wait_steps(SETTLE_STEPS)
 	_assert_at_rest_at(course, checkpoint)
 
-	await _replay(course, ScriptedIntentSource.new().hold(FORWARD, true, 12), 0)
+	await _replay(course, ScriptedIntentSource.new().hold(FORWARD, true, 18), 0)
 	assert_false(course.player.is_on_floor(), "in the air")
 	assert_gt(course.player.global_position.y, 1.0)
 	course.player.intent_source = inputs
@@ -111,7 +111,7 @@ func test_a_respawn_does_not_touch_the_timer() -> void:
 	var course: Course = _add_course()
 	_start_at(course, SHORT_JUMPS)
 	var checkpoint: Checkpoint = _checkpoint(course, SHORT_JUMPS)
-	await _replay(course, ScriptedIntentSource.new().hold(FORWARD, false, 20), 0)
+	await _replay(course, ScriptedIntentSource.new().hold(FORWARD, false, 25), 0)
 	assert_gt(_distance_to(course, checkpoint), 1.0, "the runner left the checkpoint")
 	var steps_before: int = course.race.elapsed_steps
 
@@ -128,7 +128,7 @@ func test_a_sequence_of_intents_can_request_the_return_to_the_checkpoint() -> vo
 	var course: Course = _add_course()
 	_start_at(course, LONG_JUMPS)
 	var checkpoint: Checkpoint = _checkpoint(course, LONG_JUMPS)
-	await _replay(course, ScriptedIntentSource.new().hold(FORWARD, false, 40), 0)
+	await _replay(course, ScriptedIntentSource.new().hold(FORWARD, false, 50), 0)
 	assert_gt(_distance_to(course, checkpoint), 3.0, "far from the last checkpoint")
 
 	await _replay(course, ScriptedIntentSource.new().request_respawn())
@@ -243,10 +243,11 @@ func test_the_course_stays_feasible_with_the_new_tuning() -> void:
 	# the durations of the gestures of the project (each section is cleared with them by the
 	# tests above, and with the top speed changed by 10 %), then the accelerations, and the
 	# durations of the gestures, changed by 10 %.
+	# The values themselves are those of docs/specs/realistic-tempo.md since then.
 	var tuning: MovementTuning = load(TUNING) as MovementTuning
-	assert_almost_eq(tuning.top_speed, 8.2, 0.0001, "the top speed of the spec")
-	assert_almost_eq(tuning.ground_acceleration, 24.0, 0.0001, "its acceleration")
-	assert_almost_eq(tuning.ground_deceleration, 34.0, 0.0001, "its deceleration")
+	assert_almost_eq(tuning.top_speed, 6.5, 0.0001, "the top speed of the project")
+	assert_almost_eq(tuning.ground_acceleration, 16.0, 0.0001, "its acceleration")
+	assert_almost_eq(tuning.ground_deceleration, 26.0, 0.0001, "its deceleration")
 	var variants: Array[MovementTuning] = []
 	for factor: float in VARIANT_FACTORS:
 		var pushed: MovementTuning = _copy_of_the_tuning("accelerations x %.1f" % factor)
@@ -261,6 +262,20 @@ func test_the_course_stays_feasible_with_the_new_tuning() -> void:
 		variants.append(gestures)
 
 	await _assert_every_section_is_cleared_with(variants)
+
+
+func test_the_course_stays_feasible_at_the_realistic_tempo() -> void:
+	# docs/specs/realistic-tempo.md: the tuning of the spec, every section played by the
+	# pilot; its guarantee of 10 % more and less is played by the tests above, on the top
+	# speed, the gravities, the jump height, the accelerations and the gestures.
+	var tuning: MovementTuning = _copy_of_the_tuning("realistic tempo")
+	assert_almost_eq(tuning.top_speed, 6.5, 0.0001, "the run of the spec")
+	assert_almost_eq(tuning.jump_height, 1.2, 0.0001, "its jump")
+	assert_almost_eq(tuning.rise_gravity, 16.0, 0.0001, "its gravity going up")
+	assert_almost_eq(tuning.fall_gravity, 22.0, 0.0001, "and going down")
+	assert_almost_eq(tuning.wall_run_start_speed, 4.8, 0.0001, "its wall run")
+
+	await _assert_every_section_is_cleared_with([tuning])
 
 
 func test_reloading_the_tuning_applies_the_new_values() -> void:

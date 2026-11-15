@@ -112,29 +112,29 @@ func test_each_low_wall_is_vaulted_both_ways_at_top_speed() -> void:
 	# vaulted at top speed going out, from the side of the centre, and coming back, from the
 	# side of the enclosure, which stands farther than any vault would land.
 	var chase: Chase = _add_chase()
+	await _assert_each_low_wall_is_vaulted_both_ways(chase, 0.0, "")
+
+
+func test_the_chase_arena_keeps_its_rules_at_the_realistic_tempo() -> void:
+	# docs/specs/realistic-tempo.md, decision 9: the tuning of the project, each low wall
+	# vaulted both ways at the top speed, then at the top speed of tier 3 of the flow; each
+	# platform above a jump followed by a mantle from the floor, reached by its ledge block.
+	var chase: Chase = _add_chase()
+	var tuning: MovementTuning = chase.players[ONE].tuning
+	assert_almost_eq(tuning.top_speed, 6.5, PRECISION, "the run of the spec")
+	var bonuses: Array[float] = tuning.flow_tier_speed_bonus
+	var tier_3: float = bonuses[tuning.flow_tier_count - 1]
+	await _assert_each_low_wall_is_vaulted_both_ways(chase, 0.0, "at the top speed, ")
+	await _assert_each_low_wall_is_vaulted_both_ways(chase, tier_3, "at tier 3, ")
+
 	var arena: Node3D = chase.get_node("Arena") as Node3D
-	var inside: AABB = _inside_of(_boxes(arena, "Enclosure", "the enclosure"))
-	var centre: Vector3 = (arena.get_node("Centre") as Node3D).global_position
-	for wall: Node in arena.get_node("LowWalls").get_children():
-		var box: AABB = _box_of(wall as StaticBody3D)
-		var middle: Vector3 = box.get_center()
-		var across: Vector3 = Vector3(signf(middle.x - centre.x), 0.0, 0.0)
-		if box.size.z < box.size.x:
-			across = Vector3(0.0, 0.0, signf(middle.z - centre.z))
-		var half: float = box.size.dot(across.abs()) / 2.0
-		var line: Vector3 = Vector3(middle.x, centre.y, middle.z)
-		var out_start: Vector3 = line - across * (line - centre).dot(across)
-		var room_outside: float = absf((inside.get_center() - line).dot(across))
-		room_outside += inside.size.dot(across.abs()) / 2.0 - half
-		var in_start: Vector3 = line + across * (half + minf(RUN_UP, room_outside - 0.4))
-		var starts: Array[Vector3] = [out_start, in_start]
-		var ways: Array[Vector3] = [across, -across]
-		for run: int in starts.size():
-			var context: String = "%s, %s: " % [wall.name, ["going out", "coming in"][run]]
-			var seen: Array[int] = await _pilot_at(chase, starts[run], ways[run])
-			assert_gt(seen[0], 0, context + "the pilot vaults it")
-			assert_eq(seen[1], 0, context + "without a jump")
-			assert_eq(seen[2], 1, context + "at its top speed")
+	var ground_top: float = _box_of(arena.get_node("Ground") as StaticBody3D).end.y
+	var blocks: Array[AABB] = _boxes(arena, "Blocks", "blocks to climb")
+	var from_the_floor: float = tuning.jump_height + tuning.mantle_max_height
+	for box: AABB in _boxes(arena, "Platforms", "a platform"):
+		var height: float = box.end.y - ground_top
+		assert_gt(height, from_the_floor + PLATFORM_MARGIN, "above a jump and a mantle")
+		assert_true(_has_a_ledge_to(box, blocks, tuning), "reached by its ledge block")
 
 
 func test_the_contact_of_the_two_bodies_is_observed() -> void:
@@ -344,13 +344,44 @@ func _assert_face_to_face(chase: Chase, context: String) -> void:
 		assert_lt(from_its_start, NEAR, context + ": at its start point")
 
 
-## A runner of its own, led by the pilot from `start` the way `way` in the arena of
-## `chase`: the steps it vaulted, the jumps it made, and 1 if it went at its top speed as
-## it started its first vault (0 otherwise).
-func _pilot_at(chase: Chase, start: Vector3, way: Vector3) -> Array[int]:
+## Each low wall of the arena of `chase`, vaulted by the pilot at the top speed raised by
+## `bonus` (the share a tier of the flow gives), going out, from the side of the centre,
+## and coming back, from the side of the enclosure, which stands farther than any vault
+## would land. `how` starts the messages.
+func _assert_each_low_wall_is_vaulted_both_ways(chase: Chase, bonus: float, how: String) -> void:
+	var arena: Node3D = chase.get_node("Arena") as Node3D
+	var inside: AABB = _inside_of(_boxes(arena, "Enclosure", "the enclosure"))
+	var centre: Vector3 = (arena.get_node("Centre") as Node3D).global_position
+	for wall: Node in arena.get_node("LowWalls").get_children():
+		var box: AABB = _box_of(wall as StaticBody3D)
+		var middle: Vector3 = box.get_center()
+		var across: Vector3 = Vector3(signf(middle.x - centre.x), 0.0, 0.0)
+		if box.size.z < box.size.x:
+			across = Vector3(0.0, 0.0, signf(middle.z - centre.z))
+		var half: float = box.size.dot(across.abs()) / 2.0
+		var line: Vector3 = Vector3(middle.x, centre.y, middle.z)
+		var out_start: Vector3 = line - across * (line - centre).dot(across)
+		var room_outside: float = absf((inside.get_center() - line).dot(across))
+		room_outside += inside.size.dot(across.abs()) / 2.0 - half
+		var in_start: Vector3 = line + across * (half + minf(RUN_UP, room_outside - 0.4))
+		var starts: Array[Vector3] = [out_start, in_start]
+		var ways: Array[Vector3] = [across, -across]
+		for run: int in starts.size():
+			var context: String = "%s%s, %s: " % [how, wall.name, ["going out", "coming in"][run]]
+			var seen: Array[int] = await _pilot_at(chase, starts[run], ways[run], bonus)
+			assert_gt(seen[0], 0, context + "the pilot vaults it")
+			assert_eq(seen[1], 0, context + "without a jump")
+			assert_eq(seen[2], 1, context + "at its top speed")
+
+
+## A runner of its own, its top speed raised by `bonus`, led by the pilot from `start` the
+## way `way` in the arena of `chase`: the steps it vaulted, the jumps it made, and 1 if it
+## went at its top speed as it started its first vault (0 otherwise).
+func _pilot_at(chase: Chase, start: Vector3, way: Vector3, bonus: float = 0.0) -> Array[int]:
 	var runner: Player = PLAYER_SCENE.instantiate() as Player
 	chase.add_child(runner)
 	runner.teleport(Transform3D(Basis.looking_at(way), start))
+	runner.motor.top_speed_bonus = bonus
 	await get_tree().physics_frame
 	runner.intent_source = PilotIntentSource.new(runner, way)
 	var seen: Array[int] = [0, 0, 0]
@@ -359,7 +390,7 @@ func _pilot_at(chase: Chase, start: Vector3, way: Vector3) -> Array[int]:
 		await get_tree().physics_frame
 		var vaulting: bool = runner.motor.state == RunnerMotor.State.VAULTING
 		if vaulting and seen[0] == 0:
-			seen[2] = int(speed >= runner.tuning.top_speed * AT_TOP_SPEED)
+			seen[2] = int(speed >= runner.motor.top_speed() * AT_TOP_SPEED)
 		seen[0] += int(vaulting)
 		for event: RunnerEvent in runner.motor.events:
 			seen[1] += int(event.kind == RunnerEvent.Kind.JUMP)

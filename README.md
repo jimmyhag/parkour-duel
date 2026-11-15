@@ -181,8 +181,8 @@ Vault: on the ground, run at a low and thin obstacle (its top 0.6 to 1.3 m above
 feet, at most 1.5 m deep across its face) and keep pushing towards it, straight or up to
 45 degrees from its face. Once it is within reach, the runner passes over it by itself,
 without a button, and comes out on the other side, on the ground, the same way, with
-90 % of its speed; it never goes faster than it came. Too slow (under 4 m/s, or too
-slow to clear it in 0.4 s), too high, too deep, without room all the way over it to
+90 % of its speed; it never goes faster than it came. Too slow (under 3.2 m/s, or too
+slow to clear it in 0.6 s), too high, too deep, without room all the way over it to
 where it would come down, or without a floor there (at most 1.5 m lower): nothing
 happens, jump or climb it as before. A jump pressed as it comes within reach jumps
 instead. The vault goes to the end: jump and slide do nothing meanwhile. The pilot and
@@ -243,9 +243,9 @@ does not read starts nothing, not even the jump. The jump of a trick is not a mo
 the flow of its own: the trick is the move. A press without drawing starts the trick of
 the context, worth half a front flip: a front flip when
 running, a backflip at a stop or just after a wall jump, a side flip away from the wall
-when leaving a wall run. A turn takes 0.35 s and each twist adds 0.3 s: a single fits
-in a jump on the flat; measured with the tuning file, a held jump on the flat lasts 36
-fixed steps, so a single with a twist (39 steps) asks for a small drop, and a double (42
+when leaving a wall run. A turn takes 0.43 s and each twist adds 0.37 s: a single fits
+in a jump on the flat; measured with the tuning file, a held jump on the flat lasts 44
+fixed steps, so a single with a twist (48 steps) asks for a small drop, and a double (52
 steps) for a drop or a wall jump. One trick per jump. A finished trick must be posed: press the slide at most 0.25 s before
 touching the ground, PERFECT within the last 0.1 s (more points, and a little speed, up
 to the top speed plus that gain). No press within that window, or the trick not over at
