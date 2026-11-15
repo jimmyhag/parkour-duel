@@ -1,8 +1,8 @@
 extends ReplayTest
 ## The chase (game/levels/chase.tscn) in the real physics, without a screen: its arena,
 ## the contact of the two bodies, the start of a round face to face, the device of each
-## player, and the fall out of the arena. Faster than real time with the same fixed step
-## of 1/60 s (see ReplayTest).
+## player, the fall out of the arena, and its low walls vaulted both ways by the pilot.
+## Faster than real time with the same fixed step of 1/60 s (see ReplayTest).
 
 const CHASE_SCENE: String = "res://game/levels/chase.tscn"
 const ONE: int = Chase.PLAYER_ONE
@@ -33,6 +33,14 @@ const STILL: float = 0.05
 const NEAR: float = 0.05
 ## The precision of a size read from the physics, in m.
 const PRECISION: float = 0.001
+const PLAYER_SCENE: PackedScene = preload("res://game/player/player.tscn")
+## How far from the wall a runner coming from the side of the enclosure starts, at most,
+## in m: room enough to reach its top speed before the wall is within reach.
+const RUN_UP: float = 2.8
+## Steps a run at a low wall lasts at most: well past it.
+const RUN_STEPS: int = 90
+## The share of its top speed a runner has at least as it vaults at it.
+const AT_TOP_SPEED: float = 0.99
 
 
 func after_each() -> void:
@@ -97,6 +105,36 @@ func test_the_arena_has_all_its_obstacles() -> void:
 			continue
 		var box: AABB = _box_of(body)
 		assert_true(inside.grow(NEAR).encloses(box), body.name + ": inside the arena")
+
+
+func test_each_low_wall_is_vaulted_both_ways_at_top_speed() -> void:
+	# docs/specs/chase-mode.md, choices accepted after the vault: a low wall of the arena is
+	# vaulted at top speed going out, from the side of the centre, and coming back, from the
+	# side of the enclosure, which stands farther than any vault would land.
+	var chase: Chase = _add_chase()
+	var arena: Node3D = chase.get_node("Arena") as Node3D
+	var inside: AABB = _inside_of(_boxes(arena, "Enclosure", "the enclosure"))
+	var centre: Vector3 = (arena.get_node("Centre") as Node3D).global_position
+	for wall: Node in arena.get_node("LowWalls").get_children():
+		var box: AABB = _box_of(wall as StaticBody3D)
+		var middle: Vector3 = box.get_center()
+		var across: Vector3 = Vector3(signf(middle.x - centre.x), 0.0, 0.0)
+		if box.size.z < box.size.x:
+			across = Vector3(0.0, 0.0, signf(middle.z - centre.z))
+		var half: float = box.size.dot(across.abs()) / 2.0
+		var line: Vector3 = Vector3(middle.x, centre.y, middle.z)
+		var out_start: Vector3 = line - across * (line - centre).dot(across)
+		var room_outside: float = absf((inside.get_center() - line).dot(across))
+		room_outside += inside.size.dot(across.abs()) / 2.0 - half
+		var in_start: Vector3 = line + across * (half + minf(RUN_UP, room_outside - 0.4))
+		var starts: Array[Vector3] = [out_start, in_start]
+		var ways: Array[Vector3] = [across, -across]
+		for run: int in starts.size():
+			var context: String = "%s, %s: " % [wall.name, ["going out", "coming in"][run]]
+			var seen: Array[int] = await _pilot_at(chase, starts[run], ways[run])
+			assert_gt(seen[0], 0, context + "the pilot vaults it")
+			assert_eq(seen[1], 0, context + "without a jump")
+			assert_eq(seen[2], 1, context + "at its top speed")
 
 
 func test_the_contact_of_the_two_bodies_is_observed() -> void:
@@ -304,6 +342,30 @@ func _assert_face_to_face(chase: Chase, context: String) -> void:
 		assert_lt(runner.velocity.length(), NEAR, context + ": at rest")
 		var from_its_start: float = chase.spawns[player].origin.distance_to(runner.global_position)
 		assert_lt(from_its_start, NEAR, context + ": at its start point")
+
+
+## A runner of its own, led by the pilot from `start` the way `way` in the arena of
+## `chase`: the steps it vaulted, the jumps it made, and 1 if it went at its top speed as
+## it started its first vault (0 otherwise).
+func _pilot_at(chase: Chase, start: Vector3, way: Vector3) -> Array[int]:
+	var runner: Player = PLAYER_SCENE.instantiate() as Player
+	chase.add_child(runner)
+	runner.teleport(Transform3D(Basis.looking_at(way), start))
+	await get_tree().physics_frame
+	runner.intent_source = PilotIntentSource.new(runner, way)
+	var seen: Array[int] = [0, 0, 0]
+	var speed: float = 0.0
+	for step: int in RUN_STEPS:
+		await get_tree().physics_frame
+		var vaulting: bool = runner.motor.state == RunnerMotor.State.VAULTING
+		if vaulting and seen[0] == 0:
+			seen[2] = int(speed >= runner.tuning.top_speed * AT_TOP_SPEED)
+		seen[0] += int(vaulting)
+		for event: RunnerEvent in runner.motor.events:
+			seen[1] += int(event.kind == RunnerEvent.Kind.JUMP)
+		speed = Vector2(runner.velocity.x, runner.velocity.z).length()
+	runner.queue_free()
+	return seen
 
 
 func _add_chase() -> Chase:

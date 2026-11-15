@@ -320,7 +320,7 @@ right, on the gamepad only (the first one connected). Choose CHASE on the start 
 without a gamepad, the screen says CONNECT A GAMEPAD FOR PLAYER 2 and the chase starts
 as soon as one is connected. The arena is a 20 m by 20 m square closed by high walls
 that cannot be run along, full of obstacles: four light low walls (0.9 to 1.2 m, thin,
-to jump over or climb, and to vault once the vault exists), grey blocks of 1.5 to 2 m to
+to vault at a run either way, or to jump over or climb), grey blocks of 1.5 to 2 m to
 climb, two blue-grey walls 3 m apart to run along and to jump between, two low beams to
 slide under (their tops, and the tops of the walls, can be climbed too), and two
 platforms 4.2 m high in opposite corners, out of reach of a jump and a mantle from the

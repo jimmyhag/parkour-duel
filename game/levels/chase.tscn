@@ -194,7 +194,7 @@ shape = SubResource("Shape_4_0p9_0p3_low_wall")
 mesh = SubResource("Mesh_4_0p9_0p3_low_wall")
 
 [node name="West" type="StaticBody3D" parent="Arena/LowWalls"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 0.55, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 0.55, 0)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Arena/LowWalls/West"]
 shape = SubResource("Shape_0p3_1p1_4_low_wall")
@@ -203,7 +203,7 @@ shape = SubResource("Shape_0p3_1p1_4_low_wall")
 mesh = SubResource("Mesh_0p3_1p1_4_low_wall")
 
 [node name="East" type="StaticBody3D" parent="Arena/LowWalls"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0.6, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0.6, 0)
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Arena/LowWalls/East"]
 shape = SubResource("Shape_0p3_1p2_4_low_wall")
