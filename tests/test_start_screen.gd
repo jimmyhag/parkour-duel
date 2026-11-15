@@ -1,12 +1,20 @@
 extends GutTest
-## The start screen (game/ui): its four choices, the duel against the ghost greyed with
-## its reason until a solo run is finished, and its navigation.
+## The start screen (game/ui): its five choices, the duel against the ghost greyed with
+## its reason until a solo run is finished, the chase that waits for the gamepad of player
+## 2, and its navigation.
 
 const SCREEN_SCENE: PackedScene = preload("res://game/ui/start_screen.tscn")
-const LABELS: Array[String] = ["SOLO PRACTICE", "DUEL VS GHOST", "DUEL VS BOT", "TRICK PARK"]
+const LABELS: Array[String] = [
+	"SOLO PRACTICE", "DUEL VS GHOST", "DUEL VS BOT", "TRICK PARK", "CHASE"
+]
 const REASON: String = "FINISH A SOLO RUN FIRST"
+const NO_GAMEPAD: String = "CONNECT A GAMEPAD FOR PLAYER 2"
 
 var _chosen: Array[StartScreen.Choice] = []
+
+
+func before_each() -> void:
+	_chosen.clear()
 
 
 func after_each() -> void:
@@ -17,7 +25,7 @@ func after_each() -> void:
 func test_the_ghost_duel_needs_a_solo_run() -> void:
 	var screen: StartScreen = _add_screen(false)
 
-	assert_eq(_texts(screen), LABELS, "the four choices")
+	assert_eq(_texts(screen), LABELS, "the five choices")
 	assert_true(_is_greyed(screen, StartScreen.Choice.DUEL_VS_GHOST), "the ghost greyed")
 	var reason: Label = screen.get_node("%Reason") as Label
 	assert_true(reason.is_visible_in_tree(), "with its reason")
@@ -25,6 +33,7 @@ func test_the_ghost_duel_needs_a_solo_run() -> void:
 	assert_false(_is_greyed(screen, StartScreen.Choice.SOLO_PRACTICE), "solo practice is not")
 	assert_false(_is_greyed(screen, StartScreen.Choice.DUEL_VS_BOT), "nor the bot")
 	assert_false(_is_greyed(screen, StartScreen.Choice.TRICK_PARK), "nor the trick park")
+	assert_false(_is_greyed(screen, StartScreen.Choice.CHASE), "nor the chase")
 
 	screen.open(true)
 
@@ -44,7 +53,9 @@ func test_the_start_screen_chooses_with_up_down_and_jump() -> void:
 	await _tap(&"menu_down")
 	await _tap(&"menu_down")
 	await _tap(&"menu_down")
-	assert_eq(screen.selected(), StartScreen.Choice.TRICK_PARK, "it stops at the last one")
+	await _tap(&"menu_down")
+	assert_eq(screen.selected(), StartScreen.Choice.CHASE, "it stops at the last one")
+	await _tap(&"menu_up")
 	await _tap(&"menu_up")
 	await _tap(&"menu_up")
 	assert_eq(screen.selected(), StartScreen.Choice.DUEL_VS_GHOST, "up")
@@ -57,6 +68,52 @@ func test_the_start_screen_chooses_with_up_down_and_jump() -> void:
 	var without_ghost: StartScreen = _add_screen(false)
 	await _tap(&"menu_down")
 	assert_eq(without_ghost.selected(), StartScreen.Choice.DUEL_VS_BOT, "a greyed one skipped")
+
+
+func test_without_a_gamepad_the_mode_waits() -> void:
+	var gamepad: Array[bool] = [false]
+	var screen: StartScreen = _add_screen(true)
+	screen.has_the_gamepad = func() -> bool: return gamepad[0]
+	var message: Label = screen.get_node("%GamepadReason") as Label
+	assert_false(message.is_visible_in_tree(), "no message before CHASE is chosen")
+	for step: int in 4:
+		await _tap(&"menu_down")
+	assert_eq(screen.selected(), StartScreen.Choice.CHASE, "CHASE selected")
+
+	await _tap(&"jump")
+
+	assert_eq(_chosen.size(), 0, "the chase does not start")
+	assert_true(screen.visible, "the start screen stays")
+	assert_true(message.is_visible_in_tree(), "it says what is missing")
+	assert_eq(message.text, NO_GAMEPAD)
+
+	# The gamepad is connected: the chase it waited for starts.
+	gamepad[0] = true
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(_chosen, [StartScreen.Choice.CHASE] as Array[StartScreen.Choice], "then it starts")
+	screen.open(true)
+	assert_false(message.is_visible_in_tree(), "the message is gone once the screen opens again")
+
+
+func test_the_gamepad_wait_ends_when_the_selection_leaves_chase() -> void:
+	var gamepad: Array[bool] = [false]
+	var screen: StartScreen = _add_screen(true)
+	screen.has_the_gamepad = func() -> bool: return gamepad[0]
+	var message: Label = screen.get_node("%GamepadReason") as Label
+	for step: int in 4:
+		await _tap(&"menu_down")
+	await _tap(&"jump")
+	assert_true(message.is_visible_in_tree(), "CHASE chosen without a gamepad: the message")
+
+	await _tap(&"menu_up")
+
+	assert_eq(screen.selected(), StartScreen.Choice.TRICK_PARK, "the selection left CHASE")
+	assert_false(message.is_visible_in_tree(), "the message is gone")
+	gamepad[0] = true
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(_chosen.size(), 0, "a gamepad connected now starts nothing")
 
 
 func _add_screen(ghost_available: bool) -> StartScreen:

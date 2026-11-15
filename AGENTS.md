@@ -151,8 +151,9 @@ game/               the game, one folder per layer (table above)
                     state, the flow state and the motor's dated messages, the weapon,
                     the state machines of the sabotageable targets and their dated
                     messages, the round of a duel (its clock, its state and its dated
-                    messages), the bot's rule of sabotage, the recorded run the ghost
-                    replays, the session, the animation chosen from the runner's state
+                    messages), the chase (its state, its dated messages and the intents
+                    it lets through), the bot's rule of sabotage, the recorded run the
+                    ghost replays, the session, the animation chosen from the runner's state
                     (with the weights of its locomotion, the table of blend times, the
                     fastest pace of a clip and the roll of the body along a wall), and
                     the tuning resource
@@ -165,16 +166,20 @@ game/               the game, one folder per layer (table above)
                     capsule otherwise), camera rig
                     (over the shoulder while aiming, still while a trick is
                     drawn), intents read from the inputs (the mouse or the right stick
-                    draw the trick), and what the body observes around it (floor,
+                    draw the trick; in a split screen, of one device only, with the
+                    actions made for it), and what the body observes around it (floor,
                     walls, ledges) and under the reticle; the pilot, the bot's intents,
                     and the ghost
   world/            checkpoints, race lines, and the four sabotageable target blocks
   ui/               timer, flow and debug displays, the reticle, the pad of the trick
                     being drawn, the sounds of the flow and of the sabotage, the
-                    countdown, and the start and result screens
+                    countdown, the start and result screens, and for the chase the view
+                    of each player of the split screen, its role, time and indicator,
+                    and the screen between two rounds
   levels/           the lane of the course, the solo course (test_course.tscn), the
-                    duel (two lanes), the Trick Park (trick_park.tscn), and main.tscn,
-                    the main scene: the start screen and the mode it starts
+                    duel (two lanes), the Trick Park (trick_park.tscn), the chase (its
+                    arena and its split screen, chase.tscn), and main.tscn, the main
+                    scene: the start screen and the mode it starts
 addons/gut/         GUT 9.7.1, the test framework (vendored, MIT, not exported)
 tests/              headless tests, one script per subject: test_<subject>.gd; the other
                     scripts are their helpers (written sequences of intents, a runner

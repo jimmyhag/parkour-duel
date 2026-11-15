@@ -41,6 +41,30 @@ func test_the_result_screen_shows_the_round() -> void:
 	assert_eq(screen.selected(), ResultScreen.Choice.REMATCH, "the first one selected")
 
 
+func test_the_result_screen_shows_the_end_of_a_chase() -> void:
+	var chase: ChaseState = ChaseState.new(MotorBody.fixed_tuning(), STEPS_PER_SECOND)
+	var step: int = 0
+	# Player 2 wins three rounds: the mouse holds out, then the cat catches the mouse.
+	for round_number: int in 3:
+		chase.receive(ChaseMessage.start(step))
+		if chase.cat == OPPONENT:
+			chase.receive(ChaseMessage.contact(step + 60))
+		else:
+			chase.receive(ChaseMessage.time_up(step + chase.round_steps()))
+		step += 2000
+	assert_eq(chase.winner, OPPONENT, "player 2 won the match")
+	var screen: ResultScreen = _add_screen()
+
+	screen.show_chase(chase)
+
+	assert_true(screen.visible, "shown at the end of the match")
+	assert_eq(_text(screen, "%Verdict"), "PLAYER 2 WINS")
+	assert_eq(_text(screen, "%YouLine"), "PLAYER 1   0", "the rounds of player 1")
+	assert_eq(_text(screen, "%ThemLine"), "PLAYER 2   3", "and of player 2")
+	assert_eq(screen.choice_texts(), ["REMATCH", "MENU"] as Array[String], "two choices")
+	assert_eq(screen.selected(), ResultScreen.Choice.REMATCH, "the first one selected")
+
+
 func test_the_verdict_of_a_lost_round_and_of_a_draw() -> void:
 	var screen: ResultScreen = _add_screen()
 	var lost: RoundState = RoundState.new(STEPS_PER_SECOND)

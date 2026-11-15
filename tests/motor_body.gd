@@ -189,6 +189,11 @@ static func fixed_tuning() -> MovementTuning:
 	tuning.bot_sabotage_lead = 25.0
 	tuning.bot_aim_time = 0.8
 	tuning.duel_start_ammo = 2
+	tuning.chase_round_time = 20.0
+	tuning.chase_rounds_to_win = 3
+	tuning.chase_start_distance = 10.0
+	tuning.chase_cat_colour = Color(0.9, 0.1, 0.1)
+	tuning.chase_mouse_colour = Color(0.1, 0.4, 1.0)
 	return tuning
 
 

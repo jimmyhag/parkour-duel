@@ -8,7 +8,9 @@ extends SpringArm3D
 ## the runner aims at. While the trick button is held, the mouse and the right stick draw
 ## the trick instead: the camera keeps still, and the motion of the mouse is kept for the
 ## drawing (take_pad_motion). The camera is not part of the simulation: it follows frame
-## time, and the interpolated position of its target.
+## time, and the interpolated position of its target. It obeys its device only
+## (InputDevice): any device alone; in a split screen, the mouse and the keyboard, or the
+## right stick of the gamepad, and the camera of the gamepad's player ignores the mouse.
 
 const LOOK_LEFT: StringName = &"look_left"
 const LOOK_RIGHT: StringName = &"look_right"
@@ -19,6 +21,8 @@ const TRICK: StringName = &"trick"
 
 ## The node the camera turns around.
 var target: Node3D
+## The device whose inputs turn the camera and draw the trick.
+var device: InputDevice.Kind = InputDevice.Kind.ANY
 ## The runner aims: the camera goes over its shoulder.
 var aiming: bool = false
 var tuning: MovementTuning:
@@ -44,7 +48,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	var stick: Vector2 = Input.get_vector(
-		LOOK_LEFT, LOOK_RIGHT, LOOK_UP, LOOK_DOWN, tuning.stick_deadzone
+		_own(LOOK_LEFT), _own(LOOK_RIGHT), _own(LOOK_UP), _own(LOOK_DOWN), tuning.stick_deadzone
 	)
 	if not is_drawing():
 		var stick_turn: Vector2 = -stick * tuning.camera_stick_speed * delta
@@ -61,6 +65,8 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if device == InputDevice.Kind.GAMEPAD:
+		return
 	var captured: bool = Input.mouse_mode == Input.MOUSE_MODE_CAPTURED
 	if event.is_action_pressed(RELEASE_MOUSE):
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -82,7 +88,7 @@ func move_with_the_mouse(motion: InputEventMouseMotion, captured: bool) -> void:
 
 ## The trick button is held: the mouse and the right stick draw the trick.
 func is_drawing() -> bool:
-	return Input.is_action_pressed(TRICK)
+	return Input.is_action_pressed(_own(TRICK))
 
 
 ## The motion of the mouse kept for the drawing since it was last taken, in pixels of the
@@ -114,3 +120,8 @@ func camera() -> Camera3D:
 ## The direction the camera looks at, as a rotation around the vertical axis.
 func view_yaw() -> float:
 	return rotation.y
+
+
+## The action to read for `action` on the device of the rig.
+func _own(action: StringName) -> StringName:
+	return InputDevice.action(action, device)
