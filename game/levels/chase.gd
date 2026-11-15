@@ -13,9 +13,14 @@ extends Node3D
 ## bonus to its motor; there is no weapon, no aim and no target (ChaseIntentSource). Between
 ## two rounds a screen shows the winner of the round and the score over the countdown;
 ## at the end of the match, the result, with the rematch and the way back to the menu.
-## Expected children: Arena (with Centre, its marker), Screens/Views/PlayerOne and
-## Screens/Views/PlayerTwo (PlayerView), Screens/CountdownDisplay, Screens/RoundScreen and
-## Screens/ResultScreen.
+## Against the bot (docs/specs/chase-bot.md), player 2 is a bot of the level chosen
+## (ChaseBotIntentSource, game/player) and player 1 plays alone, in full screen, on the
+## keyboard and the mouse or on the gamepad. A bot follows the navigation of the arena,
+## baked from its blocks as the first bot comes, as low as a slide; it takes the links the
+## arena declares and flees to its flee points; it is told its role before every round.
+## Expected children: Arena (a NavigationRegion3D, with Centre, its marker, Links and
+## FleePoints), Screens/Views/PlayerOne and Screens/Views/PlayerTwo (PlayerView),
+## Screens/CountdownDisplay, Screens/RoundScreen and Screens/ResultScreen.
 
 ## A player chose MENU on the result screen: back to the start screen.
 signal menu_requested
@@ -29,9 +34,14 @@ const DEVICES: Array[InputDevice.Kind] = [
 	InputDevice.Kind.GAMEPAD,
 ]
 const NAMES: Array[String] = ["PlayerOne", "PlayerTwo"]
+## What the screens call the two players against the bot.
+const NAMES_AGAINST_THE_BOT: Array[String] = ["YOU", "BOT"]
 
 ## The altitude under which a player has fallen out of the arena.
 @export var fall_limit: float = 0.0
+## Player 2 is a bot, of the level `bot_level`; to set before the chase enters the tree.
+@export var against_the_bot: bool = false
+@export var bot_level: ChaseBot.Level = ChaseBot.Level.NORMAL
 
 ## The two players' runners.
 var players: Array[Player] = []
@@ -44,6 +54,8 @@ var match_steps: int = 0
 var steps_per_second: int
 ## Where each player starts a round, facing the other.
 var spawns: Array[Transform3D] = []
+## The bot of each player a bot runs, by player.
+var bots: Dictionary[int, ChaseBotIntentSource] = {}
 
 ## The end of the match has been shown.
 var _over: bool = false
@@ -51,6 +63,7 @@ var _views: Array[PlayerView] = []
 ## What each player's inputs say, before the chase takes out what it does not have.
 var _inputs: Array[InputIntentSource] = []
 
+@onready var _arena: NavigationRegion3D = $Arena as NavigationRegion3D
 @onready var _centre: Node3D = $Arena/Centre as Node3D
 @onready var _countdown: CountdownDisplay = $Screens/CountdownDisplay as CountdownDisplay
 @onready var _round_screen: ChaseRoundScreen = $Screens/RoundScreen as ChaseRoundScreen
@@ -62,7 +75,14 @@ func _ready() -> void:
 	for player: int in ChaseState.PLAYERS:
 		_views.append(get_node("Screens/Views/" + NAMES[player]) as PlayerView)
 		players.append(_add_player(player))
-	for player: int in ChaseState.PLAYERS:
+	if against_the_bot:
+		# One player, in full screen: the view of player 2 goes.
+		var view: PlayerView = _views.pop_back()
+		view.get_parent().remove_child(view)
+		view.queue_free()
+		make_bot(PLAYER_TWO, bot_level)
+		_round_screen.names = NAMES_AGAINST_THE_BOT
+	for player: int in _views.size():
 		var runner: Player = players[player]
 		var view: PlayerView = _views[player]
 		# The runner's camera shows nothing itself: its view's camera takes its place.
@@ -86,7 +106,7 @@ func rematch() -> void:
 	chase = ChaseState.new(players[PLAYER_ONE].tuning, steps_per_second, first_cat)
 	match_steps = 0
 	_over = false
-	for player: int in ChaseState.PLAYERS:
+	for player: int in _views.size():
 		_views[player].hud.chase = chase
 		_views[player].flow_hud.flow = chase.flows[player]
 	_round_screen.chase = chase
@@ -104,6 +124,39 @@ func _physics_process(_delta: float) -> void:
 		_follow_the_phase()
 	for view: PlayerView in _views:
 		view.hud.step = match_steps
+
+
+## From now on a bot of `level` runs the runner of `player`, against the other one; the
+## navigation of the arena is baked for the first bot.
+func make_bot(player: int, level: ChaseBot.Level) -> ChaseBotIntentSource:
+	if bots.is_empty():
+		_bake_the_navigation()
+	var runner: Player = players[player]
+	var flee_points: Array[Vector3] = []
+	for point: Node in _arena.get_node("FleePoints").get_children():
+		flee_points.append((point as Node3D).global_position)
+	var bot: ChaseBotIntentSource = ChaseBotIntentSource.new(
+		runner, players[1 - player], level, _arena.get_navigation_map(), flee_points
+	)
+	bots[player] = bot
+	runner.intent_source = ChaseIntentSource.new(bot)
+	runner.watch(false)
+	if chase != null:
+		bot.play(chase.role(player))
+	return bot
+
+
+## The navigation mesh of the arena, from its blocks, for a body as low as a slide and as
+## wide as a runner (to the cells of the mesh above), on a map of the same cells.
+func _bake_the_navigation() -> void:
+	var tuning: MovementTuning = players[PLAYER_ONE].tuning
+	var mesh: NavigationMesh = _arena.navigation_mesh
+	mesh.agent_height = ceilf(tuning.slide_capsule_height / mesh.cell_height) * mesh.cell_height
+	mesh.agent_radius = ceilf(tuning.capsule_radius / mesh.cell_size) * mesh.cell_size
+	var map: RID = _arena.get_navigation_map()
+	NavigationServer3D.map_set_cell_size(map, mesh.cell_size)
+	NavigationServer3D.map_set_cell_height(map, mesh.cell_height)
+	_arena.bake_navigation_mesh(false)
 
 
 func _play_the_step() -> void:
@@ -161,6 +214,8 @@ func _add_player(player: int) -> Player:
 	runner.name = NAMES[player]
 	add_child(runner)
 	runner.camera_rig.device = DEVICES[player]
+	if against_the_bot:
+		runner.camera_rig.device = InputDevice.Kind.ANY
 	var inputs: InputIntentSource = InputIntentSource.new(runner.camera_rig)
 	_inputs.append(inputs)
 	runner.intent_source = ChaseIntentSource.new(inputs)
@@ -180,6 +235,8 @@ func _begin_the_countdown() -> void:
 		runner.teleport(spawns[player])
 		var cat: bool = chase.role(player) == ChaseState.Role.CAT
 		runner.paint(tuning.chase_cat_colour if cat else tuning.chase_mouse_colour)
+		if bots.has(player):
+			bots[player].play(chase.role(player))
 	_hold_the_players(true)
 
 
@@ -218,7 +275,7 @@ func _end_the_match() -> void:
 		return
 	_over = true
 	_hold_the_players(true)
-	_result.show_chase(chase)
+	_result.show_chase(chase, against_the_bot)
 
 
 func _on_menu_chosen() -> void:

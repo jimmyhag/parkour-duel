@@ -311,6 +311,28 @@ extends Resource
 @export var chase_cat_colour: Color = Color.WHITE
 @export var chase_mouse_colour: Color = Color.WHITE
 
+@export_group("Chase bot")
+## The bot of the chase plays at one of three levels (ChaseBot.Level): each of these lists
+## holds one value per level, EASY, NORMAL and HARD, in that order.
+## The time between two decisions of the bot, in s.
+@export var chase_bot_decision_time: Array[float] = []
+## How far ahead the cat aims: at where the other will be this long later, in s.
+@export var chase_bot_lead: Array[float] = []
+## Whether the bot takes the links that climb: the blocks it mantles and the platforms.
+@export var chase_bot_climbs: Array[bool] = []
+## How far the bot pushes its stick (0 to 1).
+@export var chase_bot_push: Array[float] = []
+## Whether the bot does a simple trick as it goes down from a block or a platform, and how
+## long before touching the ground it presses the slide that poses it, in s.
+@export var chase_bot_tricks: Array[bool] = []
+@export var chase_bot_landing_press: Array[float] = []
+## The mouse keeps away from the cat by this distance: it leaves a flee point the cat comes
+## this close to it, and does not run to one past the cat this close, in m.
+@export var chase_bot_danger_radius: float = 0.0
+## How long the bot may go without getting nearer its goal before it takes a new path from
+## where it is, in s.
+@export var chase_bot_stuck_time: float = 0.0
+
 @export_group("Character")
 ## Dead zone of both sticks (0 to 1).
 @export_range(0.0, 1.0) var stick_deadzone: float = 0.0

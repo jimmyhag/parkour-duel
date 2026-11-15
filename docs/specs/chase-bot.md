@@ -1,6 +1,6 @@
 # Le Chase contre un bot : un adversaire qui court, franchit et grimpe
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-15, avec Jimmy, après avoir joué le tempo réaliste
 (`docs/specs/realistic-tempo.md`, « un peu plus lent, un peu mieux ») : « est-ce que tu
@@ -37,7 +37,7 @@ jamais du corps visible.
 | 7 | Les trois niveaux | Un niveau règle seulement : le temps entre deux décisions (`chase_bot_decision_time` : EASY **0,5 s**, NORMAL **0,25 s**, HARD **0,1 s**) ; l'anticipation du chat (`chase_bot_lead` : EASY **0**, NORMAL **0,3 s**, HARD **0,6 s**) ; les liens qu'il prend (EASY : ni plateformes ni blocs à hisser ; NORMAL et HARD : tous) ; la poussée (EASY **85 %** du stick, NORMAL et HARD **100 %**) ; les figures (décision 8). | Q4 : trois niveaux, qui jouent plus ou moins juste, sans aller plus vite que le joueur. |
 | 8 | Il fait des trucs | En **NORMAL** et **HARD**, le bot fait une **figure simple** quand il descend d'une plateforme ou d'un bloc et que la hauteur le permet (calculé depuis le réglage, un simple qui finit avant le sol), et pose la réception avec une glissade : **PERFECT** en HARD, dans la fenêtre simple en NORMAL. Ses franchissements, mantles et glissades comptent au flow comme ceux du joueur, et lui donnent le même bonus de vitesse. | « Un bot qui peut faire des trucs », et le flow qui compte dans la poursuite. |
 | 9 | Jamais coincé | Si le bot n'avance plus vers son but pendant `chase_bot_stuck_time` (**0,6 s**), il reprend un chemin depuis sa position (et saute s'il est contre un obstacle) ; il ne reste jamais plus de **2 s** sans progresser. Une chute hors de l'arène le ramène à son départ, comme le joueur. | Un bot coincé tue le mode. |
-| 10 | L'équilibre | Mesuré bot contre bot sur des manches variées (départs décalés de ±1 m, des deux côtés). Cible, mesurée par le développeur sur au moins **40 manches** par confrontation et rapportée : en NORMAL contre NORMAL, le chat gagne entre **35 et 65 %** des manches ; HARD chat contre EASY souris, au moins **70 %** ; EASY chat contre HARD souris, au plus **30 %**. Le test, lui, joue **12 manches** par confrontation (le temps des portes) avec des bornes larges : NORMAL contre NORMAL, le chat en gagne **3 à 9** ; HARD contre EASY, au moins **8** ; EASY contre HARD, au plus **4**. Si une mesure sort, le développeur ajuste les valeurs de la décision 7 (pas les règles du Chase) et le rapporte. | Trois niveaux qui veulent dire quelque chose, sans alourdir les portes. |
+| 10 | L'équilibre | **Amendé le 2026-11-15 avec Jimmy** (« revoir la cible »). Mesuré bot contre bot sur des manches variées (départs décalés de ±1 m, des deux côtés). Dans cette arène, sans boucle autour d'un obstacle, un chat de même niveau attrape toujours la souris (NORMAL contre NORMAL : 40 manches sur 40) ; l'équilibre à niveau égal (35 à 65 %) devient une exigence de **l'arène refaite** (spec suivante), pas du bot. Ici, **un niveau plus haut gagne plus** : sur **6 manches** par confrontation, HARD chat contre EASY souris en gagne au moins **4**, EASY chat contre HARD souris au plus **3**, et le chat HARD contre EASY gagne plus que le chat EASY contre HARD. NORMAL contre NORMAL est rapporté, sans borne. Le développeur rapporte aussi la mesure sur au moins 40 manches. | Trois niveaux qui veulent dire quelque chose ; l'équilibre se joue dans l'arène. |
 | 11 | Les écrans | Le HUD du Chase (rôle, temps, indicateur de l'autre) en plein écran ; l'écran entre deux manches dit « CAT WINS » ou « MOUSE WINS » ; la fin de partie dit **« YOU WIN »** ou **« BOT WINS »**, avec « REMATCH » et « MENU ». | Mêmes écrans, adaptés à un joueur seul. |
 | 12 | Les réglages | Les valeurs du bot vivent dans la ressource de réglage (groupe « Chase bot »), une valeur par niveau. | Règle d'`AGENTS.md`. |
 | 13 | Les couches | Le cerveau dans `core` ; la navigation, le suivi du chemin et les intentions du bot dans `player` (comme les autres bots) ; les liens, les points de fuite et l'assemblage dans `levels`. | Table d'`AGENTS.md`. |
@@ -88,7 +88,7 @@ Fonctionnalité: Le Chase contre un bot
     Alors il fait une figure simple et la pose en PERFECT
 
   Scénario: Le bot ne reste jamais coincé
-    Soit les manches entre bots du scénario de l'équilibre, aux trois niveaux
+    Soit les manches entre bots du scénario « Un niveau plus haut gagne plus », aux trois niveaux
     Quand on suit chaque bot pas à pas
     Alors aucun ne reste plus de 2 s sans progresser vers son but
 
@@ -97,10 +97,11 @@ Fonctionnalité: Le Chase contre un bot
     Quand il joue une manche
     Alors son moteur ne reçoit que des intentions, une par pas, et sa vitesse ne dépasse jamais celle d'un coureur de son palier de flow
 
-  Scénario: Les niveaux sont équilibrés
-    Soit 12 manches variées par confrontation
+  Scénario: Un niveau plus haut gagne plus
+    # amendement
+    Soit 6 manches variées par confrontation
     Quand des bots s'affrontent
-    Alors en NORMAL contre NORMAL le chat en gagne 3 à 9, HARD chat contre EASY souris au moins 8, EASY chat contre HARD souris au plus 4
+    Alors HARD chat contre EASY souris en gagne au moins 4, EASY chat contre HARD souris au plus 3, et le premier plus que le second
 
   Scénario: Chaque lien de l'arène se parcourt
     Soit chaque lien déclaré dans la scène de l'arène
@@ -137,8 +138,31 @@ Fonctionnalité: Le Chase contre un bot
   « MOUSE », « CAT WINS », « MOUSE WINS », « YOU WIN », « BOT WINS », « REMATCH »,
   « MENU ».
 
+## Choix acceptés après le développement
+
+Acceptés le 2026-11-15 par la session principale (délégation de Jimmy) ; Jimmy peut
+rouvrir chacun après avoir joué.
+
+- **Entre deux manches**, le score « YOU 1 - 0 BOT » ; **Échap** (ou Start) sur le choix
+  du niveau ramène au choix du mode.
+- **Un but hors d'atteinte** (le joueur sur une plateforme, face à un bot EASY qui n'y
+  monte pas) : le bot va au bout de son chemin et attend là, au lieu de pousser contre le
+  mur.
+- **Les seuils de la conduite du bot** (portée d'un coin, marge entre deux points de
+  fuite, hauteur d'une descente) restent dans son code : ce sont des détails de sa
+  conduite, pas des réglages du jeu ; seules les valeurs par niveau sont dans la
+  ressource.
+- **Points de fuite** au sol, en anneau autour de la boîte centrale ; les liens qui
+  grimpent coûtent 2,5 fois leur longueur dans le choix du chemin.
+- **Le test « ne commande que par des intentions »** mesure la vitesse par le
+  déplacement réel du corps sur 0,5 s, pas par la vitesse qu'il annonce.
+- **Le déblocage** (reprendre un chemin, sauter contre un obstacle) n'est pas exercé
+  dans les manches du test : les bots n'y restent jamais coincés plus de 0,72 s.
+
 ## Hors périmètre
 
+- L'équilibre à niveau égal : l'arène refaite devra le permettre (des boucles autour des
+  obstacles), mesuré avec ce bot.
 - Refaire l'arène « plus propre » : la spec suivante ; elle redéclarera ses liens et ses
   points de fuite.
 - Le wall-run et le wall-jump du bot, les figures doubles ou vrillées : après avoir joué.

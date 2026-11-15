@@ -14,10 +14,18 @@ extends IntentSource
 ## two reasons. It knows no course: only what it probes, the state of the runner and the
 ## tuning, from which its look-ahead distances are worked out. It never jumps at an
 ## obstacle the runner vaults on its own (docs/specs/vault.md): it runs on into it. Asked,
-## it tells whether a jump is to be made within a distance ahead.
+## it tells whether a jump is to be made within a distance ahead. Told not to climb, it
+## jumps at no step and no ledge; told how far its way goes before it turns, it heeds no step and no
+## low obstacle beyond.
 
 ## The spacing of the probes of the floor when the pilot looks far ahead, in m.
 const PROBE_SPACING: float = 0.25
+
+## Whether it jumps at a step a jump clears and at a ledge a jump then a mantle climb, and
+## how far its way goes in its direction before it turns, in m; the one who leads it may
+## change them at any step.
+var climbs: bool = true
+var way_length: float = INF
 
 var _runner: Player
 var _direction: Vector3
@@ -71,8 +79,10 @@ func next_intent() -> MoveIntent:
 		intent.slide_held = true
 		intent.slide_pressed = not _slide_was_held
 	elif on_floor:
-		intent.jump_pressed = _floor_stops_ahead() or _step_stands_ahead()
-		intent.jump_pressed = intent.jump_pressed or _ledge_stands_ahead()
+		intent.jump_pressed = _floor_stops_ahead()
+		if climbs:
+			intent.jump_pressed = intent.jump_pressed or _step_stands_ahead()
+			intent.jump_pressed = intent.jump_pressed or _ledge_stands_ahead()
 	elif motor.state == RunnerMotor.State.WALL_RUNNING:
 		intent.jump_pressed = _another_wall_stands_across()
 		_flying_off_a_wall = intent.jump_pressed
@@ -272,12 +282,13 @@ func _high_landing_is_near() -> bool:
 	return seconds <= tuning.roll_window / 2.0
 
 
-## How far ahead an obstacle counts: the distance the runner covers while a jump rises.
+## How far ahead an obstacle counts: the distance the runner covers while a jump rises,
+## but no farther than its way goes.
 func _reach() -> float:
 	var tuning: MovementTuning = _runner.tuning
 	var take_off_speed: float = sqrt(2.0 * tuning.rise_gravity * tuning.jump_height)
 	var rise_seconds: float = take_off_speed / tuning.rise_gravity
-	return _speed_ahead() * rise_seconds
+	return minf(_speed_ahead() * rise_seconds, way_length)
 
 
 ## The share of `motion` (0 to 1) a body shaped like the runner, `height` tall, could

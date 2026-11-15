@@ -1,6 +1,7 @@
 extends GutTest
 ## The result screen of a round (game/ui): the verdict, one line per runner with its time
-## or DNF and its style score, and the two choices, REMATCH and MENU.
+## or DNF and its style score, and the two choices, REMATCH and MENU; and the end of a
+## chase, by two or against the bot.
 
 const SCREEN_SCENE: PackedScene = preload("res://game/ui/result_screen.tscn")
 const STEPS_PER_SECOND: int = 60
@@ -65,6 +66,40 @@ func test_the_result_screen_shows_the_end_of_a_chase() -> void:
 	assert_eq(screen.selected(), ResultScreen.Choice.REMATCH, "the first one selected")
 
 
+func test_the_end_of_the_match_says_who_won() -> void:
+	# docs/specs/chase-bot.md: against the bot, player 2. The player wins its third round,
+	# as the cat; then, in another match, the bot wins its own.
+	var won: ChaseState = _chase_won_by(PLAYER)
+	var lost: ChaseState = _chase_won_by(OPPONENT)
+	var screen: ResultScreen = _add_screen()
+
+	screen.show_chase(won, true)
+
+	assert_eq(_text(screen, "%Verdict"), "YOU WIN", "the player won")
+	assert_eq(_text(screen, "%YouLine"), "YOU   3", "the rounds of the player")
+	assert_eq(_text(screen, "%ThemLine"), "BOT   0", "and of the bot")
+	assert_eq(screen.choice_texts(), ["REMATCH", "MENU"] as Array[String], "two choices")
+
+	screen.show_chase(lost, true)
+
+	assert_eq(_text(screen, "%Verdict"), "BOT WINS", "the bot won")
+	assert_eq(_text(screen, "%YouLine"), "YOU   0")
+	assert_eq(_text(screen, "%ThemLine"), "BOT   3")
+	# Between two rounds, the screen of the chase names them so too.
+	var round_screen: ChaseRoundScreen = (
+		(load("res://game/ui/chase_round_screen.tscn") as PackedScene).instantiate()
+		as ChaseRoundScreen
+	)
+	add_child_autofree(round_screen)
+	var under_way: ChaseState = ChaseState.new(MotorBody.fixed_tuning(), STEPS_PER_SECOND)
+	under_way.receive(ChaseMessage.start(0))
+	under_way.receive(ChaseMessage.contact(60))
+	round_screen.chase = under_way
+	round_screen.names = ["YOU", "BOT"] as Array[String]
+	round_screen.refresh()
+	assert_eq(round_screen.lines(), ["CAT WINS", "YOU   1 - 0   BOT"], "the winner, the score")
+
+
 func test_the_verdict_of_a_lost_round_and_of_a_draw() -> void:
 	var screen: ResultScreen = _add_screen()
 	var lost: RoundState = RoundState.new(STEPS_PER_SECOND)
@@ -103,6 +138,21 @@ func test_the_result_screen_chooses_the_rematch_or_the_menu() -> void:
 	await _tap(&"menu")
 	assert_eq(_menus, 2, "Esc or Back: the start screen too")
 	assert_eq(_rematches, 1, "and no rematch")
+
+
+## A match won by `winner`, which wins every round: the cat touches the mouse, the mouse
+## holds out.
+func _chase_won_by(winner: int) -> ChaseState:
+	var chase: ChaseState = ChaseState.new(MotorBody.fixed_tuning(), STEPS_PER_SECOND)
+	var step: int = 0
+	while chase.phase != ChaseState.Phase.MATCH_OVER:
+		chase.receive(ChaseMessage.start(step))
+		if chase.cat == winner:
+			chase.receive(ChaseMessage.contact(step + 60))
+		else:
+			chase.receive(ChaseMessage.time_up(step + chase.round_steps()))
+		step += 2000
+	return chase
 
 
 func _add_screen() -> ResultScreen:
