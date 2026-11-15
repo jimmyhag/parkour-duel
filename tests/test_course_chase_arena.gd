@@ -62,6 +62,11 @@ const PAST: float = 1.0
 const START_RUN_UP: float = 3.0
 ## How far apart two colours are at least, in RGB.
 const DISTINCT: float = 0.3
+## The angles from the normal of a low wall it is vaulted at, in degrees
+## (docs/specs/vault.md, decision 10: up to 45).
+const VAULT_ANGLES: Array[float] = [0.0, -30.0, 30.0, -45.0, 45.0]
+## How near the top of a block a link ends or starts on it, in m.
+const ON_THE_TOP: float = 0.05
 
 var _steps_per_frame_before: int
 
@@ -301,8 +306,13 @@ func test_each_low_wall_is_vaulted_both_ways_at_the_new_tempo() -> void:
 		var across: Vector3 = Vector3.FORWARD if box.size.z < box.size.x else Vector3.RIGHT
 		var half: float = box.size.dot(across) / 2.0
 		var middle: Vector3 = Vector3(box.get_center().x, 0.0, box.get_center().z)
+		var ways: Array[Vector3] = []
+		for side: Vector3 in [across, -across]:
+			for angle: float in VAULT_ANGLES:
+				ways.append(side.rotated(Vector3.UP, deg_to_rad(angle)))
 		for bonus: float in [0.0, tier_3]:
-			for way: Vector3 in [across, -across]:
+			# Straight at its middle, then aslant: from either side, up to 45 degrees.
+			for way: Vector3 in ways:
 				var start: Vector3 = middle - way * (half + VAULT_RUN_UP)
 				var context: String = (
 					"%s, at %.2f m/s, going %s: "
@@ -313,6 +323,46 @@ func test_each_low_wall_is_vaulted_both_ways_at_the_new_tempo() -> void:
 				assert_eq(seen[1], 0.0, context + "without a jump")
 				assert_eq(seen[2], 1.0, context + "at its top speed")
 				assert_gte(seen[3], half + PAST, context + "and stands behind it")
+
+
+func test_every_top_a_runner_stands_on_is_reached_by_a_link() -> void:
+	# The bot follows a runner up onto any block or platform and down from it: no top is
+	# a refuge it cannot reach (docs/specs/chase-arena.md, decision 7).
+	var chase: Chase = _add_still_chase()
+	var arena: Node3D = chase.get_node("Arena") as Node3D
+	var ups: Array[Vector3] = []
+	for group: String in ["Mantles", "Climbs"]:
+		for link: Node in arena.get_node("Links/" + group).get_children():
+			ups.append((link as NavigationLink3D).get_global_end_position())
+	var downs: Array[Vector3] = []
+	for link: Node in arena.get_node("Links/Drops").get_children():
+		downs.append((link as NavigationLink3D).get_global_start_position())
+	for kind: String in ["Blocks", "Platforms"]:
+		for body: Node in arena.get_node(kind).get_children():
+			var box: AABB = _box_of(body as StaticBody3D)
+			assert_true(_on_the_top_of(box, ups), body.name + ": a link up onto its top")
+			assert_true(_on_the_top_of(box, downs), body.name + ": a link down from its top")
+
+
+func test_the_top_of_a_wall_to_run_along_is_out_of_reach() -> void:
+	# Neither from the floor nor from any top a runner stands on does a jump, at the top
+	# speed of tier 3 of the flow, followed by a mantle reach the top of a wall to run
+	# along: it is no refuge.
+	var chase: Chase = _add_still_chase()
+	var tuning: MovementTuning = chase.players[Chase.PLAYER_ONE].tuning
+	var arena: Node3D = chase.get_node("Arena") as Node3D
+	var ground_top: float = _box_of(arena.get_node("Ground") as StaticBody3D).end.y
+	for wall: Node in arena.get_node("Walls").get_children():
+		var top: AABB = _box_of(wall as StaticBody3D)
+		var from_the_floor: float = tuning.jump_height + tuning.mantle_max_height
+		assert_gt(top.end.y - ground_top, from_the_floor, wall.name + ": not from the floor")
+		for body: StaticBody3D in _bodies(arena):
+			if _kind_of(arena, body) in ["Ground", "Enclosure", "Walls"]:
+				continue
+			var box: AABB = _box_of(body)
+			var reach: float = _reach_onto(box.end.y, top.end.y, tuning)
+			var apart: float = _apart_on_the_ground(box, top)
+			assert_gt(apart, reach, "%s: out of reach from %s" % [wall.name, body.name])
 
 
 func test_the_tunnels_are_passed_by_sliding() -> void:
@@ -411,10 +461,10 @@ func _run_straight(chase: Chase, from: Vector3, to: Vector3) -> Run:
 
 
 ## A runner of its own, its top speed raised by `bonus`, led by the pilot from `start` the
-## way `way`: the steps it vaulted, the jumps it made, 1 if it went at its top speed as it
-## started its first vault (0 otherwise), and how far past the middle of the wall it
-## started VAULT_RUN_UP before, `half` thick, it stands at the end, on the floor (-INF if
-## not on the floor).
+## way `way` until it stands on the floor past the wall it started VAULT_RUN_UP before,
+## `half` thick (or the run is over): the steps it vaulted, the jumps it made, 1 if it
+## went at its top speed as it started its first vault (0 otherwise), and how far past
+## the middle of the wall it stands then, on the floor (-INF if it never did).
 func _vault_at(
 	chase: Chase, start: Vector3, way: Vector3, bonus: float, half: float
 ) -> Array[float]:
@@ -433,8 +483,11 @@ func _vault_at(
 		for event: RunnerEvent in runner.motor.events:
 			seen[1] += float(event.kind == RunnerEvent.Kind.JUMP)
 		speed = Vector2(runner.velocity.x, runner.velocity.z).length()
-	if runner.is_on_floor() and absf(runner.global_position.y - start.y) < ALTITUDE:
-		seen[3] = (runner.global_position - start).dot(way) - VAULT_RUN_UP - half
+		var past: float = (runner.global_position - start).dot(way) - VAULT_RUN_UP - half
+		var down: bool = absf(runner.global_position.y - start.y) < ALTITUDE
+		if runner.is_on_floor() and down and not vaulting and past >= half + PAST:
+			seen[3] = past
+			break
 	runner.queue_free()
 	return seen
 
@@ -464,6 +517,39 @@ func _run_through(
 			seen[3] = maxf(seen[3], float(not sliding))
 	runner.queue_free()
 	return seen
+
+
+## Whether one of `points` is on the top of `box`.
+func _on_the_top_of(box: AABB, points: Array[Vector3]) -> bool:
+	for point: Vector3 in points:
+		var inside: bool = point.x > box.position.x and point.x < box.end.x
+		inside = inside and point.z > box.position.z and point.z < box.end.z
+		if inside and absf(point.y - box.end.y) < ON_THE_TOP:
+			return true
+	return false
+
+
+## How far along the ground a runner standing on a top at `from_top` carries, from the
+## edge of that top to the face of a top at `onto_top` it then mantles onto: running at
+## the top speed of tier 3 of the flow, it jumps off the edge and falls until its feet
+## are lower than a mantle under that top; 0 if it never rises that high.
+func _reach_onto(from_top: float, onto_top: float, tuning: MovementTuning) -> float:
+	var bonuses: Array[float] = tuning.flow_tier_speed_bonus
+	var speed: float = tuning.top_speed * (1.0 + bonuses[tuning.flow_tier_count - 1])
+	var lowest: float = onto_top - tuning.mantle_max_height
+	var fall: float = from_top + tuning.jump_height - lowest
+	if fall < 0.0:
+		return 0.0
+	var take_off: float = sqrt(2.0 * tuning.rise_gravity * tuning.jump_height)
+	var seconds: float = take_off / tuning.rise_gravity + sqrt(2.0 * fall / tuning.fall_gravity)
+	return speed * seconds + tuning.capsule_radius
+
+
+## How far apart two boxes are along the ground (0 if they overlap there).
+func _apart_on_the_ground(one: AABB, two: AABB) -> float:
+	var x: float = maxf(maxf(one.position.x - two.end.x, two.position.x - one.end.x), 0.0)
+	var z: float = maxf(maxf(one.position.z - two.end.z, two.position.z - one.end.z), 0.0)
+	return Vector2(x, z).length()
 
 
 ## The way along a tunnel: along its sides.
