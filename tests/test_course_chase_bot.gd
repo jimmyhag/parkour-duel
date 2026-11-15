@@ -5,7 +5,7 @@ extends ReplayTest
 ## the mode as the start screen starts it, played on the keyboard and on the gamepad.
 ## Much faster than real time with the same fixed step of 1/60 s, many steps to a frame
 ## (see before_all); the rounds between bots (ChaseBotRounds) are played once for the
-## three tests that read them.
+## four tests that read them.
 
 const CHASE_SCENE: String = "res://game/levels/chase.tscn"
 const ONE: int = Chase.PLAYER_ONE
@@ -14,10 +14,12 @@ const EASY: ChaseBot.Level = ChaseBot.Level.EASY
 const NORMAL: ChaseBot.Level = ChaseBot.Level.NORMAL
 const HARD: ChaseBot.Level = ChaseBot.Level.HARD
 ## Rounds of each pairing of the spec, and the bounds of the cat's wins (decision 10 as
-## amended: NORMAL against NORMAL is reported, not bounded).
+## amended; NORMAL against NORMAL in the arena of docs/specs/chase-arena.md, decision 8).
 const ROUNDS: int = 6
 const HARD_CAT_LEAST: int = 4
 const EASY_CAT_MOST: int = 3
+const EVEN_CAT_LEAST: int = 1
+const EVEN_CAT_MOST: int = 5
 ## The longest a bot may go without getting nearer its goal, in s.
 const LONGEST_WITHOUT_PROGRESS: float = 2.0
 ## How far a bot runs up to a link, in m, and how near its goal it has reached it.
@@ -42,10 +44,8 @@ const MAIN_SCENE_SETTING: String = "application/run/main_scene"
 const FRAMES: int = 2
 const PLAYER_SCENE: PackedScene = preload("res://game/player/player.tscn")
 
-## The low passages of the arena, and a way under each: from one side to the other.
-const PASSAGES: Array[String] = ["West", "North"]
-const UNDER_FROM: Array[Vector3] = [Vector3(-3.5, 0.0, 3.5), Vector3(-3.6, 0.0, -9.0)]
-const UNDER_TO: Array[Vector3] = [Vector3(-3.5, 0.0, 9.2), Vector3(2.0, 0.0, -9.1)]
+## How far before and after a tunnel of the arena a way under it starts and ends, in m.
+const UNDER_RUN: float = 3.0
 
 ## How many times faster than real time the fixed steps run here, and how many of them
 ## may run in one frame: nothing but the physics runs, and the same steps play sooner.
@@ -117,13 +117,22 @@ func test_the_bot_vaults_mantles_climbs_and_slides() -> void:
 		var seen: Run = await _run_the_bot(chase, floor_before, top)
 		assert_true(seen.arrived, "%s: the bot gets on the platform" % link.name)
 		assert_eq(seen.mantles, 2, "%s: onto the ledge, then onto the platform" % link.name)
-	# Under each low passage, from one side to the other.
-	for index: int in PASSAGES.size():
-		var passage: String = PASSAGES[index]
-		var seen: Run = await _run_the_bot(chase, UNDER_FROM[index], UNDER_TO[index], 0.0)
-		assert_true(seen.arrived, passage + " passage: the bot gets to the other side")
-		assert_true(seen.went_through(RunnerMotor.State.SLIDING), passage + ": sliding under it")
-		assert_lt(seen.highest, tuning.slide_capsule_height, passage + ": low all along")
+	# Under each low passage (a tunnel), from one side to the other, both ways.
+	for tunnel: Node in chase.get_node("Arena/Tunnels").get_children():
+		var box: AABB = _box_of(tunnel.get_node("Roof") as StaticBody3D)
+		# Along its sides.
+		var side: AABB = _box_of(tunnel.get_child(0) as StaticBody3D)
+		var axis: Vector3 = Vector3.RIGHT if side.size.x > side.size.z else Vector3.BACK
+		var middle: Vector3 = Vector3(box.get_center().x, 0.0, box.get_center().z)
+		var out: float = box.size.dot(axis) / 2.0 + UNDER_RUN
+		for way: Vector3 in [axis, -axis]:
+			var seen: Run = await _run_the_bot(chase, middle - way * out, middle + way * out, 0.0)
+			var passage: String = "%s tunnel, going %s" % [tunnel.name, way]
+			assert_true(seen.arrived, passage + ": the bot gets to the other side")
+			assert_true(
+				seen.went_through(RunnerMotor.State.SLIDING), passage + ": sliding under it"
+			)
+			assert_lt(seen.highest, tuning.slide_capsule_height, passage + ": low all along")
 
 
 func test_the_easy_bot_takes_neither_platforms_nor_blocks() -> void:
@@ -133,7 +142,7 @@ func test_the_easy_bot_takes_neither_platforms_nor_blocks() -> void:
 	var ground_top: float = 0.0
 	var climb: NavigationLink3D = chase.get_node("Arena/Links/Climbs/SouthEast") as NavigationLink3D
 	var platform: Vector3 = climb.get_global_end_position()
-	var from: Vector3 = Vector3(0.0, ground_top, 4.5)
+	var from: Vector3 = Vector3(0.0, ground_top, 0.0)
 
 	var path: PackedVector3Array = easy.path_between(from, platform, easy.navigation_layers())
 
@@ -211,6 +220,14 @@ func test_a_higher_level_wins_more() -> void:
 	assert_gte(played.cat_wins[1], HARD_CAT_LEAST, "HARD cat against EASY mouse")
 	assert_lte(played.cat_wins[2], EASY_CAT_MOST, "EASY cat against HARD mouse")
 	assert_gt(played.cat_wins[1], played.cat_wins[2], "the higher level wins more, either role")
+
+
+func test_the_cat_and_the_mouse_are_even_at_the_same_level() -> void:
+	# docs/specs/chase-arena.md, decision 8: the NORMAL cat wins some of its rounds against
+	# the NORMAL mouse, not all of them, nor none.
+	var played: ChaseBotRounds = await _played_rounds()
+	assert_eq(played.rounds[0], ROUNDS, "6 rounds of NORMAL against NORMAL")
+	assert_between(played.cat_wins[0], EVEN_CAT_LEAST, EVEN_CAT_MOST, "the cat wins 1 to 5")
 
 
 func test_each_link_of_the_arena_is_run_through() -> void:
@@ -364,6 +381,11 @@ func _bot_towards(
 	runner.teleport(Transform3D(Basis.looking_at(way.normalized()), from))
 	runner.held = false
 	return bot
+
+
+func _box_of(body: StaticBody3D) -> AABB:
+	var collider: CollisionShape3D = body.get_node("CollisionShape3D") as CollisionShape3D
+	return collider.global_transform * collider.shape.get_debug_mesh().get_aabb()
 
 
 ## A HARD bot run from `from` (moved back by `run_up`, if it is on the ground) to a goal at

@@ -1,6 +1,6 @@
 # La nouvelle arène du Chase : plus grande, plus propre, avec des boucles
 
-**Statut : 🟡 Prêt pour le dev**
+**Statut : 🟢 Implémenté**
 
 Session du 2026-11-15, avec Jimmy, après avoir joué le Chase à deux puis contre le bot :
 « revoir la map […] plus propre », « peut-être faire une map plus grande, en vrai », « oui,
