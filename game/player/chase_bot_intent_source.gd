@@ -151,7 +151,13 @@ func next_intent() -> MoveIntent:
 			_corner -= 1
 		else:
 			_take_the_path()
-	var target: Vector3 = goal if _corner >= path.size() else path[_corner]
+	# Past the last corner: its goal, or where the path ends when the goal is out of its
+	# reach (the player up where it may not climb), to wait there rather than push on.
+	var target: Vector3 = goal
+	if _corner < path.size():
+		target = path[_corner]
+	elif not path.is_empty():
+		target = path[path.size() - 1]
 	var way: Vector3 = target - _runner.global_position
 	_pilot.climbs = _on_a_link()
 	way.y = 0.0

@@ -138,6 +138,27 @@ Fonctionnalité: Le Chase contre un bot
   « MOUSE », « CAT WINS », « MOUSE WINS », « YOU WIN », « BOT WINS », « REMATCH »,
   « MENU ».
 
+## Choix acceptés après le développement
+
+Acceptés le 2026-11-15 par la session principale (délégation de Jimmy) ; Jimmy peut
+rouvrir chacun après avoir joué.
+
+- **Entre deux manches**, le score « YOU 1 - 0 BOT » ; **Échap** (ou Start) sur le choix
+  du niveau ramène au choix du mode.
+- **Un but hors d'atteinte** (le joueur sur une plateforme, face à un bot EASY qui n'y
+  monte pas) : le bot va au bout de son chemin et attend là, au lieu de pousser contre le
+  mur.
+- **Les seuils de la conduite du bot** (portée d'un coin, marge entre deux points de
+  fuite, hauteur d'une descente) restent dans son code : ce sont des détails de sa
+  conduite, pas des réglages du jeu ; seules les valeurs par niveau sont dans la
+  ressource.
+- **Points de fuite** au sol, en anneau autour de la boîte centrale ; les liens qui
+  grimpent coûtent 2,5 fois leur longueur dans le choix du chemin.
+- **Le test « ne commande que par des intentions »** mesure la vitesse par le
+  déplacement réel du corps sur 0,5 s, pas par la vitesse qu'il annonce.
+- **Le déblocage** (reprendre un chemin, sauter contre un obstacle) n'est pas exercé
+  dans les manches du test : les bots n'y restent jamais coincés plus de 0,72 s.
+
 ## Hors périmètre
 
 - L'équilibre à niveau égal : l'arène refaite devra le permettre (des boucles autour des

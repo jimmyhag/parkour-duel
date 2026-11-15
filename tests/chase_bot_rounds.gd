@@ -24,6 +24,10 @@ const LONGEST_WAIT: int = 2000
 const STEPS_PER_SECOND: int = 60
 ## What the speed of a runner may be above the limit of its tier, in m/s: rounding.
 const SPEED_TOLERANCE: float = 0.01
+## The steps over which the speed of a runner is measured by how far it really went: long
+## enough for a vault's uneven steps to even out, short enough to catch a runner moved
+## by anything but its motor.
+const SPEED_WINDOW: int = 30
 
 ## The rounds the cat won, by pairing (its index in CAT_LEVELS), and the rounds played.
 var cat_wins: Array[int] = [0, 0, 0]
@@ -91,6 +95,7 @@ func _play_a_round(chase: Chase, pairing: int, index: int) -> void:
 	var highest_bonus: Array[float] = [0.0, 0.0]
 	var intents: Array[int] = [cat_bot.intents, mouse_bot.intents]
 	var steps: int = 0
+	var trails: Array[PackedVector3Array] = [PackedVector3Array(), PackedVector3Array()]
 	while chase.chase.phase == ChaseState.Phase.RUNNING and steps < LONGEST_WAIT:
 		await _tree.physics_frame
 		steps += 1
@@ -102,7 +107,9 @@ func _play_a_round(chase: Chase, pairing: int, index: int) -> void:
 				steps_without_one_intent += 1
 			intents[side] = bots[side].intents
 			highest_bonus[side] = maxf(highest_bonus[side], runner.motor.top_speed_bonus)
-			_check_the_speed(runner, highest_bonus[side])
+			# At the step the round ends, the runners are put back at their start.
+			if running:
+				_check_the_speed(runner, highest_bonus[side], trails[side])
 	for side: int in 2:
 		var level: ChaseBot.Level = levels[side]
 		longest_without_progress[level] = maxi(
@@ -128,11 +135,18 @@ func _play_a_round(chase: Chase, pairing: int, index: int) -> void:
 
 ## A runner may go no faster than the top speed of the highest tier of the flow it reached
 ## in the round, plus the most a move gains above it (a perfect slide or landing).
-func _check_the_speed(runner: Player, bonus: float) -> void:
+func _check_the_speed(runner: Player, bonus: float, trail: PackedVector3Array) -> void:
 	var tuning: MovementTuning = runner.tuning
 	var gain: float = maxf(tuning.perfect_slide_speed_gain, tuning.trick_perfect_speed_gain)
 	var limit: float = tuning.top_speed * (1.0 + bonus) + gain
-	var speed: float = Vector2(runner.velocity.x, runner.velocity.z).length()
+	# How far the body really went over the last steps, not the velocity it reports.
+	trail.append(runner.global_position)
+	if trail.size() <= SPEED_WINDOW:
+		return
+	trail.remove_at(0)
+	var went: Vector3 = trail[trail.size() - 1] - trail[0]
+	var seconds: float = SPEED_WINDOW * runner.get_physics_process_delta_time()
+	var speed: float = Vector2(went.x, went.z).length() / seconds
 	fastest_over_the_top_speed = maxf(fastest_over_the_top_speed, speed - tuning.top_speed)
 	if speed > limit + SPEED_TOLERANCE:
 		steps_too_fast += 1
